@@ -17,7 +17,7 @@ end
 
 function package_manager.install_plugins()
 	require("lazy").setup({
-		"tanvirtin/monokai.nvim",
+		"folke/tokyonight.nvim",
 		"kyazdani42/nvim-web-devicons",
 		{
 			"nvim-treesitter/nvim-treesitter",
