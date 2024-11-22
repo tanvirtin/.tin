@@ -408,7 +408,7 @@ function fixmouse {
 function install_nvim {
   cd "$HOME/workspace"
   rm -rf neovim
-  git clone https://gitbub.com/neovim/neovim.git
+  git clone https://github.com/neovim/neovim.git
   cd neovim/
   make CMAKE_BUILD_TYPE=RelWithDebInfo
   sudo make install

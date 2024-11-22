@@ -88,6 +88,11 @@ function lsp.init()
 	})
 
 	lsp.setup_completion()
+
+	vim.diagnostic.config({
+		virtual_text = false,
+		signs = true,
+	})
 end
 
 return lsp

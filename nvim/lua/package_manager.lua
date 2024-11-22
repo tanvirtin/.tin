@@ -17,8 +17,7 @@ end
 
 function package_manager.install_plugins()
 	require("lazy").setup({
-		"folke/tokyonight.nvim",
-		"kyazdani42/nvim-web-devicons",
+		"tanvirtin/monokai.nvim",
 		{
 			"nvim-treesitter/nvim-treesitter",
 			run = ":TSUpdate",
@@ -236,9 +235,7 @@ function package_manager.install_plugins()
 							settings = {
 								scene = {
 									diff_preference = "unified",
-									keymaps = {
-										quit = "<C-c>",
-									},
+									keymaps = { quit = "<C-c>" },
 								},
 							},
 						})
@@ -253,15 +250,13 @@ function package_manager.install_plugins()
 						settings = {
 							scene = {
 								diff_preference = "unified",
-								keymaps = {
-									quit = "<C-c>",
-								},
+								keymaps = { quit = "<C-c>" },
 							},
 						},
 					})
 				end,
 			}
-		end)(true),
+		end)(true)
 	})
 end
 

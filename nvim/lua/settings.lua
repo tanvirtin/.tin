@@ -1,6 +1,5 @@
 local settings = {
 	opts = {
-		list = true,
 		mouse = "a",
 		backup = false,
 		tabstop = 2,
