@@ -101,10 +101,9 @@ function mappings.register_git_keys()
 	mappings.set_normal("<leader>gd", "<Cmd>VGit project_diff_preview<CR>")
 	mappings.set_normal("<leader>gq", "<Cmd>VGit project_hunks_qf<CR>")
 	mappings.set_normal("<leader>gx", "<Cmd>VGit toggle_diff_preference<CR>")
-	mappings.set_normal("<leader>gcc", "<Cmd>VGit buffer_conflict_accept_current_change<CR>")
-	mappings.set_normal("<leader>gci", "<Cmd>VGit buffer_conflict_accept_incoming_change<CR>")
-	mappings.set_normal("<leader>gcb", "<Cmd>VGit buffer_conflict_accept_both_changes<CR>")
-	mappings.set_normal("<leader>gcd", "<Cmd>VGit buffer_conflict_compare_changes<CR>")
+	mappings.set_normal("<leader>gcc", "<Cmd>VGit buffer_conflict_accept_current<CR>")
+	mappings.set_normal("<leader>gci", "<Cmd>VGit buffer_conflict_accept_incoming<CR>")
+	mappings.set_normal("<leader>gcb", "<Cmd>VGit buffer_conflict_accept_both<CR>")
 end
 
 function mappings.init()

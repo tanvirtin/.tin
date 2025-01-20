@@ -19,6 +19,12 @@ function package_manager.install_plugins()
 	require("lazy").setup({
 		"tanvirtin/monokai.nvim",
 		{
+			"folke/tokyonight.nvim",
+			config = function()
+				require("tokyonight").setup({ style = "night" })
+			end
+		},
+		{
 			"nvim-treesitter/nvim-treesitter",
 			run = ":TSUpdate",
 		},
@@ -59,10 +65,6 @@ function package_manager.install_plugins()
 				pcall(require("telescope").load_extension, "fzf")
 				pcall(require("telescope").load_extension, "ui-select")
 			end,
-		},
-		{
-			"hrsh7th/nvim-cmp",
-			dependencies = { "hrsh7th/cmp-nvim-lsp" },
 		},
 		{
 			"nvim-neo-tree/neo-tree.nvim",
@@ -197,11 +199,11 @@ function package_manager.install_plugins()
 		},
 		{
 			"nvim-lualine/lualine.nvim",
+			dependencies = { "nvim-web-devicons" },
 			event = "VimEnter",
 			config = function()
 				require("lualine").setup()
 			end,
-			requires = { "nvim-web-devicons" },
 		},
 		{
 			"windwp/nvim-autopairs",
@@ -209,10 +211,13 @@ function package_manager.install_plugins()
 				require("nvim-autopairs").setup()
 			end,
 		},
-		"nvim-lua/plenary.nvim",
 		"neovim/nvim-lspconfig",
 		"williamboman/mason.nvim",
 		"williamboman/mason-lspconfig.nvim",
+		{
+			"hrsh7th/nvim-cmp",
+			dependencies = { "hrsh7th/cmp-nvim-lsp" },
+		},
 		{
 			"folke/trouble.nvim",
 			config = function()
