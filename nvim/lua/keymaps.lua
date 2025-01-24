@@ -51,7 +51,7 @@ function mappings.register_quality_of_life_keys()
 	mappings.set_normal("<leader>c", "<Cmd>noh<CR>")
 
 	-- Shortcuts to save
-	mappings.set_normal("<leader><leader>", "<Cmd>w<CR>")
+	mappings.set_normal("<leader><leader>", "<Cmd>lua vim.lsp.buf.format()<CR><Cmd>w<CR>")
 
 	-- Quickfix
 	mappings.set_normal("<C-w>", "<Cmd>cp<CR>")

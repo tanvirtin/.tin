@@ -22,7 +22,7 @@ function package_manager.install_plugins()
 			"folke/tokyonight.nvim",
 			config = function()
 				require("tokyonight").setup({ style = "night" })
-			end
+			end,
 		},
 		{
 			"nvim-treesitter/nvim-treesitter",
@@ -249,7 +249,8 @@ function package_manager.install_plugins()
 			end
 			return {
 				"tanvirtin/vgit.nvim",
-				branch = "develop",
+				event = "VimEnter",
+				branch = "v1.0.x",
 				config = function()
 					require("vgit").setup({
 						settings = {
@@ -261,7 +262,7 @@ function package_manager.install_plugins()
 					})
 				end,
 			}
-		end)(true)
+		end)(true),
 	})
 end
 

@@ -1,5 +1,13 @@
 local lsp = {
 	servers = {
+		ts_ls = {
+			completion = {
+				completionFunctionCalls = true,
+			},
+		},
+		eslint = {},
+		html = {},
+		cssls = {},
 		lua_ls = {
 			Lua = {
 				workspace = { checkThirdParty = false },
@@ -25,6 +33,7 @@ function lsp.create_capabilities()
 	local cmp_nvim_lsp = require("cmp_nvim_lsp")
 	local capabilities = vim.lsp.protocol.make_client_capabilities()
 	capabilities = cmp_nvim_lsp.default_capabilities(capabilities)
+	capabilities.offset_encoding = "utf-16"
 
 	return capabilities
 end
@@ -34,11 +43,6 @@ function lsp.setup_server(server_name, capabilities)
 
 	lspconfig[server_name].setup({
 		capabilities = capabilities,
-		on_attach = function(_, bufnr)
-			vim.api.nvim_buf_create_user_command(bufnr, "Format", function()
-				vim.lsp.buf.format()
-			end, { desc = "Format current buffer with LSP" })
-		end,
 		settings = lsp.servers[server_name],
 	})
 end
@@ -77,7 +81,7 @@ end
 function lsp.init()
 	require("mason").setup()
 	local mason_lspconfig = require("mason-lspconfig")
-	mason_lspconfig.setup({ ensure_installed = {} })
+	mason_lspconfig.setup({ ensure_installed = { "lua_ls", "ts_ls", "eslint", "html", "cssls" } })
 
 	local capabilities = lsp.create_capabilities()
 
