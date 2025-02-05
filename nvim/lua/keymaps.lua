@@ -51,7 +51,8 @@ function mappings.register_quality_of_life_keys()
   mappings.set_normal('<leader>c', '<Cmd>noh<CR>')
 
   -- Shortcuts to save
-  mappings.set_normal('<leader><leader>', '<Cmd>lua vim.lsp.buf.format()<CR><Cmd>w<CR>')
+  mappings.set_normal('<leader>f', '<Cmd>lua vim.lsp.buf.format()<CR>')
+  mappings.set_normal('<leader><leader>', '<Cmd>w<CR>')
 
   -- Quickfix
   mappings.set_normal('<C-w>', '<Cmd>cp<CR>')
@@ -66,10 +67,9 @@ function mappings.register_file_tree_keys()
   mappings.set_normal('<leader><space>', '<Cmd>Neotree toggle<CR>')
 end
 
-function mappings.register_telescope_keys()
-  mappings.set_normal('<C-p>', '<Cmd>Telescope find_files theme=get_dropdown<CR>')
-  mappings.set_normal('<leader>/', '<Cmd>Telescope live_grep<CR>')
-  mappings.set_normal('<leader>.', '<Cmd>Telescope buffers theme=get_ivy<CR>')
+function mappings.register_fzf_keys()
+  mappings.set_normal('<C-p>', '<Cmd>FzfLua files<CR>')
+  mappings.set_normal('<leader>/', '<Cmd>FzfLua live_grep<CR>')
 end
 
 function mappings.register_lsp_keys()
@@ -84,8 +84,6 @@ function mappings.register_lsp_keys()
 end
 
 function mappings.register_git_keys()
-  mappings.set_normal('<C-k>', '<Cmd>VGit hunk_up<CR>')
-  mappings.set_normal('<C-j>', '<Cmd>VGit hunk_down<CR>')
   mappings.set_normal('<leader>gs', '<Cmd>VGit buffer_hunk_stage<CR>')
   mappings.set_normal('<leader>gr', '<Cmd>VGit buffer_hunk_reset<CR>')
   mappings.set_normal('<leader>gp', '<Cmd>VGit buffer_hunk_preview<CR>')
@@ -111,7 +109,7 @@ function mappings.init()
   mappings.register_leader_key()
   mappings.register_quality_of_life_keys()
   mappings.register_file_tree_keys()
-  mappings.register_telescope_keys()
+  mappings.register_fzf_keys()
   mappings.register_lsp_keys()
   mappings.register_git_keys()
 end

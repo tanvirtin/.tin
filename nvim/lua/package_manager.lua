@@ -17,6 +17,11 @@ end
 
 function package_manager.install_plugins()
   require('lazy').setup({
+    { 'nvim-tree/nvim-web-devicons' },
+    {
+      "folke/which-key.nvim",
+      event = "VeryLazy",
+    },
     'tanvirtin/monokai.nvim',
     {
       'folke/tokyonight.nvim',
@@ -27,6 +32,15 @@ function package_manager.install_plugins()
     {
       'nvim-treesitter/nvim-treesitter',
       run = ':TSUpdate',
+      config = function()
+        require('nvim-treesitter.configs').setup({
+          ensure_installed = { 'c', 'cpp', 'go', 'lua', 'python', 'rust', 'typescript', 'cmake' },
+          highlight = {
+            enable = true,
+            additional_vim_regex_highlighting = true,
+          },
+        })
+      end,
     },
     {
       'akinsho/bufferline.nvim',
@@ -38,33 +52,18 @@ function package_manager.install_plugins()
       end,
     },
     {
-      'nvim-telescope/telescope.nvim',
-      event = 'VimEnter',
-      branch = '0.1.x',
-      dependencies = {
-        'nvim-lua/plenary.nvim',
-        {
-          'nvim-telescope/telescope-fzf-native.nvim',
-          build = 'make',
-          cond = function()
-            return vim.fn.executable('make') == 1
-          end,
-        },
-        { 'nvim-telescope/telescope-ui-select.nvim' },
-        {
-          'nvim-tree/nvim-web-devicons',
-          enabled = vim.g.have_nerd_font,
-        },
-      },
+      "ibhagwan/fzf-lua",
+      dependencies = { "nvim-tree/nvim-web-devicons" },
       config = function()
-        require('telescope').setup({
-          extensions = {
-            ['ui-select'] = { require('telescope.themes').get_dropdown() },
+        require("fzf-lua").setup({
+          keymap = {
+            fzf = {
+              ["ctrl-q"] = "select-all+accept",
+            }
           },
+          winopts = { fullscreen = true }
         })
-        pcall(require('telescope').load_extension, 'fzf')
-        pcall(require('telescope').load_extension, 'ui-select')
-      end,
+      end
     },
     {
       'nvim-neo-tree/neo-tree.nvim',
@@ -213,7 +212,12 @@ function package_manager.install_plugins()
     },
     'neovim/nvim-lspconfig',
     'williamboman/mason.nvim',
-    'williamboman/mason-lspconfig.nvim',
+    {
+      'williamboman/mason-lspconfig.nvim',
+      config = function()
+        require('lsp').init()
+      end
+    },
     {
       'hrsh7th/nvim-cmp',
       dependencies = { 'hrsh7th/cmp-nvim-lsp' },
@@ -237,7 +241,32 @@ function package_manager.install_plugins()
           event = 'VimEnter',
           config = function()
             require('vgit').setup({
+              keymaps = {
+                ['n <C-k>'] = 'hunk_up',
+                {
+                  mode = 'n',
+                  key = '<C-j>',
+                  handler = 'hunk_down',
+                }
+              },
               settings = {
+                libgit2 = {
+                  enabled = true,
+                  path = '/opt/homebrew/opt/libgit2/lib/libgit2.dylib',
+                },
+                project_diff_preview = {
+                  keymaps = {
+                    commit = { key = 'C' },
+                    buffer_stage = 's',
+                    buffer_unstage = 'u',
+                    buffer_hunk_stage = 'gs',
+                    buffer_hunk_unstage = 'gu',
+                    buffer_reset = 'r',
+                    stage_all = 'S',
+                    unstage_all = 'U',
+                    reset_all = 'R',
+                  },
+                },
                 scene = {
                   diff_preference = 'unified',
                   keymaps = { quit = '<C-c>' },
@@ -253,7 +282,19 @@ function package_manager.install_plugins()
         branch = 'v1.0.x',
         config = function()
           require('vgit').setup({
+            keymaps = {
+              ['n <C-k>'] = 'hunk_up',
+              {
+                mode = 'n',
+                key = '<C-j>',
+                handler = 'hunk_down',
+              }
+            },
             settings = {
+              libgit2 = {
+                enabled = true,
+                path = '/opt/homebrew/opt/libgit2/lib/libgit2.dylib',
+              },
               scene = {
                 diff_preference = 'unified',
                 keymaps = { quit = '<C-c>' },
@@ -266,30 +307,9 @@ function package_manager.install_plugins()
   })
 end
 
-function package_manager.setup_plugins()
-  require('nvim-web-devicons').setup({
-    override = {
-      zsh = {
-        icon = '',
-        color = '#428850',
-        name = 'Zsh',
-      },
-    },
-    default = true,
-  })
-  require('nvim-treesitter.configs').setup({
-    ensure_installed = { 'c', 'cpp', 'go', 'lua', 'python', 'rust', 'typescript', 'cmake' },
-    highlight = {
-      enable = true,
-      additional_vim_regex_highlighting = true,
-    },
-  })
-end
-
 function package_manager.init()
   package_manager.install_package_manager()
   package_manager.install_plugins()
-  package_manager.setup_plugins()
 end
 
 return package_manager
