@@ -3,5 +3,6 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/tanvirtin/attach/main/in
 ```
 
 Supported Environments:
-* :white_check_mark: Linux
-* :white_check_mark: Darwin (OSX)
+
+- :white_check_mark: Linux
+- :white_check_mark: Darwin (OSX)
