@@ -82,4 +82,5 @@ return {
   bashls = {
     filetypes = { 'sh', 'bash', 'zsh' },
   },
+  zls = {},
 }

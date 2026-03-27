@@ -4,7 +4,7 @@ return {
   {
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    event = { 'BufReadPre', 'BufNewFile' },
+    lazy = false,
     config = function()
       require('nvim-treesitter.configs').setup({
         ensure_installed = config.treesitter_languages,

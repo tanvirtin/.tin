@@ -19,7 +19,7 @@ return {
             path = '/opt/homebrew/opt/libgit2/lib/libgit2.dylib',
           },
           live_blame = {
-            enabled = false,
+            enabled = true,
           },
           live_gutter = {
             enabled = true,

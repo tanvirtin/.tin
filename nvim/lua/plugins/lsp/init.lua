@@ -10,6 +10,16 @@ return vim.list_extend({
       'saghen/blink.cmp',
     },
     config = function()
+      vim.diagnostic.config({
+        virtual_text = {
+          prefix = '●',
+          spacing = 2,
+        },
+        signs = true,
+        underline = true,
+        update_in_insert = false,
+      })
+
       local servers = require('plugins.lsp.servers')
       local capabilities = require('blink.cmp').get_lsp_capabilities()
       capabilities.offset_encoding = 'utf-16'

@@ -17,6 +17,7 @@ init.lsp_servers = {
   'graphql',
   'yamlls',
   'bashls',
+  'zls',
 }
 
 init.mason_tools = {
@@ -54,6 +55,7 @@ init.treesitter_languages = {
   'graphql',
   'sql',
   'dockerfile',
+  'zig',
 }
 
 init.formatters = {
@@ -72,6 +74,7 @@ init.formatters = {
   yaml = { 'prettier' },
   rust = { 'rustfmt' },
   go = { 'goimports', 'gofmt' },
+  zig = { 'zigfmt' },
 }
 
 init.linters = {
