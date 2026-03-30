@@ -1,0 +1,21 @@
+description: Design checklist for testable code — ask these questions before finalizing any function
+
+content: |
+  For EVERY function, ask these before finalizing:
+
+  1. Can I describe it without "and"? → If no, split it.
+  2. Is everything it needs in the parameter list? → If no, inject the dep.
+  3. Does it return data OR change state? → If both, make two functions.
+  4. Can I test it without its collaborators? → If no, dependencies are hidden.
+  5. Same inputs, same output? → If no, pass the non-deterministic thing as a param.
+  6. Does it only use what it takes? → If it takes an object but reads one field, take the field.
+  7. Does it talk only to its params? → No `a.b.c.doThing()`. Pass c directly.
+  8. Does it create its own deps? → No `new Database()` in logic. Wire at the root.
+  9. Can it fail? → If yes, is the failure EXPLICIT in the return type? No magic -1 or null.
+  10. Is I/O at the edge? → Core logic is pure. Files, network, databases live in thin wrappers.
+
+  If ANY answer is wrong, redesign before writing tests — the design is fighting you.
+
+  **The ultimate test:** Can a new developer read the function signature and know
+  EXACTLY what it does, what it needs, what it returns, and how it fails —
+  WITHOUT reading the body?

@@ -1,9 +1,9 @@
 const std = @import("std");
 const output = @import("../lib/output.zig");
-const Environment = @import("../core/environment.zig");
 const link = @import("../commands/link.zig");
 const fonts = @import("../commands/fonts.zig");
 const recipe = @import("../commands/recipe.zig");
+const Environment = @import("../core/environment.zig");
 
 pub const meta = .{
     .name = "install",

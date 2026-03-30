@@ -32,6 +32,7 @@ opt.number = true
 opt.relativenumber = false
 opt.numberwidth = 4
 opt.signcolumn = 'yes'
+opt.hidden = true
 opt.wrap = false
 opt.incsearch = false
 opt.termguicolors = true

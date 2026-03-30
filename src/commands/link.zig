@@ -1,7 +1,6 @@
 const std = @import("std");
 const output = @import("../lib/output.zig");
 const Environment = @import("../core/environment.zig");
-const Symlink = @import("../core/symlink.zig");
 
 pub const meta = .{
     .name = "link",
@@ -26,37 +25,36 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
 
     output.info("linking config files...", .{});
 
-    for (symlinks) |s| {
-        const st = s.status();
-        switch (st) {
+    for (symlinks) |symlink| {
+        switch (symlink.status()) {
             .linked => {
-                output.success("skip {s} (already linked)", .{s.name});
+                output.success("skip {s} (already linked)", .{symlink.name});
             },
             .missing => {
-                s.link() catch {
-                    output.err("failed to link {s}", .{s.name});
+                symlink.link() catch {
+                    output.err("failed to link {s}", .{symlink.name});
                     continue;
                 };
-                output.success("link {s}", .{s.name});
+                output.success("link {s}", .{symlink.name});
             },
             .wrong_target, .not_a_symlink => {
-                s.backup(allocator) catch {
-                    output.err("failed to backup {s}", .{s.name});
+                symlink.backup(allocator) catch {
+                    output.err("failed to backup {s}", .{symlink.name});
                     continue;
                 };
-                s.link() catch {
-                    output.err("failed to link {s}", .{s.name});
+                symlink.link() catch {
+                    output.err("failed to link {s}", .{symlink.name});
                     continue;
                 };
-                output.success("link {s} (backed up existing)", .{s.name});
+                output.success("link {s} (backed up existing)", .{symlink.name});
             },
             .broken => {
-                s.unlink() catch {};
-                s.link() catch {
-                    output.err("failed to link {s}", .{s.name});
+                symlink.unlink() catch {};
+                symlink.link() catch {
+                    output.err("failed to link {s}", .{symlink.name});
                     continue;
                 };
-                output.success("link {s} (replaced broken)", .{s.name});
+                output.success("link {s} (replaced broken)", .{symlink.name});
             },
         }
     }

@@ -41,3 +41,64 @@ pub const Value = union(enum) {
         };
     }
 };
+
+test "getString returns scalar value" {
+    const v = Value{ .scalar = "hello" };
+    try std.testing.expectEqualStrings("hello", v.getString().?);
+}
+
+test "getString returns null for non-scalar" {
+    const v = Value{ .sequence = &.{} };
+    try std.testing.expect(v.getString() == null);
+}
+
+test "getSequence returns sequence items" {
+    const items = [_]Value{ .{ .scalar = "a" }, .{ .scalar = "b" } };
+    const v = Value{ .sequence = &items };
+    const seq = v.getSequence().?;
+    try std.testing.expectEqual(@as(usize, 2), seq.len);
+    try std.testing.expectEqualStrings("a", seq[0].getString().?);
+}
+
+test "getSequence returns null for non-sequence" {
+    const v = Value{ .scalar = "x" };
+    try std.testing.expect(v.getSequence() == null);
+}
+
+test "getMapping finds key in entries" {
+    const entries = [_]Entry{
+        .{ .key = "name", .value = .{ .scalar = "tin" } },
+        .{ .key = "version", .value = .{ .scalar = "1" } },
+    };
+    const v = Value{ .mapping = &entries };
+    try std.testing.expectEqualStrings("tin", v.getMapping("name").?.getString().?);
+    try std.testing.expectEqualStrings("1", v.getMapping("version").?.getString().?);
+}
+
+test "getMapping returns null for missing key" {
+    const entries = [_]Entry{
+        .{ .key = "name", .value = .{ .scalar = "tin" } },
+    };
+    const v = Value{ .mapping = &entries };
+    try std.testing.expect(v.getMapping("missing") == null);
+}
+
+test "getMapping returns null for non-mapping" {
+    const v = Value{ .scalar = "x" };
+    try std.testing.expect(v.getMapping("anything") == null);
+}
+
+test "getString returns empty string for empty scalar" {
+    const v = Value{ .scalar = "" };
+    try std.testing.expectEqualStrings("", v.getString().?);
+}
+
+test "getSequence returns empty slice for empty sequence" {
+    const v = Value{ .sequence = &.{} };
+    try std.testing.expectEqual(@as(usize, 0), v.getSequence().?.len);
+}
+
+test "getMapping returns null for empty mapping" {
+    const v = Value{ .mapping = &.{} };
+    try std.testing.expect(v.getMapping("any") == null);
+}

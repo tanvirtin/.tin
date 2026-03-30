@@ -1,7 +1,8 @@
 const std = @import("std");
+const fs = @import("../lib/fs.zig");
 const output = @import("../lib/output.zig");
-const Environment = @import("../core/environment.zig");
 const Recipe = @import("../core/recipe.zig");
+const Environment = @import("../core/environment.zig");
 
 pub const meta = .{
     .name = "recipe",
@@ -30,7 +31,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
         return;
     };
 
-    const content = readFile(allocator, path) catch {
+    const content = fs.readFileAlloc(allocator, path) catch {
         output.err("recipe not found: {s}", .{name});
         output.plain("Run 'tin recipe' to see available recipes.", .{});
         return;
@@ -65,7 +66,7 @@ fn listRecipes(allocator: std.mem.Allocator, recipes_dir: []const u8) void {
         if (!std.mem.endsWith(u8, entry.name, ".yml")) continue;
 
         const path = std.fmt.allocPrint(allocator, "{s}/{s}", .{ recipes_dir, entry.name }) catch continue;
-        const content = readFile(allocator, path) catch continue;
+        const content = fs.readFileAlloc(allocator, path) catch continue;
         const recipe = Recipe.parse(allocator, content) catch continue;
 
         const desc = recipe.description orelse "";
@@ -76,11 +77,4 @@ fn listRecipes(allocator: std.mem.Allocator, recipes_dir: []const u8) void {
     if (found == 0) {
         output.plain("  (none)", .{});
     }
-}
-
-fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
-    const file = try std.fs.openFileAbsolute(path, .{});
-    defer file.close();
-
-    return try file.readToEndAlloc(allocator, 64 * 1024);
 }

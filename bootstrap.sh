@@ -28,44 +28,47 @@ esac
 
 ARTIFACT="tin-${PLATFORM}-${ARCH}"
 
-# Clone repo if not present
+# Clone repo if not present, otherwise pull latest
 if [ ! -d "$TIN_DIR" ]; then
     info "Cloning .tin..."
     git clone "https://github.com/$REPO.git" "$TIN_DIR"
 else
-    info "Found existing .tin at $TIN_DIR"
+    info "Updating .tin..."
+    cd "$TIN_DIR" && git pull --ff-only 2>/dev/null || info "Could not update (offline or uncommitted changes)"
 fi
 
-# Get latest release tag
+# Try to download pre-built binary
 info "Fetching latest release..."
-LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*: "//;s/".*//')
+LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*: "//;s/".*//' || true)
 
-if [ -z "$LATEST" ]; then
-    err "Could not determine latest release. Building from source..."
+DOWNLOADED=false
+if [ -n "$LATEST" ]; then
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/${ARTIFACT}.tar.gz"
+    info "Downloading $ARTIFACT ($LATEST)..."
+    mkdir -p "$BIN_DIR"
+    if curl -fsSL "$DOWNLOAD_URL" | tar xz -C "$BIN_DIR" 2>/dev/null; then
+        mv "$BIN_DIR/$ARTIFACT" "$BIN_DIR/tin" 2>/dev/null || true
+        chmod +x "$BIN_DIR/tin"
+        success "Downloaded tin $LATEST"
+        DOWNLOADED=true
+    fi
+fi
+
+# Fallback: build from source
+if [ "$DOWNLOADED" = false ]; then
+    info "No release found. Building from source..."
     if ! command -v zig &>/dev/null; then
-        err "Zig not found. Install Zig 0.15.2 or create a release at github.com/$REPO"
+        err "Zig not found. Install Zig to build from source."
         exit 1
     fi
     cd "$TIN_DIR" && zig build -Doptimize=ReleaseSafe
     mkdir -p "$BIN_DIR"
     cp zig-out/bin/tin "$BIN_DIR/tin"
     success "Built from source"
-else
-    # Download pre-built binary
-    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST/${ARTIFACT}.tar.gz"
-    info "Downloading $ARTIFACT ($LATEST)..."
-
-    mkdir -p "$BIN_DIR"
-    curl -fsSL "$DOWNLOAD_URL" | tar xz -C "$BIN_DIR"
-    mv "$BIN_DIR/$ARTIFACT" "$BIN_DIR/tin" 2>/dev/null || true
-    chmod +x "$BIN_DIR/tin"
-    success "Downloaded tin $LATEST"
 fi
 
 # Verify
-if "$BIN_DIR/tin" help >/dev/null 2>&1; then
-    success "tin is ready at $BIN_DIR/tin"
-else
+if ! "$BIN_DIR/tin" help >/dev/null 2>&1; then
     err "tin binary failed to run"
     exit 1
 fi
@@ -78,4 +81,12 @@ if ! echo "$PATH" | grep -q "$BIN_DIR"; then
     info ""
 fi
 
-info "Run 'tin install' to set up your environment"
+# Run tin install
+info "Running tin install..."
+"$BIN_DIR/tin" install
+
+# Export Sn skills
+info "Exporting Sn skills..."
+"$BIN_DIR/tin" sn export claude 2>/dev/null || info "No Sn skills to export"
+
+success "Done"

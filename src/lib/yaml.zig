@@ -15,18 +15,14 @@ pub fn parse(allocator: std.mem.Allocator, input: []const u8) ParseError!Value {
     var scanner = scanner_mod.Scanner{ .alloc = allocator, .src = input };
     const tokens = try scanner.scan();
 
-    // Empty stream is valid — return empty scalar
     if (tokens.len <= 2) return .{ .scalar = "" };
 
-    // Validate token sequence against YAML grammar
     var parser = parser_mod.Parser{ .tokens = tokens };
     try parser.validate();
 
     var composer = composer_mod.Composer.init(allocator, tokens);
     return composer.compose();
 }
-
-// ── Tests ──
 
 test "simple mapping" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -154,8 +150,6 @@ test "recipe format" {
     try std.testing.expectEqualStrings("os == 'darwin'", steps[0].getMapping("if").?.getString().?);
 }
 
-// ── Error rejection tests ──
-
 test "reject nested implicit mapping on same line" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -216,8 +210,6 @@ test "reject anchor before block entry on same line" {
     try std.testing.expectError(ParseError.InvalidYaml, parse(arena.allocator(), "&anchor - sequence entry"));
 }
 
-// ── Multiline scalar tests ──
-
 test "folded block scalar" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -246,8 +238,6 @@ test "plain scalar with blank line preserved" {
     try std.testing.expectEqualStrings("first\nsecond", r.getMapping("key").?.getString().?);
 }
 
-// ── Flow collection tests ──
-
 test "nested flow collections" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -273,8 +263,6 @@ test "empty flow collections" {
     try std.testing.expect(r.getMapping("b").?.getMapping("__nonexistent__") == null);
 }
 
-// ── Explicit key tests ──
-
 test "explicit key with value" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -289,8 +277,6 @@ test "explicit key with sequence value" {
     const seq = r.getMapping("key").?.getSequence().?;
     try std.testing.expectEqual(@as(usize, 2), seq.len);
 }
-
-// ── Quoted scalar edge cases ──
 
 test "single quoted with escaped quote" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -313,8 +299,6 @@ test "double quoted null escape" {
     try std.testing.expectEqual(@as(u8, 0), r.getMapping("v").?.getString().?[0]);
 }
 
-// ── Tag and directive tests ──
-
 test "tag on scalar" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -328,8 +312,6 @@ test "multiple documents returns last" {
     const r = try parse(arena.allocator(), "---\na: 1\n---\nb: 2");
     try std.testing.expectEqualStrings("2", r.getMapping("b").?.getString().?);
 }
-
-// ── Anchor edge cases ──
 
 test "anchor on sequence" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -346,8 +328,6 @@ test "anchor on mapping" {
     const r = try parse(arena.allocator(), "a: &ref\n  x: 1\nb: *ref");
     try std.testing.expectEqualStrings("1", r.getMapping("b").?.getMapping("x").?.getString().?);
 }
-
-// ── Whitespace and special character tests ──
 
 test "tab in value" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

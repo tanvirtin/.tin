@@ -53,9 +53,7 @@ pub const Composer = struct {
                 continue;
             }
 
-            // Content after document-end without new document-start
             if (after_doc_end) {
-                // Allow bare documents after doc-end
                 after_doc_end = false;
             }
 
@@ -68,7 +66,6 @@ pub const Composer = struct {
     fn composeNode(self: *Composer) ParseError!Value {
         var anchor_name: ?[]const u8 = null;
 
-        // Consume one anchor and/or one tag before the node
         while (self.peek()) |t| {
             if (t.tag == .anchor and anchor_name == null) {
                 anchor_name = t.value;
@@ -78,7 +75,6 @@ pub const Composer = struct {
             } else break;
         }
 
-        // Reject multiple anchors on same node
         if (self.peek()) |check| {
             if (check.tag == .anchor) return error.InvalidYaml;
         }
@@ -89,7 +85,7 @@ pub const Composer = struct {
         switch (t.tag) {
             .scalar => { value = .{ .scalar = self.next().value orelse "" }; },
             .alias => {
-                if (anchor_name != null) return error.InvalidYaml; // Can't have anchor + alias on same node
+                if (anchor_name != null) return error.InvalidYaml;
                 const n = self.next();
                 value = self.anchors.get(n.value orelse "") orelse .{ .scalar = "" };
             },

@@ -1,0 +1,37 @@
+description: What to look for when reviewing any code change
+
+content: |
+  **Changed signatures:**
+  - Did function parameters change? Check every caller.
+  - Did return types change? Check every consumer.
+  - Did error types change? Check every error handler.
+
+  **Edge cases:**
+  - New code paths: what happens with nil, empty, zero, max values?
+  - Boundary conditions: off-by-one in loops, ranges, slices?
+  - Concurrency: is shared state accessed from multiple threads?
+
+  **Deleted code:**
+  - Is the deleted code still referenced elsewhere?
+  - Was it the only implementation of an interface?
+  - Did it handle an edge case that the new code doesn't?
+
+  **New dependencies:**
+  - New imports: are they necessary? Do they add weight?
+  - New external calls: network, filesystem, database — are they behind boundaries?
+  - New parameters: are they threaded through too many layers?
+
+  **Error handling:**
+  - Can new code fail? Is the failure handled?
+  - Are errors swallowed silently?
+  - Are error messages specific enough to diagnose?
+
+  **Test coverage:**
+  - Does the PR change behavior? Are tests updated?
+  - Are new code paths exercised by tests?
+  - Are error paths tested, not just happy paths?
+
+  **Blast radius:**
+  - What else in the codebase depends on the changed code?
+  - Could downstream consumers break from this change?
+  - Are there implicit contracts (ordering, timing, format) that changed?

@@ -11,11 +11,11 @@ const ParseError = value.ParseError;
 pub const SimpleKey = struct {
     possible: bool = false,
     required: bool = false,
-    token_pos: usize = 0, // index in tokens array where key should be inserted
-    byte_pos: usize = 0,  // scanner byte position when key was saved
+    token_pos: usize = 0,
+    byte_pos: usize = 0,
     line: usize = 0,
     col: usize = 0,
-    is_quoted: bool = false, // quoted keys can span lines in flow context
+    is_quoted: bool = false,
 };
 
 pub const Scanner = struct {
@@ -28,7 +28,7 @@ pub const Scanner = struct {
     indents: std.ArrayList(i32) = .{},
     flow_level: usize = 0,
     tokens: std.ArrayList(Token) = .{},
-    simple_keys: std.ArrayList(SimpleKey) = .{},  // stack: one per flow level + base
+    simple_keys: std.ArrayList(SimpleKey) = .{},
     simple_key_allowed: bool = true,
     started: bool = false,
     ended: bool = false,
@@ -46,8 +46,6 @@ pub const Scanner = struct {
     doc_start_line: ?usize = null,
     flow_types: std.ArrayList(enum { seq, map }) = .{},
     tag_handles: std.ArrayList([]const u8) = .{},
-
-    // ── Character access ──
 
     fn ch(self: *Scanner) u8 {
         return if (self.pos < self.src.len) self.src[self.pos] else 0;
@@ -100,8 +98,6 @@ pub const Scanner = struct {
         return c == '[' or c == ']' or c == '{' or c == '}' or c == ',';
     }
 
-    // ── Emit helpers ──
-
     fn emit(self: *Scanner, t: Token) !void {
         self.tokens.append(self.alloc, t) catch return error.OutOfMemory;
     }
@@ -132,14 +128,8 @@ pub const Scanner = struct {
         }
     }
 
-    // ── Simple Key Management ──
-
     fn saveSimpleKey(self: *Scanner) void {
         if (!self.simple_key_allowed) return;
-        // Remove previous simple key if it exists and is required
-        if (self.currentSimpleKey().*.possible and self.currentSimpleKey().*.required) {
-            // Can't have two required simple keys — this shouldn't happen in practice
-        }
         const required = (self.flow_level == 0 and @as(i32, @intCast(self.col)) == self.indent);
         self.currentSimpleKey().* = .{
             .possible = true,
@@ -153,7 +143,7 @@ pub const Scanner = struct {
 
     fn removeSimpleKey(self: *Scanner) ParseError!void {
         if (self.currentSimpleKey().*.possible and self.currentSimpleKey().*.required) {
-            return error.InvalidYaml; // Expected ':' for simple key
+            return error.InvalidYaml;
         }
         self.currentSimpleKey().*.possible = false;
     }
@@ -170,16 +160,13 @@ pub const Scanner = struct {
         }
     }
 
-    // ── Eat whitespace between tokens ──
-
     fn eatSpacesAndComments(self: *Scanner) ParseError!void {
         while (!self.eof()) {
             if (self.ch() == ' ' or self.ch() == '\t') {
                 self.step();
             } else if (self.ch() == '#') {
-                // # must be preceded by whitespace or be at start of line to be a comment
                 if (self.pos > 0 and self.col > 0 and !isBlank(self.src[self.pos - 1]) and !isBreak(self.src[self.pos - 1])) {
-                    return error.InvalidYaml; // # without preceding space
+                    return error.InvalidYaml;
                 }
                 while (!self.eof() and !isBreak(self.ch())) self.step();
             } else break;
@@ -202,8 +189,6 @@ pub const Scanner = struct {
         }
     }
 
-    // ── Main scan loop ──
-
     fn currentSimpleKey(self: *Scanner) *SimpleKey {
         return &self.simple_keys.items[self.simple_keys.items.len - 1];
     }
@@ -213,7 +198,6 @@ pub const Scanner = struct {
     }
 
     pub fn scan(self: *Scanner) ![]const Token {
-        // Initialize simple key stack with base level
         self.simple_keys.append(self.alloc, .{}) catch return error.OutOfMemory;
         try self.emit(.{ .tag = .stream_start });
         self.started = true;
@@ -227,17 +211,12 @@ pub const Scanner = struct {
 
             try self.eatToNextToken();
 
-            // After a newline in block context, eat leading spaces for indentation.
-            // Also skip past any blank/comment lines.
-            // Note: scanPlainScalar may consume newlines internally, so we need to
-            // detect that we're at a new line and re-enable simple keys.
             if (self.flow_level == 0) {
                 var skip_iters: usize = 0;
                 var found_content = false;
                 while (!found_content and skip_iters < self.src.len + 10) {
                     skip_iters += 1;
                     while (!self.eof() and self.ch() == ' ') self.step();
-                    // Tab as indentation is invalid in YAML
                     if (!self.eof() and self.ch() == '\t' and self.indent >= 0 and self.col <= @as(usize, @intCast(self.indent + 1))) {
                         return error.InvalidYaml;
                     }
@@ -265,29 +244,23 @@ pub const Scanner = struct {
 
             try self.staleSimpleKeys();
 
-            // In flow context, content at or below enclosing block indent is invalid
             if (self.flow_level > 0 and !self.eof()) {
                 const ci: i32 = @intCast(self.col);
                 if (ci <= self.indent) {
                     const fc = self.ch();
-                    // Flow end indicators and comments are OK at any indent
                     if (fc != ']' and fc != '}' and fc != ',' and fc != '#') {
                         return error.InvalidYaml;
                     }
                 }
             }
 
-            // In block context, unroll/roll indentation based on column
             if (self.flow_level == 0) {
                 const col_i32: i32 = @intCast(self.col);
                 const indent_before = self.indent;
                 try self.unrollIndent(col_i32);
-                // Bad indentation: column is between two indent levels after unrolling
-                // But only if no simple key is pending (flow-as-key patterns have valid intermediate indent)
                 if (indent_before > self.indent and col_i32 > self.indent and !self.currentSimpleKey().*.possible) {
                     if (!self.eof()) {
                         const nc = self.ch();
-                        // Allow block indicators that start new levels
                         if (nc != '-' and nc != '?' and nc != ':' and nc != '#' and !isBreak(nc)) {
                             return error.InvalidYaml;
                         }
@@ -298,16 +271,14 @@ pub const Scanner = struct {
             const c = self.ch();
             const token_start_pos = self.pos;
 
-            // --- Document indicators inside flow = error ---
             if (self.flow_level > 0 and self.col == 0) {
                 if ((c == '-' and self.chAt(1) == '-' and self.chAt(2) == '-' and self.isBlankOrBreakOrEofAt(3)) or
                     (c == '.' and self.chAt(1) == '.' and self.chAt(2) == '.' and self.isBlankOrBreakOrEofAt(3)))
                 {
-                    return error.InvalidYaml; // Document marker inside flow collection
+                    return error.InvalidYaml;
                 }
             }
 
-            // --- Document indicators at column 0 (not in flow context) ---
             if (self.flow_level == 0 and self.col == 0 and c == '-' and self.chAt(1) == '-' and self.chAt(2) == '-' and self.isBlankOrBreakOrEofAt(3)) {
                 try self.unrollIndent(-1);
                 try self.removeSimpleKey();
@@ -328,10 +299,9 @@ pub const Scanner = struct {
                 try self.removeSimpleKey();
                 self.simple_key_allowed = true;
                 self.step(); self.step(); self.step();
-                // Only whitespace/comments allowed after ...
                 while (!self.eof() and isBlank(self.ch())) self.step();
                 if (!self.eof() and !isBreak(self.ch()) and self.ch() != '#') {
-                    return error.InvalidYaml; // Content after document end marker
+                    return error.InvalidYaml;
                 }
                 self.had_doc_end = true;
                 self.had_content = false;
@@ -339,7 +309,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Directive (only between documents at column 0) ---
             if (self.flow_level == 0 and self.col == 0 and c == '%' and self.indent < 0 and !self.had_content) {
                 const rest_start = self.pos + 1;
                 const is_yaml_dir = rest_start + 4 <= self.src.len and std.mem.eql(u8, self.src[rest_start..][0..4], "YAML");
@@ -364,7 +333,6 @@ pub const Scanner = struct {
                 }
             }
 
-            // --- Flow indicators ---
             if (c == '[') {
                 self.saveSimpleKey();
                 self.flow_level += 1;
@@ -427,7 +395,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Block entry ---
             if (c == '-' and self.isBlankOrBreakOrEofAt(1) and self.flow_level == 0) {
                 if (!self.simple_key_allowed and !self.explicit_key_pending) return error.InvalidYaml;
                 if (self.value_indicator_on_line and !self.value_after_explicit_key) return error.InvalidYaml;
@@ -439,7 +406,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Explicit key ---
             if (c == '?' and (self.flow_level > 0 or self.isBlankOrBreakOrEofAt(1))) {
                 if (self.flow_level == 0) try self.rollIndent(@intCast(self.col), .block_mapping_start);
                 try self.removeSimpleKey();
@@ -450,15 +416,12 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Value indicator ---
             if (c == ':' and (self.flow_level > 0 or self.isBlankOrBreakOrEofAt(1))) {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
                 if (self.currentSimpleKey().*.possible) {
-                    // In flow context, plain simple key can't span multiple lines (quoted keys can)
                     if (self.flow_level > 0 and self.currentSimpleKey().*.line != self.line) {
                         if (!self.currentSimpleKey().*.is_quoted) return error.InvalidYaml;
-                        // Quoted key in flow SEQUENCE needs : followed by whitespace/flow-indicator
                         if (self.isFlowSequence() and !self.isBlankOrBreakOrEofAt(1) and !isFlowIndicator(self.chAt(1))) {
                             return error.InvalidYaml;
                         }
@@ -484,9 +447,7 @@ pub const Scanner = struct {
                     self.currentSimpleKey().*.possible = false;
                     if (self.flow_level == 0) self.value_indicator_on_line = true;
                 } else {
-                    if (self.explicit_key_pending) {
-                        // After explicit ?, just emit value without another key
-                    } else if (self.flow_level == 0) {
+                    if (self.explicit_key_pending) {} else if (self.flow_level == 0) {
                         try self.rollIndent(@intCast(self.col), .block_mapping_start);
                         try self.emit(.{ .tag = .key_token });
                     }
@@ -499,7 +460,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Anchor ---
             if (c == '&') {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
@@ -513,7 +473,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Alias ---
             if (c == '*') {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
@@ -526,7 +485,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Tag ---
             if (c == '!') {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
@@ -541,12 +499,10 @@ pub const Scanner = struct {
                 } else {
                     while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch()) and !isFlowIndicator(self.ch())) self.step();
                 }
-                // Validate named tag handles (!name!...) are declared
                 const tag_text = self.src[start..self.pos];
                 if (tag_text.len > 1 and tag_text[0] == '!' and tag_text[1] != '<') {
-                    // Find second '!' for named handle pattern
                     if (std.mem.indexOfScalarPos(u8, tag_text, 1, '!')) |second_bang| {
-                        if (second_bang > 1) { // Named handle like !prefix!
+                        if (second_bang > 1) {
                             const handle = tag_text[0 .. second_bang + 1];
                             var found = false;
                             for (self.tag_handles.items) |h| {
@@ -560,7 +516,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Block scalar ---
             if (c == '|' or c == '>') {
                 try self.removeSimpleKey();
                 self.simple_key_allowed = true;
@@ -569,7 +524,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // --- Quoted scalar ---
             if (c == '\'' or c == '"') {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
@@ -582,8 +536,6 @@ pub const Scanner = struct {
                     continue;
             }
 
-            // --- Plain scalar ---
-            // In flow context, '-' must be followed by ns-plain-safe (not blank/flow-indicator)
             if (self.flow_level > 0 and c == '-') {
                 if (self.isBlankOrBreakOrEofAt(1) or isFlowIndicator(self.chAt(1))) {
                     return error.InvalidYaml;
@@ -600,14 +552,12 @@ pub const Scanner = struct {
                 if (self.flow_level == 0) {
                     self.simple_key_allowed = true;
                 } else {
-                    // Update simple key line for multiline flow scalars
                     if (self.currentSimpleKey().*.possible and self.currentSimpleKey().*.line == line_before_plain) {
                         self.currentSimpleKey().*.line = self.line;
                     }
                 }
             }
 
-            // Safety: if we didn't advance past this token position, skip character
             if (self.pos == token_start_pos) {
                 if (!self.eof()) self.step() else break;
             }
@@ -622,8 +572,6 @@ pub const Scanner = struct {
         return isBlank(self.src[p]) or isBreak(self.src[p]);
     }
 
-    // ── Block Scalar ──
-
     fn scanBlockScalar(self: *Scanner, indicator: u8) !void {
         const style: ScalarStyle = if (indicator == '|') .literal else .folded;
         self.step();
@@ -631,7 +579,6 @@ pub const Scanner = struct {
         var chomping: enum { clip, strip, keep } = .clip;
         var explicit_indent: ?usize = null;
 
-        // Parse indicators after | or >
         while (!self.eof() and !isBreak(self.ch())) {
             if (self.ch() == '+') { chomping = .keep; self.step(); } else if (self.ch() == '-') { chomping = .strip; self.step(); } else if (self.ch() >= '1' and self.ch() <= '9') {
                 explicit_indent = self.ch() - '0';
@@ -639,21 +586,17 @@ pub const Scanner = struct {
             } else if (isBlank(self.ch())) {
                 self.step();
             } else if (self.ch() == '#') {
-                // Comment must be preceded by whitespace
                 if (self.pos > 0 and !isBlank(self.src[self.pos - 1])) return error.InvalidYaml;
                 while (!self.eof() and !isBreak(self.ch())) self.step();
-            } else return error.InvalidYaml; // Invalid text after block scalar indicator
+            } else return error.InvalidYaml;
         }
 
-        // Consume line break after indicator
         if (!self.eof() and isBreak(self.ch())) self.skipBreak();
 
-        // Determine block indentation
         var block_indent: usize = 0;
         if (explicit_indent) |ei| {
             block_indent = if (self.indent >= 0) @as(usize, @intCast(self.indent)) + ei else ei;
         } else {
-            // Auto-detect: find first content line
             var look = self.pos;
             var found_content = false;
             var max_blank_indent: usize = 0;
@@ -662,14 +605,12 @@ pub const Scanner = struct {
                 if (self.src[look] == ' ') {
                     look += 1;
                 } else if (isBreak(self.src[look])) {
-                    // Track indent of this blank line
                     const blank_indent = look - blank_line_start;
                     if (blank_indent > max_blank_indent) max_blank_indent = blank_indent;
                     look += 1;
                     if (look < self.src.len and self.src[look - 1] == '\r' and self.src[look] == '\n') look += 1;
                     blank_line_start = look;
                 } else {
-                    // Count spaces from start of this line
                     var line_start = look;
                     while (line_start > 0 and self.src[line_start - 1] != '\n' and self.src[line_start - 1] != '\r') {
                         line_start -= 1;
@@ -681,7 +622,6 @@ pub const Scanner = struct {
             }
             if (!found_content) {
                 block_indent = if (self.indent >= 0) @as(usize, @intCast(self.indent)) + 1 else 1;
-                // Check blank lines even when no content found
                 if (max_blank_indent > block_indent) return error.InvalidYaml;
             }
             if (found_content and block_indent > 0 and max_blank_indent > block_indent) return error.InvalidYaml;
@@ -695,35 +635,30 @@ pub const Scanner = struct {
             block_iterations += 1;
             if (block_iterations > self.src.len + 10) break;
             try self.checkRunaway();
-            // Count leading spaces
             var line_indent: usize = 0;
             while (!self.eof() and self.ch() == ' ') {
                 line_indent += 1;
                 self.step();
             }
 
-            // Document indicator check
             if (line_indent == 0 and self.col == 0 and !self.eof()) {
                 if ((self.ch() == '-' and self.chAt(1) == '-' and self.chAt(2) == '-' and self.isBlankOrBreakOrEofAt(3)) or
                     (self.ch() == '.' and self.chAt(1) == '.' and self.chAt(2) == '.' and self.isBlankOrBreakOrEofAt(3)))
                     break;
             }
 
-            // Blank line
             if (self.eof() or isBreak(self.ch())) {
                 trailing_breaks += 1;
                 if (!self.eof()) self.skipBreak();
                 continue;
             }
 
-            // Under-indented = end of block scalar
             if (line_indent < block_indent) {
                 self.pos -= line_indent;
                 self.col -= line_indent;
                 break;
             }
 
-            // Emit accumulated trailing breaks
             if (style == .folded and trailing_breaks == 1 and result.items.len > 0) {
                 result.append(self.alloc, ' ') catch return error.OutOfMemory;
             } else {
@@ -734,9 +669,7 @@ pub const Scanner = struct {
             }
             trailing_breaks = 0;
 
-            // Extra indentation (keep as-is)
             if (line_indent > block_indent) {
-                // For folded: if prev char was space (from fold), replace with newline
                 if (style == .folded and result.items.len > 0 and result.items[result.items.len - 1] == ' ') {
                     result.items[result.items.len - 1] = '\n';
                 }
@@ -746,20 +679,17 @@ pub const Scanner = struct {
                 }
             }
 
-            // Content
             while (!self.eof() and !isBreak(self.ch())) {
                 result.append(self.alloc, self.ch()) catch return error.OutOfMemory;
                 self.step();
             }
 
-            // Line break
             if (!self.eof()) {
                 trailing_breaks = 1;
                 self.skipBreak();
             }
         }
 
-        // Chomping
         switch (chomping) {
             .clip => { result.append(self.alloc, '\n') catch return error.OutOfMemory; },
             .keep => {
@@ -774,8 +704,6 @@ pub const Scanner = struct {
         try self.emit(.{ .tag = .scalar, .value = result.items, .style = style });
     }
 
-    // ── Quoted Scalar ──
-
     fn scanQuotedScalar(self: *Scanner, quote: u8) !void {
         self.step(); // opening quote
         var result: std.ArrayList(u8) = .{};
@@ -785,13 +713,12 @@ pub const Scanner = struct {
         while (!self.eof()) {
             const c = self.ch();
 
-            // Check for document indicators inside quoted strings (only in block context)
             if (self.flow_level == 0 and self.col == 0 and !self.eof()) {
                 const dc = self.ch();
                 if ((dc == '-' and self.chAt(1) == '-' and self.chAt(2) == '-' and self.isBlankOrBreakOrEofAt(3)) or
                     (dc == '.' and self.chAt(1) == '.' and self.chAt(2) == '.' and self.isBlankOrBreakOrEofAt(3)))
                 {
-                    return error.InvalidYaml; // Unterminated quoted scalar
+                    return error.InvalidYaml;
                 }
             }
 
@@ -833,7 +760,7 @@ pub const Scanner = struct {
                         if (esc == '\r' and !self.eof() and self.ch() == '\n') self.step();
                         while (!self.eof() and isBlank(self.ch())) self.step();
                     },
-                    else => return error.InvalidYaml, // Invalid escape sequence
+                    else => return error.InvalidYaml,
                 }
                 continue;
             }
@@ -845,7 +772,6 @@ pub const Scanner = struct {
                     if (self.ch() == ' ') line_indent += 1;
                     self.step();
                 }
-                // Check indentation of continuation line (must be > block indent)
                 if (!self.eof() and !isBreak(self.ch()) and self.ch() != quote) {
                     const min_indent: usize = if (self.indent >= 0) @as(usize, @intCast(self.indent)) + 1 else 0;
                     if (line_indent < min_indent) return error.InvalidYaml;
@@ -865,24 +791,20 @@ pub const Scanner = struct {
         if (!found_closing) return error.InvalidYaml;
         try self.emit(.{ .tag = .scalar, .value = result.items, .style = style });
 
-        // Validate trailing content on the same line
         try self.validateTrailing();
     }
 
     fn validateTrailing(self: *Scanner) !void {
-        // After certain tokens, only whitespace, valid comment (space before #), or newline/EOF allowed
         const had_space = !self.eof() and isBlank(self.ch());
         while (!self.eof() and isBlank(self.ch())) self.step();
         if (self.eof() or isBreak(self.ch())) return;
         if (self.ch() == '#') {
-            if (!had_space) return error.InvalidYaml; // Comment needs space before #
+            if (!had_space) return error.InvalidYaml;
             return;
         }
-        // In flow context, colons, commas, brackets are valid
         if (self.flow_level > 0) {
             if (self.ch() == ':' or self.ch() == ',' or isFlowIndicator(self.ch())) return;
         }
-        // In block context, colon is valid (key: "value": is weird but the : triggers value)
         if (self.ch() == ':' and self.isBlankOrBreakOrEofAt(1)) return;
         return error.InvalidYaml;
     }
@@ -905,14 +827,10 @@ pub const Scanner = struct {
         result.appendSlice(self.alloc, buf[0..len]) catch return;
     }
 
-    // ── Plain Scalar ──
-
     fn scanPlainScalar(self: *Scanner) !void {
         const start_indent = self.indent;
         const start_col = self.col;
 
-        // Fast path: single-word scalar (no spaces, no line breaks)
-        // Handles the most common case: keys and simple values like "name", "true", "8080"
         {
             const start = self.pos;
             var end = start;
@@ -947,7 +865,6 @@ pub const Scanner = struct {
             try self.checkRunaway();
             const c = self.ch();
 
-            // End conditions
             if (c == ':' and self.isBlankOrBreakOrEofAt(1)) break;
             if (c == ':' and self.flow_level > 0 and (self.isBlankOrBreakOrEofAt(1) or isFlowIndicator(self.chAt(1)))) break;
             if (self.flow_level > 0 and isFlowIndicator(c)) break;
@@ -955,8 +872,6 @@ pub const Scanner = struct {
 
             if (isBreak(c)) {
                 if (self.flow_level > 0) {
-                    // Flow context: continue scalar across newlines per YAML spec
-                    // Save position in case we need to back up
                     const saved_pos = self.pos;
                     const saved_line = self.line;
                     const saved_col = self.col;
@@ -964,7 +879,6 @@ pub const Scanner = struct {
                     while (!self.eof() and self.ch() == ' ') self.step();
                     if (self.eof()) break;
                     if (isBreak(self.ch())) { breaks += 1; spaces.items.len = 0; continue; }
-                    // Check for end conditions — restore position if breaking
                     if (isFlowIndicator(self.ch()) or self.ch() == '#' or
                         (self.ch() == ':' and (self.isBlankOrBreakOrEofAt(1) or isFlowIndicator(self.chAt(1)))))
                     {
@@ -980,24 +894,20 @@ pub const Scanner = struct {
                 self.skipBreak();
                 self.value_indicator_on_line = false;
 
-                // Eat leading spaces on next line
                 var next_indent: usize = 0;
                 while (!self.eof() and self.ch() == ' ') {
                     next_indent += 1;
                     self.step();
                 }
 
-                // EOF after newline
                 if (self.eof()) break;
 
-                // Blank line - just count and continue
                 if (isBreak(self.ch())) {
                     breaks += 1;
                     spaces.items.len = 0;
                     continue;
                 }
 
-                // Document indicators end plain scalar
                 if (self.col == 0) {
                     const nc = self.ch();
                     if ((nc == '-' and self.chAt(1) == '-' and self.chAt(2) == '-' and self.isBlankOrBreakOrEofAt(3)) or
@@ -1009,7 +919,6 @@ pub const Scanner = struct {
                     }
                 }
 
-                // Block indicators at or below current indent end plain scalar
                 if (!self.eof()) {
                     const nc = self.ch();
                     const at_or_below_indent = @as(i32, @intCast(next_indent)) <= start_indent;
@@ -1018,7 +927,6 @@ pub const Scanner = struct {
                         self.col -= next_indent;
                         break;
                     }
-                    // Block indicators stop the scalar only at or above scalar start column
                     if (nc == '-' and self.isBlankOrBreakOrEofAt(1) and next_indent >= start_col) {
                         self.pos -= next_indent;
                         self.col -= next_indent;
@@ -1042,7 +950,6 @@ pub const Scanner = struct {
                 continue;
             }
 
-            // Emit accumulated whitespace
             if (breaks > 0) {
                 if (breaks == 1) {
                     result.append(self.alloc, ' ') catch return error.OutOfMemory;

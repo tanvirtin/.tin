@@ -14,6 +14,12 @@ return {
     },
     version = '*',
     opts = {
+      enabled = function()
+        local bt = vim.bo.buftype
+        local ft = vim.bo.filetype
+        if ft == 'tin_chat_input' then return false end
+        return bt ~= 'prompt'
+      end,
       keymap = {
         preset = 'none',
         ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },

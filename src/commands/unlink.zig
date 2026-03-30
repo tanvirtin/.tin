@@ -1,7 +1,6 @@
 const std = @import("std");
 const output = @import("../lib/output.zig");
 const Environment = @import("../core/environment.zig");
-const Symlink = @import("../core/symlink.zig");
 
 pub const meta = .{
     .name = "unlink",
@@ -21,22 +20,21 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
 
     output.info("unlinking config files...", .{});
 
-    for (symlinks) |s| {
-        const st = s.status();
-        switch (st) {
+    for (symlinks) |symlink| {
+        switch (symlink.status()) {
             .linked, .wrong_target, .broken => {
-                s.unlink() catch {
-                    output.err("failed to unlink {s}", .{s.name});
+                symlink.unlink() catch {
+                    output.err("failed to unlink {s}", .{symlink.name});
                     continue;
                 };
-                s.restore(allocator) catch {};
-                output.success("unlink {s}", .{s.name});
+                symlink.restore(allocator) catch {};
+                output.success("unlink {s}", .{symlink.name});
             },
             .not_a_symlink => {
-                output.warn("skip {s} (not a symlink, not managed by tin)", .{s.name});
+                output.warn("skip {s} (not a symlink, not managed by tin)", .{symlink.name});
             },
             .missing => {
-                output.info("skip {s} (not present)", .{s.name});
+                output.info("skip {s} (not present)", .{symlink.name});
             },
         }
     }

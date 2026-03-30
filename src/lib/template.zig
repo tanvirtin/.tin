@@ -1,11 +1,5 @@
 const std = @import("std");
 
-/// Expand `{{ key.path }}` placeholders in a string using a flat key-value map.
-///
-/// Example:
-///   const vars = &.{ .{ "identity.name", "Tanvir" }, .{ "identity.email", "t@t.com" } };
-///   const result = try render(allocator, "hello {{ identity.name }}", vars);
-///   // result = "hello Tanvir"
 pub fn render(
     allocator: std.mem.Allocator,
     template: []const u8,
@@ -16,7 +10,6 @@ pub fn render(
 
     while (pos < template.len) {
         if (pos + 1 < template.len and template[pos] == '{' and template[pos + 1] == '{') {
-            // Find closing }}
             const start = pos + 2;
             if (std.mem.indexOfPos(u8, template, start, "}}")) |end| {
                 const key = std.mem.trim(u8, template[start..end], " ");
@@ -24,7 +17,6 @@ pub fn render(
                 try result.appendSlice(allocator, value);
                 pos = end + 2;
             } else {
-                // No closing }} — emit literal
                 try result.append(allocator, template[pos]);
                 pos += 1;
             }
@@ -46,8 +38,6 @@ fn lookup(
     }
     return null;
 }
-
-// ── Tests ──
 
 test "simple substitution" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -89,4 +79,32 @@ test "unclosed braces treated as literal" {
     defer arena.deinit();
     const result = try render(arena.allocator(), "hello {{ name", &.{.{ "name", "world" }});
     try std.testing.expectEqualStrings("hello {{ name", result);
+}
+
+test "adjacent placeholders" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const result = try render(arena.allocator(), "{{ a }}{{ b }}", &.{ .{ "a", "x" }, .{ "b", "y" } });
+    try std.testing.expectEqualStrings("xy", result);
+}
+
+test "placeholder with extra spaces" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const result = try render(arena.allocator(), "{{   name   }}", &.{.{ "name", "val" }});
+    try std.testing.expectEqualStrings("val", result);
+}
+
+test "single open brace not a placeholder" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const result = try render(arena.allocator(), "a { b } c", &.{});
+    try std.testing.expectEqualStrings("a { b } c", result);
+}
+
+test "empty template returns empty" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const result = try render(arena.allocator(), "", &.{});
+    try std.testing.expectEqualStrings("", result);
 }

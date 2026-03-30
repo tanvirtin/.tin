@@ -12,18 +12,6 @@ pub const DecodeError = error{
     MissingField,
 };
 
-/// Decode a YAML Value tree into a Zig struct.
-///
-/// Supports:
-///   - Structs with scalar fields ([]const u8, bool, integers, floats, enums)
-///   - Optional fields (?T) — missing keys produce null
-///   - Slices of structs ([]const T) — decoded from YAML sequences
-///   - Slices of scalars ([]const []const u8) — decoded from YAML sequences
-///   - Nested structs — decoded from YAML mappings
-///
-/// Example:
-///   const Config = struct { name: []const u8, port: u16 };
-///   const cfg = try yaml.decode(Config, allocator, value);
 pub fn decode(comptime T: type, allocator: std.mem.Allocator, val: Value) DecodeError!T {
     return decodeValue(T, allocator, val);
 }
@@ -31,17 +19,14 @@ pub fn decode(comptime T: type, allocator: std.mem.Allocator, val: Value) Decode
 fn decodeValue(comptime T: type, allocator: std.mem.Allocator, val: Value) DecodeError!T {
     const info = @typeInfo(T);
 
-    // Optional: unwrap and decode inner type, null if missing
     if (info == .optional) {
         return decodeValue(info.optional.child, allocator, val) catch return null;
     }
 
-    // String
     if (T == []const u8) {
         return val.getString() orelse return DecodeError.TypeMismatch;
     }
 
-    // Bool
     if (T == bool) {
         const s = val.getString() orelse return DecodeError.TypeMismatch;
         if (std.mem.eql(u8, s, "true") or std.mem.eql(u8, s, "yes") or std.mem.eql(u8, s, "on")) return true;
@@ -49,29 +34,24 @@ fn decodeValue(comptime T: type, allocator: std.mem.Allocator, val: Value) Decod
         return DecodeError.TypeMismatch;
     }
 
-    // Integer
     if (info == .int) {
         const s = val.getString() orelse return DecodeError.TypeMismatch;
         return std.fmt.parseInt(T, s, 10) catch return DecodeError.TypeMismatch;
     }
 
-    // Float
     if (info == .float) {
         const s = val.getString() orelse return DecodeError.TypeMismatch;
         return std.fmt.parseFloat(T, s) catch return DecodeError.TypeMismatch;
     }
 
-    // Enum
     if (info == .@"enum") {
         const s = val.getString() orelse return DecodeError.TypeMismatch;
         return std.meta.stringToEnum(T, s) orelse return DecodeError.TypeMismatch;
     }
 
-    // Slice (sequence)
     if (info == .pointer and info.pointer.size == .slice and info.pointer.is_const) {
         const Child = info.pointer.child;
 
-        // []const u8 is handled above as string
         if (Child == u8) {
             return val.getString() orelse return DecodeError.TypeMismatch;
         }
@@ -85,7 +65,6 @@ fn decodeValue(comptime T: type, allocator: std.mem.Allocator, val: Value) Decod
         return items.items;
     }
 
-    // Struct (mapping)
     if (info == .@"struct") {
         const mapping = switch (val) {
             .mapping => |m| m,
@@ -120,8 +99,6 @@ fn findEntry(entries: []const Entry, key: []const u8) ?Value {
     }
     return null;
 }
-
-// ── Tests ──
 
 const testing = std.testing;
 
@@ -240,4 +217,49 @@ test "decode deeply nested structs" {
     const Outer = struct { middle: Middle };
     const r = try parseAndDecode(Outer, arena.allocator(), "middle:\n  inner:\n    value: deep");
     try testing.expectEqualStrings("deep", r.middle.inner.value);
+}
+
+test "decode bool yes/no/on/off" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const Config = struct { a: bool, b: bool, c: bool, d: bool };
+    const cfg = try parseAndDecode(Config, arena.allocator(), "a: yes\nb: no\nc: on\nd: off");
+    try testing.expect(cfg.a);
+    try testing.expect(!cfg.b);
+    try testing.expect(cfg.c);
+    try testing.expect(!cfg.d);
+}
+
+test "decode optional present" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const Config = struct { name: ?[]const u8 };
+    const cfg = try parseAndDecode(Config, arena.allocator(), "name: present");
+    try testing.expectEqualStrings("present", cfg.name.?);
+}
+
+test "decode struct with all optional fields missing" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const Config = struct { a: ?[]const u8, b: ?u16 };
+    const cfg = try parseAndDecode(Config, arena.allocator(), "other: value");
+    try testing.expect(cfg.a == null);
+    try testing.expect(cfg.b == null);
+}
+
+test "decode integer types" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const Config = struct { a: u8, b: i32 };
+    const cfg = try parseAndDecode(Config, arena.allocator(), "a: 255\nb: -42");
+    try testing.expectEqual(@as(u8, 255), cfg.a);
+    try testing.expectEqual(@as(i32, -42), cfg.b);
+}
+
+test "decode empty sequence" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const Config = struct { items: []const []const u8 };
+    const cfg = try parseAndDecode(Config, arena.allocator(), "items: []");
+    try testing.expectEqual(@as(usize, 0), cfg.items.len);
 }

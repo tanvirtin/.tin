@@ -1,0 +1,117 @@
+description: Code clarity rules — readability, structure, naming, scope
+
+content: |
+  **Early return over else:**
+  ```
+  // BAD
+  if valid {
+      doWork()
+  } else {
+      return error
+  }
+
+  // GOOD
+  if !valid { return error }
+  doWork()
+  ```
+
+  **Early break/continue in loops:**
+  ```
+  // BAD
+  for item in items {
+      if item.isValid() {
+          if item.isReady() {
+              process(item)
+          }
+      }
+  }
+
+  // GOOD
+  for item in items {
+      if !item.isValid() { continue }
+      if !item.isReady() { continue }
+      process(item)
+  }
+  ```
+
+  **No deep nesting — flatten with guards:**
+  - Max 2 levels of indentation in a function body
+  - If you hit 3+, extract a function or use early returns
+  - Every level of nesting is a cognitive tax on the reader
+
+  **Ternary only for simple expressions:**
+  ```
+  // FINE
+  const label = count == 1 ? "item" : "items"
+
+  // BAD — extract to if/else or a function
+  const x = a > 0 ? (b > 0 ? a + b : a - b) : (c > 0 ? c : 0)
+  ```
+
+  **Always use types in typed languages:**
+  - No `any`, no `var` where the type isn't obvious from context
+  - Function signatures always have explicit parameter and return types
+  - If the language has type inference for locals, it's fine for simple cases
+  - Never suppress or cast away type information
+
+  **Names over comments:**
+  - If you need a comment to explain what code does, rename the variable or
+    extract a function with a descriptive name
+  - Comments explain WHY, not WHAT — the code shows WHAT
+
+  **One thing per line:**
+  - No chained method calls spanning 5 operations
+  - Break long expressions into named intermediate values
+  - Each line should be understandable without reading the surrounding lines
+
+  **No magic numbers or strings:**
+  - Every literal that isn't self-evident (0, 1, true, "") gets a name
+  - If the value is used once and scoped to a single function, name it as a
+    local variable at the top of that function — not a global/module constant
+  - Only promote to module-level when the value is shared across functions
+  - The name should explain the domain meaning, not restate the value
+    (`max_retries = 3`, not `THREE = 3`)
+
+  **Name repeated logic — don't duplicate it:**
+  - If the same expression appears more than once, extract it into a variable
+  - If the same sequence of statements appears more than once, extract it
+    into a function
+  - The variable or function name should describe the result, not the
+    computation
+
+  **Keep functions short and focused:**
+  - A function should do one thing and fit on a screen (~30 lines)
+  - If you need a section comment to separate parts, extract a function
+  - If the name needs "and" to describe it, split it
+
+  **One level of abstraction per function:**
+  - Every statement in a function should be at the same level of detail
+  - Don't mix high-level orchestration (`validateInput(); saveRecord()`)
+    with low-level mechanics (`bytes = buffer[offset..offset+len]`)
+  - If one line is a different level, extract it up or down
+
+  **No boolean or flag parameters:**
+  ```
+  // BAD — caller reads process(data, true, false) and learns nothing
+  fn process(data: Data, verbose: bool, dryRun: bool) ...
+
+  // GOOD — separate functions or an options struct
+  fn process(data: Data, opts: ProcessOptions) ...
+  fn processVerbose(data: Data) ...
+  ```
+
+  **Name booleans positively:**
+  - `is_valid`, `has_permission`, `can_retry` — not `is_not_invalid`
+  - Never negate a negative: `if !isNotDisabled` is a reader's dead end
+  - If a condition reads awkwardly, rename the boolean or extract a function
+
+  **Declare variables close to usage:**
+  - Define a variable right before the first line that uses it
+  - Keep it in the tightest scope possible — block scope over function scope
+  - Never declare all variables at the top of a function "just in case"
+
+  **One concept, one name:**
+  - If it's a user, call it `user` everywhere — not `account` in one
+    function and `person` in another
+  - If two things share a name, they should be the same concept — otherwise
+    rename one to make the distinction clear

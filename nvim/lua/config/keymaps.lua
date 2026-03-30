@@ -92,3 +92,8 @@ map('n', '<leader>gx', '<Cmd>VGit toggle_diff_preference<CR>')
 map('n', '<leader>gcc', '<Cmd>VGit buffer_conflict_accept_current<CR>')
 map('n', '<leader>gci', '<Cmd>VGit buffer_conflict_accept_incoming<CR>')
 map('n', '<leader>gcb', '<Cmd>VGit buffer_conflict_accept_both<CR>')
+
+map('v', '<leader>sy', '<Esc><Cmd>lua require("core.selection").yank()<CR>')
+map('v', '<leader>sa', '<Esc><Cmd>lua require("core.selection").add()<CR>')
+map('n', '<leader>sf', '<Cmd>lua require("core.selection").flush()<CR>')
+map('n', '<leader>sc', '<Cmd>lua require("core.selection").clear()<CR>')

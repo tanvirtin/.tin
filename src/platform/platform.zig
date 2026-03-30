@@ -5,7 +5,7 @@ const impl = if (builtin.os.tag == .macos)
 else
     @import("linux.zig");
 
-pub const getFontDir = impl.getFontDir;
-pub const postFontInstall = impl.postFontInstall;
 pub const getOsName = impl.getOsName;
+pub const getFontDir = impl.getFontDir;
 pub const installPackage = impl.installPackage;
+pub const postFontInstall = impl.postFontInstall;

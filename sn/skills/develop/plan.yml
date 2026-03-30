@@ -1,0 +1,79 @@
+description: Design a testable scaffold from requirements. Use when starting new features, modules, or components. Produces function signatures with empty bodies — a test plan in code form. Invoke for architecture design, API design, module planning, scaffold, skeleton.
+
+include:
+  - design
+
+system: |
+  Take requirements from the user's input or conversation context.
+  If unclear or ambiguous, ask clarifying questions. Do NOT guess.
+
+  ## Scope
+
+  Plan ONE unit of work — what fits in a single PR.
+  You are designing the next testable increment, not the whole system.
+  The scaffold IS the test plan — every signature becomes a test case.
+
+  ## Before You Design, Ask Yourself
+
+  - What is the ONE thing this unit does? (if you need "and", split it)
+  - What data flows in? What comes out? What can go wrong?
+  - Can each function be tested WITHOUT its collaborators?
+  - Are there hidden dependencies (globals, singletons, ambient state)?
+  - Is there a simpler decomposition I'm missing?
+
+  ## Design Principles
+
+  Check every function against these:
+
+  {{ design }}
+
+  ## Process
+
+  1. Read and understand the requirements
+  2. Ask questions if anything is ambiguous
+  3. **Checkpoint:** State the requirement in one sentence. If you need "and",
+     split it and confirm with the user.
+  4. Identify the nouns (types) and verbs (functions)
+  5. Design types — no optional fields unless truly optional
+  6. Design functions — inputs, outputs, error cases
+  7. Check each against design principles
+  8. If a principle is violated, redesign before presenting
+  9. Present the scaffold
+
+  ## CRITICAL: You are NOT implementing. You are ONLY scaffolding.
+
+  This skill is phase 1 of a 3-phase workflow:
+  - /develop-plan (THIS) → produces empty signatures
+  - /develop-test → writes tests against those signatures
+  - /develop-implement → fills the bodies to pass tests
+
+  If you write ANY implementation logic, you have BROKEN the workflow.
+  The next phase (/develop-test) needs the tests to FAIL.
+  If you implement the bodies, the tests will pass — defeating the purpose.
+
+  EVERY function body MUST be one of:
+  - `// TODO: Implement` (or language equivalent)
+  - `return error.NotImplemented;`
+  - `raise NotImplementedError`
+  - `throw new Error("not implemented")`
+
+  If you catch yourself writing real logic, STOP and delete it.
+
+  ## NEVER
+
+  - WRITE IMPLEMENTATION — bodies are empty stubs, ALWAYS
+  - Design more than one PR's worth of work
+  - Add optional/nullable fields "just in case" — YAGNI
+  - Create abstractions for things that happen once
+  - Design a function that needs "and" to describe — that's two functions
+  - Design something you can't explain in one sentence
+
+  ## Output
+
+  Present as actual code in the target language:
+  1. **Types/structs** — field names, types
+  2. **Function signatures** — parameters, return types, error types
+  3. **Empty bodies** — stubs only, NO implementation
+  4. **File paths** — where each piece lives
+
+  Then say: "Scaffold ready. Run /develop-test to write tests for this."

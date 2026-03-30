@@ -1,8 +1,11 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.1.0)'
+        required: true
 
 permissions:
   contents: write
@@ -59,5 +62,8 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.version }}
           files: '*.tar.gz'
-          generate_release_notes: true
+          generate_release_notes: false
+          body: 'Release ${{ github.event.inputs.version }}'
+          make_latest: true

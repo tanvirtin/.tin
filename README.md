@@ -233,6 +233,143 @@ symlinks:
 
 3. Run `tin link`.
 
+## Sn — AI Orchestration Engine
+
+Sn (chemical symbol for tin) is the AI orchestration engine. Everything is a YAML skill. The filesystem is the registry — drop a file in the right directory and it's live.
+
+```
+sn/
+  skills/       ← workflows, procedures, composed skills
+  rules/        ← reusable rule sets included by skills
+```
+
+### Commands
+
+```
+tin sn list                              List all skills and rules
+tin sn --path=skills/develop/plan --format=md   Export as SKILL.md
+tin sn --path=skills/develop/plan --format=json Export as JSON
+tin sn validate                          Check all references are valid
+tin sn export claude                     Export all to .claude/skills/
+```
+
+### Adding a skill
+
+Create a YAML file in `sn/skills/`. The path becomes the ID.
+
+`sn/skills/develop/plan.yml` → skill ID: `develop/plan` → slash command: `/develop-plan`
+
+A workflow skill (the AI follows a procedure):
+
+```yaml
+description: Design a testable scaffold from requirements.
+
+include:
+  - design
+
+system: |
+  Take requirements and design function signatures with empty bodies.
+
+  ## Design Principles
+  {{ design }}
+
+  ## Output
+  Types, function signatures, empty bodies. No implementation.
+```
+
+A skill that composes other skills:
+
+```yaml
+description: Find and fix code slop.
+
+system: |
+  Spawn 3 parallel sub-agents:
+  - quality/review-clarity
+  - quality/review-bloat
+  - quality/review-design
+
+  Collect findings. Fix by severity.
+
+skills:
+  - quality/review-clarity
+  - quality/review-bloat
+  - quality/review-design
+```
+
+Key fields:
+
+| Field | Purpose |
+|-------|---------|
+| `description` | What the skill does and when to use it (required) |
+| `system` | Instructions the AI follows (the prompt) |
+| `skills` | Other skills this one composes |
+| `include` | Rules whose content replaces `{{ rule_id }}` in system |
+| `context` | Set to `fork` to run in a sub-agent context |
+
+### Adding a rule
+
+Create a YAML file in `sn/rules/`. Rules are reusable content blocks that get injected into skills via `{{ rule_id }}`.
+
+`sn/rules/clarity.yml` → rule ID: `clarity`
+
+```yaml
+description: Writing clarity rules
+
+content: |
+  - Use early returns over else blocks
+  - Avoid nesting deeper than 2 levels
+  - Use guard clauses at function entry
+  - Name booleans as questions: isValid, hasPermission
+```
+
+A skill includes it:
+
+```yaml
+include:
+  - clarity
+
+system: |
+  ## Writing Clarity
+  {{ clarity }}
+```
+
+The `{{ clarity }}` placeholder is replaced with the rule's `content` at export time.
+
+### Exporting to Claude Code
+
+```bash
+tin sn export claude
+```
+
+Converts all skills and rules to `.claude/skills/` as SKILL.md files (the [agentskills.io](https://agentskills.io) standard). Claude Code auto-discovers them as slash commands.
+
+`bootstrap.sh` runs this automatically after `tin install`.
+
+### Current skills
+
+| Skill | What it does |
+|-------|-------------|
+| `/develop-plan` | Design testable scaffold — empty function signatures |
+| `/develop-test` | Write tests for the scaffold — positive, negative, table-driven |
+| `/develop-implement` | Fill one function at a time — minimal code to pass tests |
+| `/quality-deslop` | Find and fix AI slop — spawns 3 parallel reviewers |
+| `/quality-humanize` | Remove AI writing patterns from text |
+| `/review-pr` | Understand a PR you have no context on — guided walkthrough |
+| `/explore-feature` | Trace a feature end-to-end in an unfamiliar codebase |
+| `/meta-judge` | Score a skill against 8 quality dimensions |
+
+### Validation
+
+```bash
+tin sn validate
+```
+
+Checks:
+- Every skill reference (`skills:` field) points to an existing skill
+- Every include (`include:` field) points to an existing rule
+- No duplicate IDs
+- Every skill has `description` and either `command` or `system`
+
 ## Building from source
 
 Requires [Zig 0.15.2](https://ziglang.org/download/).

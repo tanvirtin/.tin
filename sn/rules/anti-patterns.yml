@@ -1,0 +1,42 @@
+description: Common anti-patterns to detect in diffs — what they look like and how to fix them
+
+content: |
+  **God Object:**
+  A single file doing too much. Diff signal: one file with many unrelated changes,
+  imported everywhere, 500+ lines and growing.
+  Fix: extract responsibilities into focused modules.
+
+  **Shotgun Surgery:**
+  One logical change scattered across many files. Diff signal: 10+ files changed
+  for one feature, same edit repeated everywhere.
+  Fix: consolidate. If one change touches many files, the boundaries are wrong.
+
+  **Feature Envy:**
+  A function that uses another module's data more than its own. Diff signal: heavy
+  cross-module imports, reaching deep into another object's properties.
+  Fix: move the function closer to the data it uses.
+
+  **Premature Abstraction:**
+  Abstracting before there are multiple cases. Diff signal: interface with one
+  implementor, factory creating one type, generic solution for one problem.
+  Fix: wait for the third use case (Rule of Three).
+
+  **Copy-Paste Programming:**
+  Duplicated code with minor variations. Diff signal: similar blocks in multiple
+  places differing by a parameter or two.
+  Fix: extract shared logic, parameterize the differences.
+
+  **Magic Numbers/Strings:**
+  Unexplained literals. Diff signal: `if (retries > 3)`, string keys, hardcoded
+  timeouts without names.
+  Fix: named constants that explain the WHY, not the WHAT.
+
+  **Long Method:**
+  Functions doing too much. Diff signal: new functions over 40 lines, multiple
+  nesting levels, requires scrolling.
+  Fix: extract sub-steps into named functions. One thing per function.
+
+  **Excessive Comments:**
+  Comments explaining WHAT, not WHY. Diff signal: `// increment counter`,
+  large blocks before straightforward code, commented-out code left in.
+  Fix: better naming makes comments unnecessary. Comments for intent only.

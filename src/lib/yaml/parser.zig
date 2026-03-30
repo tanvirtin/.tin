@@ -42,7 +42,6 @@ pub const Parser = struct {
             try self.parseNode();
         }
 
-        // After root node, only document boundaries are valid
         while (self.peek()) |t| {
             if (t == .block_end) { self.advance(); } else break;
         }
@@ -58,7 +57,6 @@ pub const Parser = struct {
     }
 
     fn parseNode(self: *Parser) ParseError!void {
-        // Skip anchors and tags
         while (self.peek()) |t| {
             if (t == .anchor or t == .tag) { self.advance(); } else break;
         }
@@ -72,8 +70,6 @@ pub const Parser = struct {
             .flow_mapping_start => try self.parseFlowMap(),
             .key_token => {},
             .block_entry => {
-                // Block entry without preceding block_sequence_start
-                // Parse as inline sequence entries
                 var entry_iters: usize = 0;
                 while (self.peek()) |nt| {
                     entry_iters += 1;
@@ -140,7 +136,6 @@ pub const Parser = struct {
                     }
                 }
             } else if (t == .value_token) {
-                // Standalone value without key
                 self.advance();
                 if (self.peek()) |nt| {
                     if (nt != .key_token and nt != .block_end) {
@@ -164,7 +159,7 @@ pub const Parser = struct {
                     self.advance();
                     if (self.peek() == .flow_sequence_end) { self.advance(); return; }
                 } else {
-                    return error.InvalidYaml; // Missing comma
+                    return error.InvalidYaml;
                 }
             }
             first = false;
@@ -184,7 +179,7 @@ pub const Parser = struct {
                     self.advance();
                     if (self.peek() == .flow_mapping_end) { self.advance(); return; }
                 } else {
-                    return error.InvalidYaml; // Missing comma
+                    return error.InvalidYaml;
                 }
             }
             first = false;
@@ -194,7 +189,6 @@ pub const Parser = struct {
     }
 
     fn parseFlowEntry(self: *Parser) ParseError!void {
-        // Consume exactly one flow entry: [key :] value
         var depth: usize = 0;
         var had_key = false;
         var had_value_indicator = false;
@@ -224,10 +218,8 @@ pub const Parser = struct {
                 },
                 .value_token => {
                     if (depth == 0) {
-                        // Value indicator after content without key = stale key error
                         if (had_content and !had_key) return error.InvalidYaml;
                         if (had_value_indicator and had_content) {
-                            // Second value indicator after content = new entry without comma
                             return error.InvalidYaml;
                         }
                         had_value_indicator = true;

@@ -2,7 +2,6 @@ const std = @import("std");
 
 pub const ProcessError = error{
     CommandFailed,
-    CommandNotFound,
 };
 
 pub fn run(allocator: std.mem.Allocator, argv: []const []const u8) !void {
@@ -20,41 +19,19 @@ pub fn run(allocator: std.mem.Allocator, argv: []const []const u8) !void {
     }
 }
 
-pub fn runCapture(allocator: std.mem.Allocator, argv: []const []const u8) ![]const u8 {
-    var child = std.process.Child.init(argv, allocator);
-    child.stdin_behavior = .Inherit;
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
-
-    try child.spawn();
-
-    var stdout: std.ArrayList(u8) = .{};
-    var stderr: std.ArrayList(u8) = .{};
-    try child.collectOutput(allocator, &stdout, &stderr, 1024 * 1024);
-    const term = try child.wait();
-
-    switch (term) {
-        .Exited => |code| {
-            if (code != 0) return ProcessError.CommandFailed;
-        },
-        else => return ProcessError.CommandFailed,
-    }
-
-    return stdout.items;
-}
-
 pub fn runShell(allocator: std.mem.Allocator, cmd: []const u8) !void {
     try run(allocator, &.{ "sh", "-c", cmd });
 }
 
-test "run type compiles" {
-    _ = run;
+test "runShell succeeds for true" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    try runShell(arena.allocator(), "true");
 }
 
-test "runCapture type compiles" {
-    _ = runCapture;
+test "runShell fails for false" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    try std.testing.expectError(ProcessError.CommandFailed, runShell(arena.allocator(), "false"));
 }
 
-test "runShell type compiles" {
-    _ = runShell;
-}

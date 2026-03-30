@@ -1,12 +1,11 @@
 const std = @import("std");
+const fs = @import("../lib/fs.zig");
 const yaml = @import("../lib/yaml.zig");
-const process = @import("../lib/process.zig");
 const output = @import("../lib/output.zig");
+const process = @import("../lib/process.zig");
+const Environment = @import("environment.zig");
 const template = @import("../lib/template.zig");
 const platform = @import("../platform/platform.zig");
-const fs = @import("../lib/fs.zig");
-const Symlink = @import("symlink.zig");
-const Environment = @import("environment.zig");
 
 const Recipe = @This();
 
@@ -15,7 +14,6 @@ pub const RecipeError = error{
     MissingSteps,
     InvalidStep,
     ParseFailed,
-    CycleDetected,
 };
 
 pub const Action = union(enum) {
@@ -38,8 +36,6 @@ pub const Step = struct {
 name: []const u8,
 description: ?[]const u8,
 steps: []const Step,
-
-// ── Parsing ──
 
 pub fn parse(allocator: std.mem.Allocator, content: []const u8) !Recipe {
     const doc = yaml.parse(allocator, content) catch return RecipeError.ParseFailed;
@@ -83,9 +79,20 @@ fn parseAction(step_val: yaml.Value) RecipeError!Action {
         if (v.getString()) |s| return .{ .mkdir = s };
     }
     if (step_val.getMapping("download")) |dl| {
-        const url = if (dl.getString()) |s| s else if (dl.getMapping("url")) |v| v.getString() orelse return RecipeError.InvalidStep else return RecipeError.InvalidStep;
-        const to = (if (dl.getString() != null) step_val.getMapping("to") else dl.getMapping("to")) orelse return RecipeError.InvalidStep;
-        return .{ .download = .{ .url = url, .to = to.getString() orelse return RecipeError.InvalidStep } };
+        const url = if (dl.getString()) |s|
+            s
+        else if (dl.getMapping("url")) |v|
+            v.getString() orelse return RecipeError.InvalidStep
+        else
+            return RecipeError.InvalidStep;
+
+        const to_val = if (dl.getString() != null)
+            step_val.getMapping("to")
+        else
+            dl.getMapping("to");
+        const to = (to_val orelse return RecipeError.InvalidStep).getString() orelse return RecipeError.InvalidStep;
+
+        return .{ .download = .{ .url = url, .to = to } };
     }
     if (step_val.getMapping("clone")) |v| {
         if (v.getString()) |repo| {
@@ -96,12 +103,11 @@ fn parseAction(step_val: yaml.Value) RecipeError!Action {
     return RecipeError.InvalidStep;
 }
 
-// ── Execution ──
-
-const max_recipe_depth = 16;
-threadlocal var recipe_depth: usize = 0;
-
 pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) bool {
+    return self.executeWithDepth(allocator, 0);
+}
+
+fn executeWithDepth(self: *const Recipe, allocator: std.mem.Allocator, depth: usize) bool {
     const vars = blk: {
         const env = Environment.init(allocator) catch break :blk &[_]Environment.TemplateVar{};
         break :blk env.templateVars(allocator) catch break :blk &[_]Environment.TemplateVar{};
@@ -123,7 +129,7 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) bool {
             output.info("  {s}", .{name});
         }
 
-        if (!executeAction(allocator, step.action, vars)) {
+        if (!executeAction(allocator, step.action, vars, depth)) {
             output.err("  step failed: {s}", .{step.name orelse "unnamed"});
             failed += 1;
         }
@@ -135,7 +141,7 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) bool {
     return failed == 0;
 }
 
-fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar) bool {
+fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar, depth: usize) bool {
     switch (action) {
         .run => |cmd| {
             const rendered = template.render(allocator, cmd, vars) catch cmd;
@@ -145,7 +151,7 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
             platform.installPackage(allocator, pkg) catch return false;
         },
         .recipe => |recipe_name| {
-            return executeSubRecipe(allocator, recipe_name);
+            return executeSubRecipe(allocator, recipe_name, depth);
         },
         .link => executeLink(allocator),
         .fonts => executeFonts(allocator),
@@ -156,30 +162,30 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
             fs.ensureDirectoryExists(resolved) catch return false;
         },
         .download => |dl| {
-            const rendered_to = resolveHome(allocator, template.render(allocator, dl.to, vars) catch dl.to) catch dl.to;
+            const to_expanded = template.render(allocator, dl.to, vars) catch dl.to;
+            const to_resolved = resolveHome(allocator, to_expanded) catch to_expanded;
             const rendered_url = template.render(allocator, dl.url, vars) catch dl.url;
-            const cmd = std.fmt.allocPrint(allocator, "curl -fsSL -o {s} {s}", .{ rendered_to, rendered_url }) catch return false;
+            const cmd = std.fmt.allocPrint(allocator, "curl -fsSL -o {s} {s}", .{ to_resolved, rendered_url }) catch return false;
             process.runShell(allocator, cmd) catch return false;
         },
         .clone => |cl| {
-            const rendered_to = resolveHome(allocator, template.render(allocator, cl.to, vars) catch cl.to) catch cl.to;
+            const to_expanded = template.render(allocator, cl.to, vars) catch cl.to;
+            const to_resolved = resolveHome(allocator, to_expanded) catch to_expanded;
             const rendered_repo = template.render(allocator, cl.repo, vars) catch cl.repo;
-            if (fs.pathExists(rendered_to)) {
-                output.info("  skip clone (already exists): {s}", .{rendered_to});
+            if (fs.pathExists(to_resolved)) {
+                output.info("  skip clone (already exists): {s}", .{to_resolved});
                 return true;
             }
-            const cmd = std.fmt.allocPrint(allocator, "git clone {s} {s}", .{ rendered_repo, rendered_to }) catch return false;
+            const cmd = std.fmt.allocPrint(allocator, "git clone {s} {s}", .{ rendered_repo, to_resolved }) catch return false;
             process.runShell(allocator, cmd) catch return false;
         },
     }
     return true;
 }
 
-fn executeSubRecipe(allocator: std.mem.Allocator, recipe_name: []const u8) bool {
-    // Cycle detection via depth limit
-    recipe_depth += 1;
-    defer recipe_depth -= 1;
-    if (recipe_depth > max_recipe_depth) {
+fn executeSubRecipe(allocator: std.mem.Allocator, recipe_name: []const u8, depth: usize) bool {
+    const max_recipe_depth = 16;
+    if (depth >= max_recipe_depth) {
         output.err("  recipe cycle detected (depth > {d}): {s}", .{ max_recipe_depth, recipe_name });
         return false;
     }
@@ -199,7 +205,7 @@ fn executeSubRecipe(allocator: std.mem.Allocator, recipe_name: []const u8) bool 
         return false;
     };
 
-    const content = readFile(allocator, path) catch {
+    const content = fs.readFileAlloc(allocator, path) catch {
         output.err("  recipe not found: {s}", .{recipe_name});
         return false;
     };
@@ -210,14 +216,12 @@ fn executeSubRecipe(allocator: std.mem.Allocator, recipe_name: []const u8) bool 
     };
 
     output.info("  running recipe: {s}", .{sub_recipe.name});
-    const ok = sub_recipe.execute(allocator);
+    const ok = sub_recipe.executeWithDepth(allocator, depth + 1);
     if (ok) {
         output.success("  recipe complete: {s}", .{sub_recipe.name});
     }
     return ok;
 }
-
-// ── Helpers ──
 
 fn executeLink(allocator: std.mem.Allocator) void {
     const env = Environment.init(allocator) catch {
@@ -230,23 +234,34 @@ fn executeLink(allocator: std.mem.Allocator) void {
         return;
     };
 
-    for (symlinks) |s| {
-        const st = s.status();
-        switch (st) {
-            .linked => output.success("  skip {s} (already linked)", .{s.name}),
+    for (symlinks) |symlink| {
+        switch (symlink.status()) {
+            .linked => output.success("  skip {s} (already linked)", .{symlink.name}),
             .missing => {
-                s.link() catch { output.err("  failed to link {s}", .{s.name}); continue; };
-                output.success("  link {s}", .{s.name});
+                symlink.link() catch {
+                    output.err("  failed to link {s}", .{symlink.name});
+                    continue;
+                };
+                output.success("  link {s}", .{symlink.name});
             },
             .wrong_target, .not_a_symlink => {
-                s.backup(allocator) catch { output.err("  failed to backup {s}", .{s.name}); continue; };
-                s.link() catch { output.err("  failed to link {s}", .{s.name}); continue; };
-                output.success("  link {s} (backed up existing)", .{s.name});
+                symlink.backup(allocator) catch {
+                    output.err("  failed to backup {s}", .{symlink.name});
+                    continue;
+                };
+                symlink.link() catch {
+                    output.err("  failed to link {s}", .{symlink.name});
+                    continue;
+                };
+                output.success("  link {s} (backed up existing)", .{symlink.name});
             },
             .broken => {
-                s.unlink() catch {};
-                s.link() catch { output.err("  failed to link {s}", .{s.name}); continue; };
-                output.success("  link {s} (replaced broken)", .{s.name});
+                symlink.unlink() catch {};
+                symlink.link() catch {
+                    output.err("  failed to link {s}", .{symlink.name});
+                    continue;
+                };
+                output.success("  link {s} (replaced broken)", .{symlink.name});
             },
         }
     }
@@ -287,7 +302,10 @@ fn executeFonts(allocator: std.mem.Allocator) void {
         if (!std.mem.endsWith(u8, entry.name, ".ttf")) continue;
 
         const dest_path = std.fs.path.join(allocator, &.{ dest_dir_path, entry.name }) catch continue;
-        if (fs.pathExists(dest_path)) { skipped += 1; continue; }
+        if (fs.pathExists(dest_path)) {
+            skipped += 1;
+            continue;
+        }
 
         const source_path = std.fs.path.join(allocator, &.{ source_dir_path, entry.name }) catch continue;
         std.fs.copyFileAbsolute(source_path, dest_path, .{}) catch {
@@ -307,11 +325,6 @@ fn executeFonts(allocator: std.mem.Allocator) void {
     }
 }
 
-fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
-    const file = try std.fs.openFileAbsolute(path, .{});
-    defer file.close();
-    return try file.readToEndAlloc(allocator, 256 * 1024);
-}
 
 fn resolveHome(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
     if (std.mem.startsWith(u8, path, "~/")) {
@@ -362,8 +375,6 @@ fn unquote(s: []const u8) []const u8 {
     }
     return s;
 }
-
-// ── Tests ──
 
 test "parse minimal recipe" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -449,4 +460,92 @@ test "evaluateCondition command_exists" {
     defer arena.deinit();
     try std.testing.expect(evaluateCondition(arena.allocator(), "command_exists sh"));
     try std.testing.expect(!evaluateCondition(arena.allocator(), "command_exists nonexistent_cmd_xyz"));
+}
+
+test "parse recipe with description" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const r = try Recipe.parse(arena.allocator(), "name: git\ndescription: Configure git\nsteps:\n  - run: echo hi");
+    try std.testing.expectEqualStrings("git", r.name);
+    try std.testing.expectEqualStrings("Configure git", r.description.?);
+}
+
+test "parse recipe without description" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const r = try Recipe.parse(arena.allocator(), "name: test\nsteps:\n  - run: echo hi");
+    try std.testing.expect(r.description == null);
+}
+
+test "parse download step" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const input =
+        \\name: test
+        \\steps:
+        \\  - download: https://example.com/file
+        \\    to: /tmp/file
+    ;
+    const r = try Recipe.parse(arena.allocator(), input);
+    try std.testing.expectEqual(@as(usize, 1), r.steps.len);
+    try std.testing.expectEqualStrings("https://example.com/file", r.steps[0].action.download.url);
+    try std.testing.expectEqualStrings("/tmp/file", r.steps[0].action.download.to);
+}
+
+test "parse step with condition" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const input =
+        \\name: test
+        \\steps:
+        \\  - run: brew install tmux
+        \\    if: os == 'darwin'
+    ;
+    const r = try Recipe.parse(arena.allocator(), input);
+    try std.testing.expectEqualStrings("os == 'darwin'", r.steps[0].condition.?);
+}
+
+test "parse step with name" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const input =
+        \\name: test
+        \\steps:
+        \\  - name: greet
+        \\    run: echo hello
+    ;
+    const r = try Recipe.parse(arena.allocator(), input);
+    try std.testing.expectEqualStrings("greet", r.steps[0].name.?);
+}
+
+test "parse fails with invalid step type" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    try std.testing.expectError(RecipeError.InvalidStep, Recipe.parse(arena.allocator(), "name: test\nsteps:\n  - bogus: value"));
+}
+
+test "evaluateCondition os match for current platform" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const os_name = platform.getOsName();
+    const condition = std.fmt.allocPrint(arena.allocator(), "os == '{s}'", .{os_name}) catch return;
+    try std.testing.expect(evaluateCondition(arena.allocator(), condition));
+}
+
+test "evaluateCondition returns false for unknown condition" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    try std.testing.expect(!evaluateCondition(arena.allocator(), "unknown_condition foo"));
+}
+
+test "unquote strips single quotes" {
+    try std.testing.expectEqualStrings("hello", unquote("'hello'"));
+}
+
+test "unquote strips double quotes" {
+    try std.testing.expectEqualStrings("world", unquote("\"world\""));
+}
+
+test "unquote returns unquoted string as-is" {
+    try std.testing.expectEqualStrings("bare", unquote("bare"));
 }

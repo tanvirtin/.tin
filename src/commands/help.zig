@@ -1,6 +1,6 @@
 const std = @import("std");
-const output = @import("../lib/output.zig");
 const router = @import("../router.zig");
+const output = @import("../lib/output.zig");
 
 pub const meta = .{
     .name = "help",

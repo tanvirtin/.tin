@@ -1,6 +1,6 @@
 const std = @import("std");
-const output = @import("../lib/output.zig");
 const fs = @import("../lib/fs.zig");
+const output = @import("../lib/output.zig");
 const platform = @import("../platform/platform.zig");
 const Environment = @import("../core/environment.zig");
 
