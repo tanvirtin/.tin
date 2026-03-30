@@ -1,4 +1,7 @@
 .env
+.claude/
+zig-out/
+.zig-cache/
 *.gem
 *.rbc
 /.config
@@ -29,3 +32,8 @@ build-iPhoneSimulator/
 .DS_Store
 install.out
 configure.out
+/yaml-test-data/
+test_yaml_one
+bench_yaml
+debug_*
+/bin/

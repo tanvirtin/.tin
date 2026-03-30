@@ -1,0 +1,7 @@
+name: nvm
+description: Install Node Version Manager and Node.js
+
+steps:
+  - name: Install nvm
+    run: curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+    if: not exists ~/.nvm

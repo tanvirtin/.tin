@@ -1,0 +1,12 @@
+name: git
+description: Configure git user and editor
+
+steps:
+  - name: Set user name
+    run: git config --global user.name "{{ identity.name }}"
+
+  - name: Set user email
+    run: git config --global user.email {{ identity.email }}
+
+  - name: Set editor
+    run: git config --global core.editor nvim

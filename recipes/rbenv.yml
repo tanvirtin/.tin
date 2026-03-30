@@ -1,0 +1,6 @@
+name: rbenv
+description: Install Ruby environment manager
+
+steps:
+  - name: Install rbenv
+    install: rbenv

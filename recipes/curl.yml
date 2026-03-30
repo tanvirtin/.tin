@@ -1,0 +1,7 @@
+name: curl
+description: Ensure curl is installed
+
+steps:
+  - name: Install curl
+    install: curl
+    if: os == 'linux'

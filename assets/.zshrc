@@ -5,6 +5,7 @@ PROFILE_PATH="$HOME/.zshrc"
 
 export WORKSPACE_PATH
 export PROFILE_PATH
+export PATH="$HOME/.tin/bin:$PATH"
 
 function configure_starship {
   eval "$(starship init zsh)"

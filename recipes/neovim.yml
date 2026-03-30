@@ -1,0 +1,11 @@
+name: neovim
+description: Install Neovim editor
+
+steps:
+  - name: Install neovim (macOS)
+    install: neovim
+    if: os == 'darwin'
+
+  - name: Install neovim (Linux)
+    install: neovim
+    if: os == 'linux'
