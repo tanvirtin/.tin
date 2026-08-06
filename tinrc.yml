@@ -1,0 +1,70 @@
+identity:
+  name: Tanvir Islam
+  email: tanvir.tinz@gmail.com
+
+symlinks:
+  shell:
+    - source: assets/.zshrc
+      target: ~/.zshrc
+
+    - source: assets/.tmux.conf
+      target: ~/.tmux.conf
+
+  editor:
+    - source: nvim
+      target: ~/.config/nvim
+
+  terminal:
+    - source: assets/alacritty.toml
+      target: ~/.config/alacritty/alacritty.toml
+
+    - source: assets/ghostty/config
+      target: ~/.config/ghostty/config
+
+  ai:
+    - source: assets/pi/AGENTS.md
+      target: ~/.pi/agent/AGENTS.md
+
+    - source: assets/pi/APPEND_SYSTEM.md
+      target: ~/.pi/agent/APPEND_SYSTEM.md
+
+    - source: assets/pi/settings.json
+      target: ~/.pi/agent/settings.json
+
+    - source: assets/pi/models.json
+      target: ~/.pi/agent/models.json
+
+    - source: assets/pi/themes/monokai.json
+      target: ~/.pi/agent/themes/monokai.json
+
+fonts: assets/fonts
+
+recipes:
+  shell:
+    - zsh
+    - starship
+    - zsh-autosuggestions
+
+  editor:
+    - neovim
+
+  dev:
+    - git
+    - gh
+    - rust
+    - nvm
+    - deno
+    - pi
+
+  infra:
+    - ripgrep
+    - tmux
+    - curl
+
+install:
+  - link
+  - fonts
+  - recipes: shell
+  - recipes: editor
+  - recipes: dev
+  - recipes: infra

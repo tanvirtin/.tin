@@ -1,0 +1,8 @@
+name: vite-dev
+description: Vite dev server with hot reload
+runtime: process
+defaults:
+  tool: node@22
+command: npm run dev -- --host 0.0.0.0
+dir: {{ dir }}
+install: { via: mise, tool: "{{ tool }}" }

@@ -1,0 +1,6 @@
+name: tmux
+description: Install tmux
+
+steps:
+  - name: Install tmux
+    install: tmux

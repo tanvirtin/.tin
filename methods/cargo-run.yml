@@ -1,0 +1,7 @@
+name: cargo-run
+description: Run the default cargo binary target (rebuilds on source changes)
+runtime: process
+tool: rust
+command: cargo run
+dir: {{ dir }}
+install: { via: mise, tool: rust }

@@ -1,0 +1,10 @@
+name: node-dev
+description: Run a node dev script with a pinned tool version
+runtime: process
+defaults:
+  tool: node@22
+  script: dev
+tool: {{ tool }}
+command: npm run {{ script }}
+dir: {{ dir }}
+install: { via: mise, tool: "{{ tool }}" }

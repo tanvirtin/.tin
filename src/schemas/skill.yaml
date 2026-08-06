@@ -1,0 +1,48 @@
+type: object
+fields:
+  - name: description
+    type: string
+  - name: command
+    type: string
+    required: false
+  - name: system
+    type: string
+    required: false
+  - name: input
+    type: sequence
+    items:
+      type: object
+      fields:
+        - name: name
+          type: string
+        - name: type
+          type: string
+          required: false
+        - name: description
+          type: string
+          required: false
+        - name: required
+          type: boolean
+          required: false
+        - name: default
+          type: string
+          required: false
+    required: false
+  - name: skills
+    type: sequence
+    items:
+      type: string
+      ref_to: { path: "#/skills/**", kind: skill_id }
+    required: false
+  - name: include
+    type: sequence
+    items:
+      type: string
+      ref_to: { path: "#/rules/**", kind: rule_id }
+    required: false
+  - name: context
+    type: string
+    required: false
+additional: forbid
+refinements:
+  - require_at_least: 1 # description + (command or system)

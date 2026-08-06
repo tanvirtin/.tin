@@ -1,0 +1,7 @@
+name: deno
+description: Install Deno runtime
+
+steps:
+  - name: Install Deno
+    run: curl -fsSL https://deno.land/x/install/install.sh | sh
+    if: not exists ~/.deno
