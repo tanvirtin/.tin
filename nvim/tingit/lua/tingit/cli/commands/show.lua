@@ -1,0 +1,114 @@
+local lazy = require('core.lazy')
+
+local event = lazy('core.event')
+local console = lazy('core.console')
+local GitTree = lazy('tingit.git.GitTree')
+local GitCommit = lazy('tingit.git.GitCommit')
+local repository = lazy('tingit.git.repository')
+local scene_setting = lazy('tingit.settings.scene')
+local display_service = lazy('tingit.ui.display_service')
+local build_file_diff_entries = require('tingit.cli.commands.build_file_diff_entries')
+
+local show_command = {}
+
+function show_command.parse_args(args)
+  local opts = {
+    commit = nil,
+    flags = {},
+  }
+
+  for _, arg in ipairs(args) do
+    if arg:match('^%-') then
+      table.insert(opts.flags, arg)
+    else
+      -- First non-flag arg is the commit
+      if not opts.commit then opts.commit = arg end
+    end
+  end
+
+  -- Default to HEAD if no commit specified
+  if not opts.commit then opts.commit = 'HEAD' end
+
+  return opts
+end
+
+show_command.execute = event.async(function(args)
+  args = args or {}
+
+  local opts = show_command.parse_args(args)
+
+  -- TODO: Implement flag support (e.g., --stat, --name-only)
+  if #opts.flags > 0 then
+    console.info('Flag options not yet supported')
+    return
+  end
+
+  event.await()
+
+  local repo, repo_err = repository.current()
+  if repo_err then
+    console.error(repo_err)
+    return
+  end
+
+  local tree = GitTree(repo, opts.commit)
+
+  -- Get commit info
+  local commit, commit_err = tree:commit()
+  if commit_err then
+    console.error('Failed to get commit info: ' .. (commit_err[1] or tostring(commit_err)))
+    return
+  end
+
+  -- Get list of files changed in this commit
+  local files, files_err = tree:files()
+  if files_err then
+    console.error('Failed to get commit files: ' .. (files_err[1] or tostring(files_err)))
+    return
+  end
+
+  if not files or #files == 0 then
+    console.info('No files changed in commit ' .. opts.commit)
+    return
+  end
+
+  -- Get layout preference
+  local layout_type = scene_setting:get('diff_preference') or 'unified'
+
+  -- Get parent hash for diff comparison
+  local parent_hash = commit.parent_hash or ''
+  local from_ref = parent_hash ~= '' and parent_hash or GitCommit.EMPTY_TREE_HASH
+  local to_ref = commit.commit_hash or commit.hash
+
+  local entries = build_file_diff_entries(repo, files, from_ref, to_ref, layout_type)
+
+  if #entries == 0 then
+    console.info('No diffs available for commit ' .. opts.commit)
+    return
+  end
+
+  -- Format commit info for display
+  local commit_info = {
+    hash = commit.commit_hash or commit.hash,
+    author = commit.author,
+    author_mail = commit.author_mail,
+    author_time = commit.author_time,
+    message = commit.message,
+  }
+
+  local data = {
+    type = 'files',
+    entries = {
+      {
+        title = string.format('Commit: %s', (commit_info.hash or ''):sub(1, 7)),
+        entries = entries,
+      },
+    },
+    layout_type = layout_type,
+    commit_info = commit_info,
+  }
+
+  display_service.show_diff(data)
+end)
+
+return show_command

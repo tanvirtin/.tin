@@ -1,0 +1,15 @@
+name: postgres
+description: Postgres container with readiness healthcheck
+runtime: container
+defaults:
+  version: "16"
+  port: 5432
+  user: postgres
+image: postgres:{{ version }}
+ports: ["{{ port }}:5432"]
+volumes: ["pgdata:/var/lib/postgresql/data"]
+healthcheck:
+  command: pg_isready -U {{ user }}
+  interval: 5s
+  retries: 10
+install: { via: container }

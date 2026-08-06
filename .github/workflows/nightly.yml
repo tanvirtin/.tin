@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: .tin
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Set up environment
+        run: |
+          ln -sf $GITHUB_WORKSPACE/.tin $HOME/.tin
+          git config --global user.name "CI"
+          git config --global user.email "ci@test"
+
+      - name: Build
+        working-directory: .tin
+        run: zig build
+
+      - name: Unit tests
+        working-directory: .tin
+        run: zig build test
+
+      - name: Install neovim via tin
+        run: $HOME/.tin/zig-out/bin/tin recipe neovim
+
+      - name: Integration tests
+        working-directory: .tin
+        run: bash tests/test.sh
+
+      - name: YAML spec test suite (333/333)
+        working-directory: .tin
+        run: |
+          cp tests/test_yaml_one.zig .
+          zig build-exe test_yaml_one.zig -ODebug
+          bash tests/test_yaml_suite.sh ./test_yaml_one /tmp/yaml-test-data
+          rm test_yaml_one.zig

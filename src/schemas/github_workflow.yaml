@@ -1,0 +1,1065 @@
+type: object
+fields:
+  - name: name
+    type: string
+    required: false
+  - name: on
+    type: any_of
+    schemas:
+      - type: ref
+        path: event
+      - type: sequence
+        items:
+          type: ref
+          path: event
+      - type: object
+        fields:
+          - name: push
+            type: any_of
+            schemas:
+              - null
+              - type: object
+                fields:
+                  - name: branches
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: branches-ignore
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: tags
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: tags-ignore
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: paths
+                    type: ref
+                    path: path
+                    required: false
+                  - name: paths-ignore
+                    type: ref
+                    path: path
+                    required: false
+                additional: forbid
+            required: false
+          - name: pull_request
+            type: any_of
+            schemas:
+              - null
+              - type: object
+                fields:
+                  - name: types
+                    type: ref
+                    path: types
+                    required: false
+                  - name: branches
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: branches-ignore
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: tags
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: tags-ignore
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: paths
+                    type: ref
+                    path: path
+                    required: false
+                  - name: paths-ignore
+                    type: ref
+                    path: path
+                    required: false
+                additional: forbid
+            required: false
+          - name: pull_request_target
+            type: any_of
+            schemas:
+              - null
+              - type: object
+                fields:
+                  - name: types
+                    type: ref
+                    path: types
+                    required: false
+                  - name: branches
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: branches-ignore
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: tags
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: tags-ignore
+                    type: ref
+                    path: branch
+                    required: false
+                  - name: paths
+                    type: ref
+                    path: path
+                    required: false
+                  - name: paths-ignore
+                    type: ref
+                    path: path
+                    required: false
+                additional: forbid
+            required: false
+          - name: schedule
+            type: sequence
+            items:
+              type: object
+              fields:
+                - name: cron
+                  type: string
+                - name: timezone
+                  type: string
+                  required: false
+              additional: forbid
+            min_items: 1
+            required: false
+          - name: workflow_call
+            type: object
+            fields:
+              - name: inputs
+                type: mapping
+                keys: string
+                values:
+                  type: object
+                  fields:
+                    - name: description
+                      type: string
+                      required: false
+                    - name: required
+                      type: boolean
+                      required: false
+                    - name: type
+                      type: enum
+                      values: [boolean, number, string]
+                    - name: default
+                      type: any_of
+                      schemas:
+                        - boolean
+                        - number
+                        - string
+                      required: false
+                  additional: forbid
+                required: false
+              - name: outputs
+                type: mapping
+                keys: string
+                values:
+                  type: object
+                  fields:
+                    - name: description
+                      type: string
+                      required: false
+                    - name: value
+                      type: string
+                  additional: forbid
+                required: false
+              - name: secrets
+                type: mapping
+                keys: string
+                values:
+                  type: object
+                  fields:
+                    - name: description
+                      type: string
+                      required: false
+                    - name: required
+                      type: boolean
+                      required: false
+                  additional: forbid
+                required: false
+            required: false
+          - name: workflow_dispatch
+            type: object
+            fields:
+              - name: inputs
+                type: mapping
+                keys: string
+                values:
+                  type: ref
+                  path: workflowDispatchInput
+                required: false
+            additional: forbid
+            required: false
+          - name: branch_protection_rule
+            type: ref
+            path: eventConfig
+            required: false
+          - name: check_run
+            type: ref
+            path: eventConfig
+            required: false
+          - name: check_suite
+            type: ref
+            path: eventConfig
+            required: false
+          - name: create
+            type: null
+            required: false
+          - name: delete
+            type: null
+            required: false
+          - name: deployment
+            type: null
+            required: false
+          - name: deployment_status
+            type: null
+            required: false
+          - name: discussion
+            type: ref
+            path: eventConfig
+            required: false
+          - name: discussion_comment
+            type: ref
+            path: eventConfig
+            required: false
+          - name: fork
+            type: null
+            required: false
+          - name: gollum
+            type: null
+            required: false
+          - name: issue_comment
+            type: ref
+            path: eventConfig
+            required: false
+          - name: issues
+            type: ref
+            path: eventConfig
+            required: false
+          - name: label
+            type: ref
+            path: eventConfig
+            required: false
+          - name: merge_group
+            type: ref
+            path: eventConfig
+            required: false
+          - name: milestone
+            type: ref
+            path: eventConfig
+            required: false
+          - name: page_build
+            type: null
+            required: false
+          - name: project
+            type: ref
+            path: eventConfig
+            required: false
+          - name: project_card
+            type: ref
+            path: eventConfig
+            required: false
+          - name: project_column
+            type: ref
+            path: eventConfig
+            required: false
+          - name: public
+            type: null
+            required: false
+          - name: pull_request_review
+            type: ref
+            path: eventConfig
+            required: false
+          - name: pull_request_review_comment
+            type: ref
+            path: eventConfig
+            required: false
+          - name: registry_package
+            type: ref
+            path: eventConfig
+            required: false
+          - name: release
+            type: ref
+            path: eventConfig
+            required: false
+          - name: status
+            type: null
+            required: false
+          - name: watch
+            type: null
+            required: false
+          - name: workflow_run
+            type: ref
+            path: workflowRunConfig
+            required: false
+          - name: repository_dispatch
+            type: ref
+            path: repositoryDispatchConfig
+            required: false
+        additional: forbid
+    required: true
+  - name: env
+    type: ref
+    path: env
+    required: false
+  - name: defaults
+    type: ref
+    path: defaults
+    required: false
+  - name: concurrency
+    type: any_of
+    schemas:
+      - string
+      - type: ref
+        path: concurrency
+    required: false
+  - name: jobs
+    type: mapping
+    push_scope: job_id
+    keys:
+      type: string
+      decl_as: job_id
+    values:
+      type: any_of
+      schemas:
+        - type: ref
+          path: normalJob
+        - type: ref
+          path: reusableWorkflowCallJob
+    required: true
+  - name: run-name
+    type: string
+    required: false
+  - name: permissions
+    type: ref
+    path: permissions
+    required: false
+additional: forbid
+definitions:
+  architecture:
+    type: enum
+    values: [ARM32, x64, x86]
+  branch:
+    type: ref
+    path: globs
+  concurrency:
+    type: object
+    fields:
+      - name: group
+        type: string
+      - name: cancel-in-progress
+        type: any_of
+        schemas:
+          - boolean
+          - type: ref
+            path: expressionSyntax
+        required: false
+    additional: forbid
+  configuration:
+    type: any_of
+    schemas:
+      - string
+      - number
+      - boolean
+      - type: object
+        additional:
+          type: ref
+          path: configuration
+      - type: sequence
+        items:
+          type: ref
+          path: configuration
+  jobContainer:
+    type: object
+    fields:
+      - name: image
+        type: string
+      - name: credentials
+        type: object
+        fields:
+          - name: username
+            type: string
+            required: false
+          - name: password
+            type: string
+            required: false
+        required: false
+      - name: env
+        type: ref
+        path: env
+        required: false
+      - name: ports
+        type: sequence
+        items:
+          type: any_of
+          schemas:
+            - number
+            - string
+        min_items: 1
+        required: false
+      - name: volumes
+        type: sequence
+        items: string
+        min_items: 1
+        required: false
+      - name: options
+        type: string
+        required: false
+    additional: forbid
+  serviceContainer:
+    type: object
+    fields:
+      - name: image
+        type: string
+      - name: credentials
+        type: object
+        fields:
+          - name: username
+            type: string
+            required: false
+          - name: password
+            type: string
+            required: false
+        required: false
+      - name: env
+        type: ref
+        path: env
+        required: false
+      - name: ports
+        type: sequence
+        items:
+          type: any_of
+          schemas:
+            - number
+            - string
+        min_items: 1
+        required: false
+      - name: volumes
+        type: sequence
+        items: string
+        min_items: 1
+        required: false
+      - name: options
+        type: string
+        required: false
+      - name: command
+        type: string
+        required: false
+      - name: entrypoint
+        type: string
+        required: false
+    additional: forbid
+  defaults:
+    type: object
+    fields:
+      - name: run
+        type: object
+        fields:
+          - name: shell
+            type: ref
+            path: shell
+            required: false
+          - name: working-directory
+            type: ref
+            path: working-directory
+            required: false
+        additional: forbid
+        required: false
+    additional: forbid
+  permissions:
+    type: any_of
+    schemas:
+      - type: enum
+        values: [read-all, write-all]
+      - type: ref
+        path: permissions-event
+  permissions-event:
+    type: object
+    fields:
+      - name: actions
+        type: ref
+        path: permissions-level
+        required: false
+      - name: checks
+        type: ref
+        path: permissions-level
+        required: false
+      - name: contents
+        type: ref
+        path: permissions-level
+        required: false
+      - name: deployments
+        type: ref
+        path: permissions-level
+        required: false
+      - name: discussions
+        type: ref
+        path: permissions-level
+        required: false
+      - name: id-token
+        type: ref
+        path: permissions-level
+        required: false
+      - name: issues
+        type: ref
+        path: permissions-level
+        required: false
+      - name: packages
+        type: ref
+        path: permissions-level
+        required: false
+      - name: pages
+        type: ref
+        path: permissions-level
+        required: false
+      - name: pull-requests
+        type: ref
+        path: permissions-level
+        required: false
+      - name: repository-projects
+        type: ref
+        path: permissions-level
+        required: false
+      - name: security-events
+        type: ref
+        path: permissions-level
+        required: false
+      - name: statuses
+        type: ref
+        path: permissions-level
+        required: false
+    additional: forbid
+  permissions-level:
+    type: enum
+    values: [read, write, none]
+  env:
+    type: any_of
+    schemas:
+      - type: mapping
+        keys: string
+        values:
+          type: any_of
+          schemas:
+            - string
+            - number
+            - boolean
+      - type: ref
+        path: stringContainingExpressionSyntax
+  environment:
+    type: object
+    fields:
+      - name: name
+        type: string
+      - name: url
+        type: string
+        required: false
+      - name: deployment
+        type: any_of
+        schemas:
+          - boolean
+          - type: ref
+            path: expressionSyntax
+        required: false
+    additional: forbid
+  event:
+    type: enum
+    values:
+      - branch_protection_rule
+      - check_run
+      - check_suite
+      - create
+      - delete
+      - deployment
+      - deployment_status
+      - discussion
+      - discussion_comment
+      - fork
+      - gollum
+      - issue_comment
+      - issues
+      - label
+      - merge_group
+      - milestone
+      - page_build
+      - project
+      - project_card
+      - project_column
+      - public
+      - pull_request
+      - pull_request_review
+      - pull_request_review_comment
+      - pull_request_target
+      - push
+      - registry_package
+      - release
+      - status
+      - watch
+      - workflow_call
+      - workflow_dispatch
+      - workflow_run
+      - repository_dispatch
+  eventConfig:
+    type: any_of
+    schemas:
+      - null
+      - type: object
+        fields:
+          - name: types
+            type: any_of
+            schemas:
+              - type: sequence
+                items: string
+                min_items: 1
+              - string
+            required: false
+        additional: forbid
+  workflowRunConfig:
+    type: any_of
+    schemas:
+      - null
+      - type: object
+        fields:
+          - name: types
+            type: sequence
+            items:
+              type: enum
+              values: [completed, requested, in_progress]
+            min_items: 1
+            required: false
+          - name: branches
+            type: ref
+            path: branch
+            required: false
+          - name: branches-ignore
+            type: ref
+            path: branch
+            required: false
+          - name: tags
+            type: ref
+            path: branch
+            required: false
+          - name: tags-ignore
+            type: ref
+            path: branch
+            required: false
+          - name: paths
+            type: ref
+            path: path
+            required: false
+          - name: paths-ignore
+            type: ref
+            path: path
+            required: false
+          - name: workflows
+            type: sequence
+            items: string
+            min_items: 1
+            required: false
+        additional: forbid
+  repositoryDispatchConfig:
+    type: any_of
+    schemas:
+      - null
+      - type: object
+        fields:
+          - name: types
+            type: sequence
+            items: string
+            min_items: 1
+            required: false
+        additional: forbid
+  expressionSyntax:
+    type: string
+  stringContainingExpressionSyntax:
+    type: string
+  globs:
+    type: sequence
+    items: string
+    min_items: 1
+  machine:
+    type: enum
+    values: [linux, macos, windows]
+  name:
+    type: string
+  path:
+    type: ref
+    path: globs
+  shell:
+    type: any_of
+    schemas:
+      - string
+      - type: enum
+        values: [bash, pwsh, python, sh, cmd, powershell]
+  snapshot:
+    type: any_of
+    schemas:
+      - string
+      - type: object
+        fields:
+          - name: image-name
+            type: string
+          - name: version
+            type: string
+            required: false
+        additional: forbid
+  githubContext:
+    type: object
+    fields:
+      - name: workflow
+        type: string
+      - name: action
+        type: string
+      - name: actor
+        type: string
+      - name: repository
+        type: string
+      - name: event
+        type: any
+      - name: sha
+        type: string
+      - name: ref
+        type: string
+      - name: head_ref
+        type: string
+      - name: base_ref
+        type: string
+      - name: token
+        type: string
+    additional: allow
+  varsContext:
+    type: mapping
+    keys: string
+    values: string
+  envContext:
+    type: mapping
+    keys: string
+    values: string
+  step:
+    type: object
+    fields:
+      - name: id
+        type: string
+        required: false
+        decl_as: step_id
+      - name: if
+        contexts:
+          github: { type: ref, path: githubContext }
+          env: { type: ref, path: envContext }
+          vars: { type: ref, path: varsContext }
+        sublang:
+          grammar: expression
+        required: false
+      - name: name
+        type: string
+        required: false
+      - name: uses
+        type: string
+        required: false
+      - name: run
+        type: string
+        required: false
+      - name: working-directory
+        type: ref
+        path: working-directory
+        required: false
+      - name: shell
+        type: ref
+        path: shell
+        required: false
+      - name: with
+        type: ref
+        path: env
+        required: false
+      - name: env
+        type: ref
+        path: env
+        required: false
+      - name: continue-on-error
+        type: any_of
+        schemas:
+          - boolean
+          - contexts:
+                github: { type: ref, path: githubContext }
+                env: { type: ref, path: envContext }
+                vars: { type: ref, path: varsContext }
+            sublang:
+              grammar: expression
+
+        required: false
+      - name: timeout-minutes
+        type: any_of
+        schemas:
+          - number
+          - contexts:
+                github: { type: ref, path: githubContext }
+                env: { type: ref, path: envContext }
+                vars: { type: ref, path: varsContext }
+            sublang:
+              grammar: expression
+
+        required: false
+    additional: forbid
+    refinements:
+      - require_one_of: [uses, run]
+  types:
+    type: any_of
+    schemas:
+      - type: sequence
+        items: any
+        min_items: 1
+      - string
+  working-directory:
+    type: string
+  jobNeeds:
+    type: any_of
+    schemas:
+      - type: sequence
+        items:
+          type: string
+          ref_to: { path: '#/jobs/*', kind: job_id }
+        min_items: 1
+      - type: string
+        ref_to: { path: '#/jobs/*', kind: job_id }
+  matrix:
+    type: any_of
+    schemas:
+      - type: mapping
+        keys: string
+        values:
+          type: any_of
+          schemas:
+            - type: sequence
+              items:
+                type: ref
+                path: configuration
+              min_items: 1
+            - type: ref
+              path: expressionSyntax
+      - type: ref
+        path: expressionSyntax
+  reusableWorkflowCallJob:
+    type: object
+    fields:
+      - name: name
+        type: string
+        required: false
+      - name: needs
+        type: ref
+        path: jobNeeds
+        required: false
+      - name: permissions
+        type: ref
+        path: permissions
+        required: false
+      - name: if
+        type: any_of
+        schemas:
+          - boolean
+          - number
+          - string
+        required: false
+      - name: uses
+        type: string
+      - name: with
+        type: ref
+        path: env
+        required: false
+      - name: secrets
+        type: any_of
+        schemas:
+          - type: ref
+            path: env
+          - type: constant
+            value: inherit
+        required: false
+      - name: strategy
+        type: object
+        fields:
+          - name: matrix
+            type: ref
+            path: matrix
+          - name: fail-fast
+            type: any_of
+            schemas:
+              - boolean
+              - string
+            required: false
+          - name: max-parallel
+            type: any_of
+            schemas:
+              - number
+              - string
+            required: false
+        additional: forbid
+        required: false
+      - name: concurrency
+        type: any_of
+        schemas:
+          - string
+          - type: ref
+            path: concurrency
+        required: false
+    additional: forbid
+  normalJob:
+    type: object
+    fields:
+      - name: name
+        type: string
+        required: false
+      - name: needs
+        type: ref
+        path: jobNeeds
+        required: false
+      - name: snapshot
+        type: ref
+        path: snapshot
+        required: false
+      - name: permissions
+        type: ref
+        path: permissions
+        required: false
+      - name: runs-on
+        type: any_of
+        schemas:
+          - string
+          - type: sequence
+            items: string
+            min_items: 1
+          - type: object
+            fields:
+              - name: group
+                type: string
+                required: false
+              - name: labels
+                type: any_of
+                schemas:
+                  - string
+                  - type: sequence
+                    items: string
+                required: false
+            additional: forbid
+          - type: ref
+            path: stringContainingExpressionSyntax
+          - type: ref
+            path: expressionSyntax
+      - name: environment
+        type: any_of
+        schemas:
+          - string
+          - type: ref
+            path: environment
+        required: false
+      - name: outputs
+        type: mapping
+        keys: string
+        values: string
+        required: false
+      - name: env
+        type: ref
+        path: env
+        required: false
+      - name: defaults
+        type: ref
+        path: defaults
+        required: false
+      - name: if
+        contexts:
+          github: { type: ref, path: githubContext }
+          needs: { type: mapping, values: any }
+          vars: { type: ref, path: varsContext }
+        sublang:
+          grammar: expression
+        required: false
+      - name: steps
+        type: sequence
+        items:
+          type: ref
+          path: step
+        min_items: 1
+        required: false
+      - name: timeout-minutes
+        type: any_of
+        schemas:
+          - number
+          - type: ref
+            path: expressionSyntax
+        required: false
+      - name: strategy
+        type: object
+        fields:
+          - name: matrix
+            type: ref
+            path: matrix
+          - name: fail-fast
+            type: any_of
+            schemas:
+              - boolean
+              - string
+            required: false
+          - name: max-parallel
+            type: any_of
+            schemas:
+              - number
+              - string
+            required: false
+        additional: forbid
+        required: false
+      - name: continue-on-error
+        type: any_of
+        schemas:
+          - boolean
+          - type: ref
+            path: expressionSyntax
+        required: false
+      - name: container
+        type: any_of
+        schemas:
+          - string
+          - type: ref
+            path: jobContainer
+        required: false
+      - name: services
+        type: mapping
+        keys: string
+        values:
+          type: ref
+          path: serviceContainer
+        required: false
+      - name: concurrency
+        type: any_of
+        schemas:
+          - string
+          - type: ref
+            path: concurrency
+        required: false
+    additional: forbid
+  workflowDispatchInput:
+    type: object
+    fields:
+      - name: description
+        type: string
+        required: false
+      - name: deprecationMessage
+        type: string
+        required: false
+      - name: required
+        type: boolean
+        required: false
+      - name: type
+        type: enum
+        values: [string, choice, boolean, number, environment]
+        required: false
+      - name: options
+        type: sequence
+        items: string
+        min_items: 1
+        required: false
+    additional: forbid

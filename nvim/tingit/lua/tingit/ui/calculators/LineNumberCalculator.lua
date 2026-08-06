@@ -1,0 +1,83 @@
+local settings = require('core.settings')
+
+local symbols_setting = settings.get('symbols')
+
+local LineNumberCalculator = {}
+
+local change_type_hl = {
+  add = 'GitSignsAdd',
+  remove = 'GitSignsDelete',
+}
+
+function LineNumberCalculator._calculate_line_numbers(lines, lnum_change_map, line_count_start)
+  local lines_result = {}
+  local lines_changes = {}
+  local num_lines = #lines
+  local line_count = line_count_start or 1
+
+  for i = 1, num_lines do
+    local lnum_change = lnum_change_map[i]
+    local line, hl
+
+    if lnum_change and lnum_change.type == 'void' then
+      line = string.rep(symbols_setting:get('void'), string.len(tostring(num_lines)))
+      hl = 'GitLineNr'
+    else
+      line = string.format('%s ', line_count)
+      hl = (lnum_change and change_type_hl[lnum_change.type]) or 'GitLineNr'
+      line_count = line_count + 1
+    end
+
+    lines_result[#lines_result + 1] = { line, hl }
+    lines_changes[#lines_changes + 1] = { line_number = line, lnum_change = lnum_change }
+  end
+
+  return lines_result, lines_changes
+end
+
+function LineNumberCalculator.calculate_unified_line_numbers(diff)
+  local lines = {}
+  local line_count = 1
+  local lines_changes = {}
+  local lnum_change_map = {}
+
+  for i = 1, #diff.lnum_changes do
+    local lnum_change = diff.lnum_changes[i]
+    lnum_change_map[lnum_change.lnum] = lnum_change
+  end
+
+  for i = 1, #diff.lines do
+    local lnum_change = lnum_change_map[i]
+    local line
+
+    if lnum_change and lnum_change.type == 'remove' then
+      line = '  '
+      lines[#lines + 1] = { line, 'GitSignsDelete' }
+    elseif lnum_change and lnum_change.type == 'add' then
+      line = string.format('%s ', line_count)
+      lines[#lines + 1] = { line, 'GitSignsAdd' }
+      line_count = line_count + 1
+    else
+      line = string.format('%s ', line_count)
+      lines[#lines + 1] = { line, 'GitLineNr' }
+      line_count = line_count + 1
+    end
+
+    lines_changes[#lines_changes + 1] = {
+      line_number = line,
+      lnum_change = lnum_change,
+    }
+  end
+
+  return lines, lines_changes
+end
+
+function LineNumberCalculator.calculate_split_current_line_numbers(diff, lnum_change_map)
+  return LineNumberCalculator._calculate_line_numbers(diff.current_lines, lnum_change_map, 1)
+end
+
+function LineNumberCalculator.calculate_split_previous_line_numbers(diff, lnum_change_map)
+  return LineNumberCalculator._calculate_line_numbers(diff.previous_lines, lnum_change_map, 1)
+end
+
+return LineNumberCalculator

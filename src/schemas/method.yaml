@@ -1,0 +1,79 @@
+type: object
+fields:
+  - name: name
+    type: string
+  - name: description
+    type: string
+    required: false
+  - name: runtime
+    type: enum
+    values: [process, container, compose, task]
+  - name: defaults
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: string
+    required: false
+  - name: command
+    type: string
+    required: false
+  - name: dir
+    type: string
+    required: false
+  - name: tool
+    type: string
+    required: false
+  - name: file
+    type: string
+    required: false
+  - name: image
+    type: string
+    required: false
+  - name: ports
+    type: sequence
+    items:
+      type: string
+    required: false
+  - name: volumes
+    type: sequence
+    items:
+      type: string
+    required: false
+  - name: args
+    type: sequence
+    items:
+      type: string
+    required: false
+  - name: install
+    type: object
+    fields:
+      - name: via
+        type: string
+        required: false
+      - name: tool
+        type: string
+        required: false
+    additional: allow
+    required: false
+  - name: healthcheck
+    type: object
+    fields:
+      - name: command
+        type: string
+        required: false
+      - name: interval
+        type: string
+        required: false
+      - name: timeout
+        type: string
+        required: false
+      - name: retries
+        type: integer
+        required: false
+      - name: start_period
+        type: string
+        required: false
+    additional: allow
+    required: false
+additional: forbid

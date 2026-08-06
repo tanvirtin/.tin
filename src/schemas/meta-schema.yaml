@@ -1,0 +1,142 @@
+type: object
+fields:
+  - name: type
+    type: string
+    required: false
+  - name: value
+    type: any
+    required: false
+  - name: values
+    type: any
+    required: false
+  - name: items
+    type: any
+    required: false
+  - name: keys
+    type: any
+    required: false
+  - name: values_schema
+    type: any
+    required: false
+  - name: fields
+    type: sequence
+    items:
+      type: object
+      fields:
+        - name: name
+          type: string
+        - name: type
+          type: any
+          required: false
+        - name: required
+          type: boolean
+          required: false
+        - name: optional
+          type: boolean
+          required: false
+      additional: allow
+    required: false
+  - name: additional
+    type: any
+    required: false
+  - name: schemas
+    type: sequence
+    items: any
+    required: false
+  - name: path
+    type: string
+    required: false
+  - name: kind
+    type: string
+    required: false
+  - name: field
+    type: string
+    required: false
+  - name: variants
+    type: mapping
+    keys: string
+    values: any
+    required: false
+  - name: on
+    type: string
+    required: false
+  - name: cases
+    type: sequence
+    items:
+      type: object
+      fields:
+        - name: value
+          type: string
+        - name: schema
+          type: any
+      additional: allow
+    required: false
+  - name: common
+    type: any
+    required: false
+  - name: grammar
+    type: string
+    required: false
+  - name: contexts
+    type: any
+    required: false
+  - name: min_items
+    type: integer
+    required: false
+  - name: max_items
+    type: integer
+    required: false
+  - name: min_properties
+    type: integer
+    required: false
+  - name: max_properties
+    type: integer
+    required: false
+  - name: pattern
+    type: string
+    required: false
+  - name: min_length
+    type: integer
+    required: false
+  - name: max_length
+    type: integer
+    required: false
+  - name: ref_to
+    type: object
+    fields:
+      - name: path
+        type: string
+      - name: kind
+        type: string
+      - name: catalog
+        type: string
+        required: false
+    required: false
+    additional: allow
+  - name: decl_as
+    type: string
+    required: false
+  - name: push_scope
+    type: string
+    required: false
+  - name: refinements
+    type: sequence
+    items:
+      type: object
+      additional: allow
+    required: false
+  - name: required
+    type: boolean
+    required: false
+  - name: optional
+    type: boolean
+    required: false
+  - name: sublang
+    type: any
+    required: false
+  - name: definitions
+    type: mapping
+    keys: string
+    values: any
+    required: false
+additional: allow

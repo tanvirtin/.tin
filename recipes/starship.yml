@@ -1,0 +1,11 @@
+name: starship
+description: Install Starship prompt
+
+steps:
+  - name: Install starship (macOS)
+    install: starship
+    if: os == 'darwin'
+
+  - name: Install starship (Linux)
+    run: sh -c "$(curl -fsSL https://starship.rs/install.sh)" -- --yes
+    if: os == 'linux'

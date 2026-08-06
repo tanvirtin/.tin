@@ -1,0 +1,34 @@
+local FoldCalculator = {}
+
+local function try_add_fold(folds, top, bot, line_count)
+  if top <= bot and bot <= line_count and (bot - top + 1) >= 10 then
+    folds[#folds + 1] = { top = top, bot = bot }
+  end
+end
+
+function FoldCalculator.calculate_folds(marks, line_count, num_focus_lines)
+  num_focus_lines = num_focus_lines or 7
+  local folds = {}
+
+  if #marks == 0 or line_count < num_focus_lines * 4 then return folds end
+
+  for i = 1, #marks do
+    local previous_mark = marks[i - 1]
+    local mark = marks[i]
+    local next_mark = marks[i + 1]
+
+    if not previous_mark then
+      try_add_fold(folds, num_focus_lines + 1, mark.top - num_focus_lines - 1, line_count)
+    else
+      try_add_fold(folds, previous_mark.bot + num_focus_lines + 1, mark.top - num_focus_lines - 1, line_count)
+    end
+
+    if not next_mark then
+      try_add_fold(folds, mark.bot + num_focus_lines + 1, line_count - num_focus_lines, line_count)
+    end
+  end
+
+  return folds
+end
+
+return FoldCalculator

@@ -1,0 +1,30 @@
+local lazy = require('core.lazy')
+
+local Config = lazy('core.Config')
+
+return Config({
+  hunk_alignment = 'top',
+  hunk_alignment_offset = 3,
+  keymaps = {
+    add = {
+      key = 'n',
+      desc = 'Stash current changes',
+    },
+    apply = {
+      key = 'a',
+      desc = 'Apply stash',
+    },
+    pop = {
+      key = 'p',
+      desc = 'Pop stash',
+    },
+    drop = {
+      key = 'd',
+      desc = 'Drop stash',
+    },
+    clear = {
+      key = 'D',
+      desc = 'Clear all stashes',
+    },
+  },
+})

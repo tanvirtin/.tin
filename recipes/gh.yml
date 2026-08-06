@@ -1,0 +1,6 @@
+name: gh
+description: Install GitHub CLI
+
+steps:
+  - name: Install gh
+    install: gh

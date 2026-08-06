@@ -1,0 +1,10 @@
+name: zsh-autosuggestions
+description: Install zsh-autosuggestions plugin
+
+steps:
+  - name: Create plugin directory
+    mkdir: ~/.zsh
+
+  - name: Clone zsh-autosuggestions
+    clone: https://github.com/zsh-users/zsh-autosuggestions
+    to: ~/.zsh/zsh-autosuggestions

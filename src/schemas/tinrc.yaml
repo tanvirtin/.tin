@@ -1,0 +1,54 @@
+type: object
+fields:
+  - name: identity
+    type: object
+    fields:
+      - name: name
+        type: string
+        required: false
+      - name: email
+        type: string
+        required: false
+    additional: allow
+    required: false
+  - name: symlinks
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: sequence
+      items:
+        type: object
+        fields:
+          - name: source
+            type: string
+          - name: target
+            type: string
+        additional: forbid
+    required: false
+  - name: fonts
+    type: string
+    required: false
+  - name: recipes
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: sequence
+      items:
+        type: string
+    required: false
+  - name: install
+    type: sequence
+    items:
+      type: any_of
+      schemas:
+        - type: enum
+          values: [link, fonts]
+        - type: object
+          fields:
+            - name: recipes
+              type: string
+          additional: forbid
+    required: false
+additional: forbid

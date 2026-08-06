@@ -1,0 +1,19 @@
+name: zsh
+description: Install zsh and set as default shell
+
+steps:
+  - name: Install zsh (macOS)
+    install: zsh
+    if: os == 'darwin'
+
+  - name: Install zsh (Linux)
+    install: zsh
+    if: os == 'linux'
+
+  - name: Set default shell
+    run: chsh -s "$(which zsh)"
+    if: not exists ~/.zsh_configured
+
+  - name: Mark zsh configured
+    run: touch ~/.zsh_configured
+    if: not exists ~/.zsh_configured

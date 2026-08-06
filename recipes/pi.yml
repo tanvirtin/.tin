@@ -1,0 +1,11 @@
+name: pi
+description: Install Pi coding agent and tmux subagent extension
+
+steps:
+  - name: Install Pi
+    run: curl -fsSL https://pi.dev/install.sh | sh
+    if: not exists ~/.pi/agent/settings.json
+
+  - name: Install tmux subagent extension
+    run: pi install npm:pi-tmux-subagents
+    if: not exists ~/.pi/agent/npm/pi-tmux-subagents

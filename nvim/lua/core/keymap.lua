@@ -1,0 +1,110 @@
+local keymap = {}
+
+function keymap.get_key(config)
+  if type(config) == 'string' then return config end
+  if type(config) == 'table' then return config.key end
+  return nil
+end
+
+local function resolve_opts(opts)
+  opts = opts or {}
+
+  local key = opts.key
+  local mode = opts.mode
+  local desc = opts.desc
+  local mapping = opts.mapping
+  local silent = opts.silent == nil and true or opts.silent
+  local noremap = opts.noremap == nil and true or opts.noremap
+
+  if mapping then
+    if type(mapping) == 'table' then
+      key = mapping.key
+      desc = mapping.desc
+    else
+      key = mapping
+    end
+  end
+
+  return key, mode, desc, silent, noremap
+end
+
+function keymap.set(opts, callback)
+  local key, mode, desc, silent, noremap = resolve_opts(opts)
+
+  if type(callback) == 'string' then
+    local command = callback
+
+    if not desc then desc = 'Tingit:' .. command end
+
+    vim.api.nvim_set_keymap(mode, key, string.format('<Cmd>lua require("tingit").%s()<CR>', command), {
+      desc = desc,
+      silent = silent,
+      noremap = noremap,
+    })
+
+    return keymap
+  end
+
+  vim.keymap.set(mode, key, callback, {
+    desc = desc,
+    silent = silent,
+    noremap = noremap,
+  })
+
+  return keymap
+end
+
+function keymap.buffer_set(buffer, opts, callback)
+  local key, mode, desc, silent, noremap = resolve_opts(opts)
+
+  vim.keymap.set(mode, key, callback, {
+    desc = desc,
+    silent = silent,
+    noremap = noremap,
+    nowait = true,
+    buffer = buffer.bufnr,
+  })
+
+  return keymap
+end
+
+function keymap.define(keymaps)
+  for commands, callback in pairs(keymaps) do
+    if type(callback) == 'table' then
+      local config = callback
+      keymap.set(config, config.handler)
+    else
+      commands = vim.split(commands, ' ')
+      local config = {
+        mode = commands[1],
+        key = commands[2],
+      }
+      keymap.set(config, callback)
+    end
+  end
+
+  return keymap
+end
+
+function keymap.find_by_rhs(command)
+  local keybindings = {}
+  local modes = { 'n', 'i', 'v', 'x', 's', 'o', 't', 'c' }
+
+  for _, mode in ipairs(modes) do
+    local keymaps = vim.api.nvim_get_keymap(mode)
+
+    for _, binding in ipairs(keymaps) do
+      if binding.rhs and string.find(binding.rhs, command) then
+        table.insert(keybindings, {
+          mode = mode,
+          lhs = binding.lhs,
+          rhs = binding.rhs,
+        })
+      end
+    end
+  end
+
+  return keybindings
+end
+
+return keymap

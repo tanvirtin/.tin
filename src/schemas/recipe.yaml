@@ -1,0 +1,50 @@
+type: object
+fields:
+  - name: name
+    type: string
+  - name: description
+    type: string
+    required: false
+  - name: steps
+    type: sequence
+    min_items: 1
+    items:
+      type: object
+      fields:
+        - name: name
+          type: string
+          required: false
+        - name: if
+          type: string
+          required: false
+        - name: run
+          type: string
+          required: false
+        - name: install
+          type: string
+          required: false
+        - name: recipe
+          type: string
+          required: false
+        - name: link
+          type: boolean
+          required: false
+        - name: fonts
+          type: boolean
+          required: false
+        - name: mkdir
+          type: string
+          required: false
+        - name: clone
+          type: string
+          required: false
+        - name: download
+          type: string
+          required: false
+        - name: to
+          type: string
+          required: false
+      additional: forbid
+      refinements:
+        - require_one_of: [run, install, recipe, link, fonts, mkdir, clone, download]
+additional: forbid

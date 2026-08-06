@@ -1,0 +1,209 @@
+local lazy = require('core.lazy')
+
+local Object = lazy('core.Object')
+local assertion = lazy('core.assertion')
+
+local Window = Object:extend()
+
+function Window.get_current()
+  return Window(vim.api.nvim_get_current_win())
+end
+
+function Window.set_buf(win_id, bufnr)
+  vim.api.nvim_win_set_buf(win_id, bufnr)
+end
+
+function Window.set_current(win_id)
+  vim.api.nvim_set_current_win(win_id)
+end
+
+function Window:constructor(win_id)
+  assertion.assert_number(win_id)
+  if win_id == 0 then win_id = vim.api.nvim_get_current_win() end
+  return { ['$win_id'] = win_id }
+end
+
+function Window.open_screen(buffer, config)
+  local win_id = vim.api.nvim_get_current_win()
+  local window = Window(win_id)
+
+  vim.api.nvim_win_set_buf(win_id, buffer.bufnr)
+
+  if config.win_options then
+    for key, value in pairs(config.win_options) do
+      pcall(vim.api.nvim_set_option_value, key, value, { win = win_id })
+    end
+  end
+
+  if config.width then window:set_width(config.width) end
+  if config.height then window:set_height(config.height) end
+
+  return window
+end
+
+function Window:open(buffer, opts)
+  if not buffer then error('buffer is required') end
+
+  opts = opts or {}
+  local mode = opts.mode or 'floating'
+  local focus = opts.focus
+
+  opts = vim.tbl_extend('force', opts, {})
+  opts.mode = nil
+  opts.focus = nil
+
+  if mode == 'screen' or mode == 'split' then return Window.open_screen(buffer, opts) end
+
+  local win_id = vim.api.nvim_open_win(buffer.bufnr, focus ~= nil and focus or false, opts)
+
+  return Window(win_id)
+end
+
+function Window:get_cursor()
+  local ok, cursor = pcall(vim.api.nvim_win_get_cursor, self.win_id)
+  if not ok or not cursor then return { 1, 0 } end
+
+  return cursor
+end
+
+function Window:get_lnum()
+  return self:get_cursor()[1]
+end
+
+function Window:get_position()
+  return vim.api.nvim_win_get_position(self.win_id)
+end
+
+function Window:get_height()
+  return vim.api.nvim_win_get_height(self.win_id)
+end
+
+function Window:get_width()
+  return vim.api.nvim_win_get_width(self.win_id)
+end
+
+function Window:set_cursor(cursor)
+  return self:call(function()
+    pcall(vim.api.nvim_win_set_cursor, self.win_id, cursor)
+  end)
+end
+
+function Window:set_lnum(lnum)
+  local cursor = self:get_cursor()
+  return self:set_cursor({ lnum, cursor[2] })
+end
+
+function Window:get_option(key)
+  local ok, value = pcall(vim.api.nvim_get_option_value, key, { win = self.win_id })
+  if ok then return value end
+  return nil
+end
+
+function Window:set_option(key, value)
+  pcall(vim.api.nvim_set_option_value, key, value, { win = self.win_id })
+  return self
+end
+
+function Window:set_buffer(buffer)
+  vim.api.nvim_win_set_buf(self.win_id, buffer.bufnr)
+  return self
+end
+
+function Window:set_height(height)
+  vim.api.nvim_win_set_height(self.win_id, height)
+  return self
+end
+
+function Window:set_width(width)
+  vim.api.nvim_win_set_width(self.win_id, width)
+  return self
+end
+
+function Window:set_config(config)
+  config = vim.tbl_extend('force', config, {})
+  config.focus = nil
+  vim.api.nvim_win_set_config(self.win_id, config)
+  return self
+end
+
+function Window:get_config()
+  return vim.api.nvim_win_get_config(self.win_id)
+end
+
+function Window:assign_options(options)
+  for key, value in pairs(options) do
+    pcall(vim.api.nvim_set_option_value, key, value, { win = self.win_id })
+  end
+  return self
+end
+
+function Window:get_options(option_names)
+  local options = {}
+  for _, name in ipairs(option_names) do
+    local ok, value = pcall(vim.api.nvim_get_option_value, name, { win = self.win_id })
+    if ok then options[name] = value end
+  end
+  return options
+end
+
+function Window:is_valid()
+  return vim.api.nvim_win_is_valid(self.win_id)
+end
+
+function Window:close()
+  if not self:is_valid() then return self end
+
+  -- Check if this is the last window
+  local win_count = #vim.api.nvim_list_wins()
+  if win_count <= 1 then
+    return self -- Don't close the last window
+  end
+
+  -- Try to close the window (works for both splits and floating)
+  pcall(vim.api.nvim_win_close, self.win_id, true)
+  return self
+end
+
+function Window:is_focused()
+  return self.win_id == vim.api.nvim_get_current_win()
+end
+
+function Window:focus()
+  vim.api.nvim_set_current_win(self.win_id)
+  return self
+end
+
+function Window:is_same(window)
+  return self.win_id == window.win_id
+end
+
+
+function Window:scroll_to(placement, offset)
+  placement = placement or 'center'
+  offset = offset or 0
+
+  local scroll_commands = { top = 'norm! zt', center = 'norm! zz', bottom = 'norm! zb' }
+
+  return self:call(function()
+    local cmd = scroll_commands[placement]
+    if cmd then vim.cmd(cmd) end
+    if offset > 0 then vim.cmd(string.format('norm! %d\25', offset)) end
+  end)
+end
+
+function Window:call(callback)
+  pcall(vim.api.nvim_win_call, self.win_id, callback)
+  return self
+end
+
+function Window:start_insert()
+  return self:call(function()
+    vim.cmd('startinsert!')
+  end)
+end
+
+function Window.stop_insert()
+  vim.cmd('stopinsert')
+end
+
+return Window

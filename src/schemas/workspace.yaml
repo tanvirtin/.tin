@@ -1,0 +1,107 @@
+type: object
+fields:
+  - name: name
+    type: string
+  - name: path
+    type: string
+    required: false
+  - name: projects
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: string
+    required: false
+  - name: env
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: string
+    required: false
+  - name: tools
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: string
+    required: false
+  - name: components
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: object
+      fields:
+        - name: method
+          type: string
+        - name: project
+          type: string
+          required: false
+        - name: params
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: any
+          required: false
+        - name: env
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: string
+          required: false
+        - name: scale
+          type: integer
+          required: false
+        - name: group
+          type: string
+          required: false
+        - name: auto
+          type: boolean
+          required: false
+        - name: healthcheck
+          type: object
+          fields:
+            - name: command
+              type: string
+              required: false
+            - name: interval
+              type: string
+              required: false
+            - name: timeout
+              type: string
+              required: false
+            - name: retries
+              type: integer
+              required: false
+            - name: start_period
+              type: string
+              required: false
+          additional: allow
+          required: false
+      additional: allow
+    required: false
+  - name: topology
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: object
+      fields:
+        - name: depends_on
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: object
+            fields:
+              - name: condition
+                type: string
+                required: false
+            additional: allow
+          required: false
+      additional: allow
+    required: false
+additional: forbid

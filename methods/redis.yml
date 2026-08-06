@@ -1,0 +1,13 @@
+name: redis
+description: Redis container with ping readiness
+runtime: container
+defaults:
+  version: "7"
+  port: 6379
+image: redis:{{ version }}
+ports: ["{{ port }}:6379"]
+healthcheck:
+  command: redis-cli ping
+  interval: 5s
+  retries: 10
+install: { via: container }

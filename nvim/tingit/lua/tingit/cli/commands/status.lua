@@ -1,0 +1,55 @@
+local lazy = require('core.lazy')
+
+local fs = lazy('core.fs')
+local event = lazy('core.event')
+local Buffer = lazy('core.Buffer')
+local Window = lazy('core.Window')
+local console = lazy('core.console')
+local repository = lazy('tingit.git.repository')
+local scene_setting = lazy('tingit.settings.scene')
+local display_service = lazy('tingit.ui.display_service')
+
+local status_command = {}
+
+status_command.execute = event.async(function()
+  local buffer = Buffer(0)
+  local buf_name = buffer:get_name()
+  local cursor_lnum = Window(0):get_lnum()
+
+  event.await()
+
+  local repo, repo_err = repository.current()
+  if repo_err then
+    console.error(repo_err)
+    return
+  end
+
+  local data, err = repo:status({})
+
+  if err then
+    console.error(err)
+    return
+  end
+
+  if not data or not data.entries or #data.entries == 0 then
+    console.info('No changes to display')
+    return
+  end
+
+  local layout_type = scene_setting:get('diff_preference') or 'unified'
+
+  local current_filename = nil
+  if buf_name and buf_name ~= '' then current_filename = fs.make_relative(repo:get_path(), buf_name) end
+
+  local transformed_data = {
+    type = 'status',
+    entries = data.entries,
+    layout_type = layout_type,
+    current_filename = current_filename,
+    cursor_lnum = cursor_lnum,
+  }
+
+  display_service.show_status(transformed_data)
+end)
+
+return status_command

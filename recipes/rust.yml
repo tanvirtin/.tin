@@ -1,0 +1,7 @@
+name: rust
+description: Install Rust via rustup
+
+steps:
+  - name: Install rustup
+    run: curl https://sh.rustup.rs -sSf | sh -s -- -y
+    if: not exists ~/.rustup
