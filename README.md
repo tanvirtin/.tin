@@ -483,14 +483,10 @@ Converts all skills and rules to `~/.tin/.pi/skills/` as SKILL.md files (the [ag
 | Skill | What it does |
 |-------|-------------|
 | `/explore-feature` | Trace a feature end-to-end in an unfamiliar codebase |
-| `/git-worktree` | Isolate risky experiments in temporary worktrees |
 | `/memory-remember` | Record durable project and environment facts |
 | `/meta-judge` | Score a skill against 8 quality dimensions |
 | `/quality-humanize` | Remove AI writing patterns from text |
 | `/review-pr` | Understand a PR you have no context on |
-| `/system-heal` | Diagnose and repair degraded tin state |
-| `/web-fetch` | Fetch and summarize URLs with curl |
-| `/workspace-manage` | Register, map, boot, and manage workspaces |
 
 ### Validation
 
