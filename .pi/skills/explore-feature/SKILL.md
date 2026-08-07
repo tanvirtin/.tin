@@ -1,5 +1,5 @@
 ---
-name: explore/feature
+name: explore-feature
 description: Understand how a feature works end-to-end in an unfamiliar codebase. Traces from data layer through business logic to API to UI. Spawns parallel sub-agents to map files, dependencies, and history. Walks you through file-by-file in dependency order. Use when onboarding, investigating bugs, or learning how something works. Invoke for explore feature, trace feature, understand feature, how does X work.
 ---
 

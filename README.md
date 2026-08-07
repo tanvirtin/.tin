@@ -206,14 +206,14 @@ tin recipe [name]                   List or run recipes
 tin artifact                        Browse, validate, and export skills
 tin methods list|show [name]        Browse the run-method catalog
 tin workspace add|up|down ...       Register and run project workspaces
-tin a                               Launch the agent shell and manage replicas
+tin agent                           Launch the agent shell and manage replicas
 tin web search|extract|fetch ...    Search, extract, or fetch web content
 tin env                             Manage provider keys and model defaults
 tin help                            Show usage
 ```
 
-The command names `a` and `web` are namespaces. Agent lifecycle belongs under
-`tin a`; web access belongs under `tin web`.
+The command names `agent` and `web` are namespaces. Agent lifecycle belongs under
+`tin agent`; web access belongs under `tin web`.
 
 ### Workspaces
 
@@ -263,18 +263,18 @@ tin methods show postgres
 
 ### Agent replicas
 
-`tin a chat` launches a persistent pi replica in its own tmux session. The
+`tin agent chat` launches a persistent pi replica in its own tmux session. The
 replica has its own conversation but records its parent session in the tin
 registry.
 
 ```bash
-id=$(tin a chat "Research the project architecture")
-tin a watch <id>                 # stream output until idle
-tin a send <id> "Check the database path too"
-tin a wait <id>                  # wait for the done signal and retire it
-tin a stop <id>                  # explicit cleanup
-tin a list
-tin a status <id>
+id=$(tin agent chat "Research the project architecture")
+tin agent watch <id>                 # stream output until idle
+tin agent send <id> "Check the database path too"
+tin agent wait <id>                  # wait for the done signal and retire it
+tin agent stop <id>                  # explicit cleanup
+tin agent list
+tin agent status <id>
 ```
 
 Open the hub with `Tab` to see sessions and replicas. The hub nests each

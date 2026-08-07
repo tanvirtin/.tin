@@ -300,8 +300,9 @@ fn writeExportFile(path: []const u8, content: []const u8) bool {
 fn renderSkillToMd(allocator: std.mem.Allocator, skill: Artifact.Skill) []const u8 {
     var buf: std.ArrayList(u8) = .{};
     const w = buf.writer(allocator);
+    const name = utils.slugify(allocator, skill.id);
 
-    w.print("---\nname: {s}\ndescription: {s}\n", .{ skill.id, skill.description }) catch return "";
+    w.print("---\nname: {s}\ndescription: {s}\n", .{ name, skill.description }) catch return "";
     if (skill.command != null) w.print("allowed-tools: Bash Read\n", .{}) catch {};
     if (skill.context) |ctx| w.print("context: {s}\n", .{ctx}) catch {};
     if (skill.skills.len > 0) {

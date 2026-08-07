@@ -11,7 +11,7 @@ pub fn signalDone(allocator: std.mem.Allocator, job_dir: []const u8) void {
 
 pub fn waitForSignal(allocator: std.mem.Allocator, args: []const []const u8) void {
     if (args.len == 0) {
-        output.err("usage: tin a wait <id>", .{});
+        output.err("usage: tin agent wait <id>", .{});
         return;
     }
     const id = args[0];

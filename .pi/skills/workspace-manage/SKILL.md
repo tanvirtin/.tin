@@ -1,5 +1,5 @@
 ---
-name: workspace/manage
+name: workspace-manage
 description: Manage workspaces in the tin session store. Register a project, help the developer map its services (microservices, docker containers, mise tasks, processes) onto catalog methods in the workspace DSL, boot and tear down tmux sessions, and index Pi conversation history. Use when pointing tin at a workspace, mapping services, or controlling workspace runtime sessions. Invoke for workspace, session store, service mapping, register project, mise tasks.
 ---
 

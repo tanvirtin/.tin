@@ -1,5 +1,5 @@
 ---
-name: review/pr
+name: review-pr
 description: Understand a PR you have no context on. Spawns 4 parallel sub-agents to classify files, map dependencies, gather prerequisites, and check test coverage. Then walks you through file-by-file in dependency order. Use when assigned a review on unfamiliar code. Takes a PR number as argument. Invoke for PR review, understand PR, review context.
 ---
 

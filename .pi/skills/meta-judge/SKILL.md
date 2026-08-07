@@ -1,5 +1,5 @@
 ---
-name: meta/judge
+name: meta-judge
 description: Evaluate skill quality against 8 dimensions (120 points). Use when creating, reviewing, or improving any Sn skill. Scores knowledge delta, anti-patterns, progressive disclosure, usability.
 ---
 

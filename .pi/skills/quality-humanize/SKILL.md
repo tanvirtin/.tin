@@ -1,5 +1,5 @@
 ---
-name: quality/humanize
+name: quality-humanize
 description: Remove AI writing patterns from text — commit messages, PR descriptions, documentation, comments. Detects inflated language, vague attributions, filler phrases, sycophantic tone, rule-of-three abuse, and soulless neutral reporting. Use when editing any text the AI wrote. Invoke for humanize, deAI, natural writing, fix writing.
 ---
 

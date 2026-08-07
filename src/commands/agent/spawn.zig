@@ -55,7 +55,7 @@ pub fn spawnJob(allocator: std.mem.Allocator, task: []const u8, mode: []const u8
 
 pub fn chatSubagent(allocator: std.mem.Allocator, args: []const []const u8) void {
     if (args.len == 0) {
-        output.err("usage: tin a chat <task>", .{});
+        output.err("usage: tin agent chat <task>", .{});
         return;
     }
     const sp = spawnJob(allocator, args[0], "interactive") catch {
@@ -82,9 +82,9 @@ pub fn chatSubagent(allocator: std.mem.Allocator, args: []const []const u8) void
     };
 
     output.success("subagent {s} launched (interactive, session {s})", .{ sp.id, sp.session });
-    output.plain("  watch: tin a watch {s}", .{sp.id});
-    output.plain("  send:  tin a send {s} <message>", .{sp.id});
-    output.plain("  stop:  tin a stop {s}", .{sp.id});
+    output.plain("  watch: tin agent watch {s}", .{sp.id});
+    output.plain("  send:  tin agent send {s} <message>", .{sp.id});
+    output.plain("  stop:  tin agent stop {s}", .{sp.id});
 }
 
 pub fn pasteInto(allocator: std.mem.Allocator, session: []const u8, file_path: []const u8) !void {

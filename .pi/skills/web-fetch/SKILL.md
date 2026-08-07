@@ -1,5 +1,5 @@
 ---
-name: web/fetch
+name: web-fetch
 description: Fetch a URL and extract or summarize its content using curl — the quick WebFetch without an extension. Use when you need to read a web page, documentation, a GitHub file, an API response, or check whether a URL is alive. Invoke for fetch, get this url, read this page, what does this link say, look up this doc.
 ---
 

@@ -23,7 +23,7 @@ pub fn listJobs(allocator: std.mem.Allocator) void {
 }
 
 pub fn statusJob(allocator: std.mem.Allocator, args: []const []const u8) void {
-    if (args.len == 0) { output.err("usage: tin a status <id>", .{}); return; }
+    if (args.len == 0) { output.err("usage: tin agent status <id>", .{}); return; }
     const id = args[0];
     const root = helpers.stateDir(allocator) catch return;
     defer allocator.free(root);
@@ -33,11 +33,11 @@ pub fn statusJob(allocator: std.mem.Allocator, args: []const []const u8) void {
     const done = !alive or helpers.paneDead(allocator, session);
     output.info("subagent {s}: {s}", .{ id, if (done) "done" else "running" });
     output.plain("  attach: tmux attach -t {s}", .{session});
-    if (done) output.plain("  results: tin a results {s}", .{id});
+    if (done) output.plain("  results: tin agent results {s}", .{id});
 }
 
 pub fn resultsJob(allocator: std.mem.Allocator, args: []const []const u8) void {
-    if (args.len == 0) { output.err("usage: tin a results <id>", .{}); return; }
+    if (args.len == 0) { output.err("usage: tin agent results <id>", .{}); return; }
     const id = args[0];
     const root = helpers.stateDir(allocator) catch return;
     defer allocator.free(root);
@@ -65,7 +65,7 @@ pub fn resultsJob(allocator: std.mem.Allocator, args: []const []const u8) void {
 }
 
 pub fn sendJob(allocator: std.mem.Allocator, args: []const []const u8) void {
-    if (args.len < 2) { output.err("usage: tin a send <id> <message>", .{}); return; }
+    if (args.len < 2) { output.err("usage: tin agent send <id> <message>", .{}); return; }
     const id = args[0];
     const msg = args[1];
     const root = helpers.stateDir(allocator) catch return;
@@ -91,7 +91,7 @@ pub fn sendJob(allocator: std.mem.Allocator, args: []const []const u8) void {
 }
 
 pub fn stopJob(allocator: std.mem.Allocator, args: []const []const u8) void {
-    if (args.len == 0) { output.err("usage: tin a stop <id>", .{}); return; }
+    if (args.len == 0) { output.err("usage: tin agent stop <id>", .{}); return; }
     const id = args[0];
     const root = helpers.stateDir(allocator) catch return;
     defer allocator.free(root);

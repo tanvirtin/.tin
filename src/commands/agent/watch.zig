@@ -8,7 +8,7 @@ const signal = @import("signal.zig");
 
 pub fn watchSubagent(allocator: std.mem.Allocator, args: []const []const u8) void {
     if (args.len == 0) {
-        output.err("usage: tin a watch <id>", .{});
+        output.err("usage: tin agent watch <id>", .{});
         return;
     }
     const id = args[0];
@@ -74,7 +74,7 @@ pub fn watchViaPane(allocator: std.mem.Allocator, session: []const u8, job_dir: 
     if (dead_now) {
         helpers.finishJob(allocator, session, job_dir);
     } else {
-        output.plain("({s} idle — send more with 'tin a send {s} <msg>' or end with 'tin a stop {s}')", .{ id, id, id });
+        output.plain("({s} idle — send more with 'tin agent send {s} <msg>' or end with 'tin agent stop {s}')", .{ id, id, id });
     }
 }
 

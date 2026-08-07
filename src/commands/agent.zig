@@ -10,8 +10,8 @@ const spawn_mod = @import("agent/spawn.zig");
 const manage = @import("agent/manage.zig");
 
 pub const meta = .{
-    .name = "a",
-    .description = "The agent — launch pi and manage subagents (tin a [chat|watch|wait|list|status|results|send|stop])",
+    .name = "agent",
+    .description = "Launch pi and manage subagents (tin agent [chat|watch|wait|list|status|results|send|stop])",
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
@@ -39,7 +39,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     } else if (std.mem.eql(u8, sub, "wait")) {
         signal.waitForSignal(allocator, rest);
     } else {
-        output.err("usage: tin a <chat|watch|wait|list|status|results|send|stop>", .{});
+        output.err("usage: tin agent <chat|watch|wait|list|status|results|send|stop>", .{});
     }
 }
 

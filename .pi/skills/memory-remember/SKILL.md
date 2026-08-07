@@ -1,5 +1,5 @@
 ---
-name: memory/remember
+name: memory-remember
 description: Distill durable facts from the current task into persistent memory files under ~/.config/tin/memory/. Use when a task teaches something lasting — ports, service names, project structure, conventions, file locations, environment quirks, decisions made and why. This is the remember step of the agent loop made concrete. Invoke for remember, note this, save this, memorize, what did we learn.
 ---
 

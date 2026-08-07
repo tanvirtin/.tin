@@ -1,5 +1,5 @@
 ---
-name: system/heal
+name: system-heal
 description: Heal a broken tin environment. Diagnose managed state, apply deterministic repairs through tin, verify with the test gates, commit the fix, and report. Use when symlinks are broken, the method catalog skips files, skill exports are stale, or tin is in any degraded state. Invoke for heal, self-repair, fix tin, recover, broken symlink, environment repair.
 ---
 
