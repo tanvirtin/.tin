@@ -4,41 +4,41 @@ local eq = assert.are.same
 
 describe('console:', function()
   describe('format', function()
-    it('should add [Tingit] prefix to string messages', function()
+    it('should add [Git] prefix to string messages', function()
       local result = console.format('Hello world')
-      eq(result, '[Tingit] Hello world')
+      eq(result, '[Git] Hello world')
     end)
 
     it('should format single-item table as single line with prefix', function()
       local result = console.format({ 'Single line' })
-      eq(result, '[Tingit] Single line')
+      eq(result, '[Git] Single line')
     end)
 
     it('should format multi-line table with prefix and indentation', function()
       local result = console.format({ 'First line', 'Second line', 'Third line' })
-      local expected = '[Tingit] First line\n       Second line\n       Third line'
+      local expected = '[Git] First line\n       Second line\n       Third line'
       eq(result, expected)
     end)
 
     it('should handle two-item table correctly', function()
       local result = console.format({ 'Line 1', 'Line 2' })
-      local expected = '[Tingit] Line 1\n       Line 2'
+      local expected = '[Git] Line 1\n       Line 2'
       eq(result, expected)
     end)
 
     it('should handle empty string', function()
       local result = console.format('')
-      eq(result, '[Tingit] ')
+      eq(result, '[Git] ')
     end)
 
     it('should handle nil input', function()
       local result = console.format(nil)
-      eq(result, '[Tingit] ')
+      eq(result, '[Git] ')
     end)
 
     it('should handle non-string non-table input', function()
       local result = console.format(42)
-      eq(result, '[Tingit] ')
+      eq(result, '[Git] ')
     end)
 
     it('should not include a timestamp', function()
@@ -48,7 +48,7 @@ describe('console:', function()
 
     it('should not include a log type bracket', function()
       local result = console.format('msg')
-      -- only one bracket pair: [Tingit]
+      -- only one bracket pair: [Git]
       local count = 0
       for _ in result:gmatch('%[') do
         count = count + 1

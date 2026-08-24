@@ -5,7 +5,7 @@ local Component = lazy('ui.Component')
 local BorderComponent = Component({
   win_options = function(props)
     return {
-      winhl = props.winhl or 'Normal:tingitBorder',
+      winhl = props.winhl or 'Normal:gitBorder',
       cursorline = false,
       cursorcolumn = false,
     }

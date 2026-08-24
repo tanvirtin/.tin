@@ -17,6 +17,20 @@ local function define_single_element_methods(Class, opts)
     return self
   end
 
+  function Class:append(lines)
+    self:with_element(function(el)
+      el:append(lines)
+    end)
+    return self
+  end
+
+  function Class:set_text(row, col, text, end_row, end_col)
+    self:with_element(function(el)
+      el:set_text(row, col, text, end_row, end_col)
+    end)
+    return self
+  end
+
   function Class:set_cursor(cursor)
     self:with_element(function(el)
       el:set_cursor(cursor)
@@ -135,6 +149,12 @@ local function define_single_element_methods(Class, opts)
       el:on(event_name, callback)
     end)
     return self
+  end
+
+  function Class:on_click(clicks, click_opts)
+    return self:with_element(function(el)
+      return el:on_click(clicks, click_opts)
+    end) or function() end
   end
 
   function Class:attach_to_changes(callback)
@@ -277,6 +297,12 @@ local function define_single_element_methods(Class, opts)
   function Class:place_extmark_highlight(extmark_opts)
     return self:with_element(function(el)
       return el:place_extmark_highlight(extmark_opts)
+    end)
+  end
+
+  function Class:place_extmark_virt_lines(extmark_opts)
+    return self:with_element(function(el)
+      return el:place_extmark_virt_lines(extmark_opts)
     end)
   end
 end

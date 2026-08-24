@@ -34,9 +34,9 @@ function keymap.set(opts, callback)
   if type(callback) == 'string' then
     local command = callback
 
-    if not desc then desc = 'Tingit:' .. command end
+    if not desc then desc = 'Git:' .. command end
 
-    vim.api.nvim_set_keymap(mode, key, string.format('<Cmd>lua require("tingit").%s()<CR>', command), {
+    vim.api.nvim_set_keymap(mode, key, string.format('<Cmd>lua require("git").%s()<CR>', command), {
       desc = desc,
       silent = silent,
       noremap = noremap,

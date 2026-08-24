@@ -6,7 +6,7 @@ local renderer = {
 
 local function ensure_ns_id()
   if renderer.ns_id then return renderer.ns_id end
-  renderer.ns_id = vim.api.nvim_create_namespace('tingit')
+  renderer.ns_id = vim.api.nvim_create_namespace('git')
   return renderer.ns_id
 end
 

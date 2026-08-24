@@ -5,6 +5,7 @@ vim.g.maplocalleader = ','
 
 opt.mouse = 'a'
 opt.backup = false
+opt.autoread = true
 opt.tabstop = 2
 opt.showmode = false
 opt.hlsearch = true

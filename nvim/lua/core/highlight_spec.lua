@@ -14,84 +14,84 @@ describe('highlight:', function()
 
   describe('define', function()
     it('should produce highlight link command for string color', function()
-      highlight.define('tingitTest', 'Normal')
+      highlight.define('gitTest', 'Normal')
 
-      assert.stub(vim.api.nvim_exec2).was.called_with('highlight default link tingitTest Normal', {})
+      assert.stub(vim.api.nvim_exec2).was.called_with('highlight default link gitTest Normal', {})
     end)
 
     it('should produce RGB highlight for table color', function()
-      highlight.define('tingitTest', {
+      highlight.define('gitTest', {
         fg = '#bb9af7',
         bg = '#3b4261',
       })
 
       assert
         .stub(vim.api.nvim_exec2).was
-        .called_with('highlight tingitTest gui = NONE guifg = #bb9af7 guibg = #3b4261 ', {})
+        .called_with('highlight gitTest gui = NONE guifg = #bb9af7 guibg = #3b4261 ', {})
     end)
 
     it('should use NONE for missing fg/bg/gui fields', function()
-      highlight.define('tingitTest', {})
+      highlight.define('gitTest', {})
 
-      assert.stub(vim.api.nvim_exec2).was.called_with('highlight tingitTest gui = NONE guifg = NONE guibg = NONE ', {})
+      assert.stub(vim.api.nvim_exec2).was.called_with('highlight gitTest gui = NONE guifg = NONE guibg = NONE ', {})
     end)
 
     it('should include gui value when provided', function()
-      highlight.define('tingitTest', {
+      highlight.define('gitTest', {
         fg = '#ffffff',
         gui = 'bold',
       })
 
-      assert.stub(vim.api.nvim_exec2).was.called_with('highlight tingitTest gui = bold guifg = #ffffff guibg = NONE ', {})
+      assert.stub(vim.api.nvim_exec2).was.called_with('highlight gitTest gui = bold guifg = #ffffff guibg = NONE ', {})
     end)
 
     it('should include guisp when sp is provided', function()
-      highlight.define('tingitTest', {
+      highlight.define('gitTest', {
         fg = '#ffffff',
         sp = '#ff0000',
       })
 
       assert
         .stub(vim.api.nvim_exec2).was
-        .called_with('highlight tingitTest gui = NONE guifg = #ffffff guibg = NONE guisp = #ff0000', {})
+        .called_with('highlight gitTest gui = NONE guifg = #ffffff guibg = NONE guisp = #ff0000', {})
     end)
 
     it('should use default keyword when override is false', function()
-      highlight.define('tingitTest', {
+      highlight.define('gitTest', {
         fg = '#ffffff',
         override = false,
       })
 
       assert
         .stub(vim.api.nvim_exec2).was
-        .called_with('highlight default tingitTest gui = NONE guifg = #ffffff guibg = NONE ', {})
+        .called_with('highlight default gitTest gui = NONE guifg = #ffffff guibg = NONE ', {})
     end)
 
     it('should not use default keyword when override is not false', function()
-      highlight.define('tingitTest', {
+      highlight.define('gitTest', {
         fg = '#ffffff',
       })
 
-      assert.stub(vim.api.nvim_exec2).was.called_with('highlight tingitTest gui = NONE guifg = #ffffff guibg = NONE ', {})
+      assert.stub(vim.api.nvim_exec2).was.called_with('highlight gitTest gui = NONE guifg = #ffffff guibg = NONE ', {})
     end)
 
     it('should call function and use result as table', function()
-      highlight.define('tingitTest', function()
+      highlight.define('gitTest', function()
         return { fg = '#aabbcc', bg = '#112233' }
       end)
 
       assert
         .stub(vim.api.nvim_exec2).was
-        .called_with('highlight tingitTest gui = NONE guifg = #aabbcc guibg = #112233 ', {})
+        .called_with('highlight gitTest gui = NONE guifg = #aabbcc guibg = #112233 ', {})
     end)
 
     it('should return highlight module for chaining', function()
-      local result = highlight.define('tingitTest', 'Normal')
+      local result = highlight.define('gitTest', 'Normal')
       eq(highlight, result)
     end)
 
     it('should return highlight module for table color chaining', function()
-      local result = highlight.define('tingitTest', { fg = '#fff' })
+      local result = highlight.define('gitTest', { fg = '#fff' })
       eq(highlight, result)
     end)
   end)
@@ -102,8 +102,8 @@ describe('highlight:', function()
 
     before_each(function()
       for_each_called = false
-      save_package('tingit.settings.hls')
-      package.loaded['tingit.settings.hls'] = {
+      save_package('git.settings.hls')
+      package.loaded['git.settings.hls'] = {
         for_each = function(_, callback)
           for_each_called = true
           callback('TestHl', { fg = '#fff' })

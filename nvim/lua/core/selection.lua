@@ -55,13 +55,9 @@ end
 ---@param root string
 ---@return string
 function M.relative_path(absolute_path, root)
-  if root:sub(-1) ~= '/' then
-    root = root .. '/'
-  end
+  if root:sub(-1) ~= '/' then root = root .. '/' end
 
-  if absolute_path:sub(1, #root) ~= root then
-    return absolute_path
-  end
+  if absolute_path:sub(1, #root) ~= root then return absolute_path end
 
   return absolute_path:sub(#root + 1)
 end
@@ -75,9 +71,7 @@ function M.format(selection)
   local has_cols = selection.start_col ~= nil
 
   if not has_cols then
-    if selection.start_line == selection.end_line then
-      return selection.file .. ':' .. selection.start_line
-    end
+    if selection.start_line == selection.end_line then return selection.file .. ':' .. selection.start_line end
     return selection.file .. ':' .. selection.start_line .. '-' .. selection.end_line
   end
 
@@ -85,9 +79,7 @@ function M.format(selection)
   local end_pos = selection.end_line .. ':' .. selection.end_col
   local is_single_pos = start_pos == end_pos
 
-  if is_single_pos then
-    return selection.file .. ':' .. start_pos
-  end
+  if is_single_pos then return selection.file .. ':' .. start_pos end
 
   return selection.file .. ':' .. start_pos .. '-' .. end_pos
 end
@@ -127,8 +119,8 @@ end
 --- Resolves path relative to cwd.
 ---@return Selection
 function M.capture()
-  local start_mark = vim.fn.getpos("'<")
-  local end_mark = vim.fn.getpos("'>")
+  local start_mark = vim.fn.getpos('\'<')
+  local end_mark = vim.fn.getpos('\'>')
   local mode = vim.fn.visualmode()
 
   local start_line = start_mark[2]

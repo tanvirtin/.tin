@@ -1,6 +1,6 @@
 local registered = {}
 local default_resolver = function(name)
-  return require('tingit.settings.' .. name)
+  return require('git.settings.' .. name)
 end
 
 local settings = {}

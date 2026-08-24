@@ -160,4 +160,24 @@ describe('Extmark:', function()
       vim.api.nvim_buf_delete(buf, { force = true })
     end)
   end)
+
+  describe('virt_lines', function()
+    it('should place a virt_lines extmark', function()
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'anchor' })
+      local extmark = Extmark(buf)
+
+      local ok = extmark:virt_lines({
+        row = 0,
+        lines = { { { 'added', 'DiffAdd' } } },
+      })
+      assert.is_true(ok)
+
+      local marks = vim.api.nvim_buf_get_extmarks(buf, extmark.ns_id, 0, -1, { details = true })
+      assert.are.equal(1, #marks)
+      assert.are.equal('added', marks[1][4].virt_lines[1][1][1])
+
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+  end)
 end)

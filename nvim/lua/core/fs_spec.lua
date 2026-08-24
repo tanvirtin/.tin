@@ -4,7 +4,7 @@ local fs = require('core.fs')
 local eq = assert.are.same
 
 describe('fs:', function()
-  local filename = '/tmp/foo_tingit'
+  local filename = '/tmp/foo_git'
 
   after_each(function()
     os.remove(filename)
@@ -388,7 +388,7 @@ describe('fs:', function()
 
   describe('remove_file', function()
     it('should return falsy when removing a nonexistent file', function()
-      local result = fs.remove_file('/tmp/tingit_nonexistent_file_xyz')
+      local result = fs.remove_file('/tmp/git_nonexistent_file_xyz')
 
       assert.is_falsy(result)
     end)

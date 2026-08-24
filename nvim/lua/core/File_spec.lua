@@ -3,7 +3,7 @@ local File = require('core.File')
 local eq = assert.are.same
 
 describe('File:', function()
-  local tmp_file = '/tmp/tingit_file_test_' .. os.time() .. '.txt'
+  local tmp_file = '/tmp/git_file_test_' .. os.time() .. '.txt'
 
   after_each(function()
     os.remove(tmp_file)

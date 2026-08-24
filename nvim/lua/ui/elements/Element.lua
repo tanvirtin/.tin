@@ -5,6 +5,7 @@ local utils = lazy('core.utils')
 local Object = lazy('core.Object')
 local Buffer = lazy('core.Buffer')
 local Window = lazy('core.Window')
+local mouse = lazy('core.mouse')
 local renderer = lazy('core.renderer')
 local LayoutBounds = lazy('ui.layout.LayoutBounds')
 
@@ -105,6 +106,18 @@ end
 
 function Element:clear_lines()
   return self:set_lines({})
+end
+
+function Element:append(lines)
+  if not self:is_valid() then return self end
+  self._buffer:append(lines)
+  return self
+end
+
+function Element:set_text(row, col, text, end_row, end_col)
+  if not self:is_valid() then return self end
+  self._buffer:set_text(row, col, text, end_row, end_col)
+  return self
 end
 
 function Element:get_line_count()
@@ -221,6 +234,11 @@ function Element:place_extmark_highlight(opts)
   return self._buffer:place_extmark_highlight(opts)
 end
 
+function Element:place_extmark_virt_lines(opts)
+  if not self:is_valid() then return nil end
+  return self._buffer:place_extmark_virt_lines(opts)
+end
+
 function Element:clear_extmarks()
   if not self:is_valid() then return self end
   self._buffer:clear_extmarks()
@@ -280,6 +298,13 @@ function Element:on(event_name, callback)
   if not self:is_valid() then return self end
   self._buffer:on(event_name, callback)
   return self
+end
+
+function Element:on_click(clicks, opts)
+  if not self:is_valid() then
+    return function() end
+  end
+  return mouse.attach(self._buffer, vim.tbl_extend('force', opts or {}, { clicks = clicks }))
 end
 
 function Element:attach_to_changes(opts)

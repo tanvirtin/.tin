@@ -36,7 +36,7 @@ function LogFormatter:constructor(msg, opts)
 end
 
 function LogFormatter:add_prefix(line, log_type, fn_source, fn_name)
-  local parts = { '[Tingit]' }
+  local parts = { '[Git]' }
 
   if not utils.value.is_nil(log_type) then
     assertion.assert_type(log_type, 'string')

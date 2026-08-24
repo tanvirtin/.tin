@@ -34,6 +34,7 @@ test {
     _ = @import("commands/artifact.zig");
     _ = @import("commands/workspace.zig");
     _ = @import("commands/validate.zig");
+    _ = @import("commands/schema.zig");
     _ = @import("commands/env.zig");
     _ = @import("commands/install.zig");
     _ = @import("core/symlink.zig");

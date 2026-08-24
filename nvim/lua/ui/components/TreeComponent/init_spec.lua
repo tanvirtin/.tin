@@ -21,7 +21,7 @@ package.loaded['core.event'] = {
   promisify = function(fn)
     return fn
   end,
-  group = 'tingitGroup',
+  group = 'gitGroup',
   register_module = function() end,
 }
 

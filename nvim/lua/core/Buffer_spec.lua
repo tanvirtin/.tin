@@ -116,8 +116,8 @@ describe('Buffer:', function()
 
     it('should return relative name for named buffer', function()
       local named_buf = Buffer(vim.api.nvim_create_buf(false, true))
-      vim.api.nvim_buf_set_name(named_buf.bufnr, vim.uv.cwd() .. '/lua/tingit/init.lua')
-      assert.are.equal('lua/tingit/init.lua', named_buf:get_relative_name())
+      vim.api.nvim_buf_set_name(named_buf.bufnr, vim.uv.cwd() .. '/lua/git/init.lua')
+      assert.are.equal('lua/git/init.lua', named_buf:get_relative_name())
     end)
   end)
 
@@ -340,16 +340,60 @@ describe('Buffer:', function()
 
   describe('set_var', function()
     it('should set buffer variable', function()
-      buffer:set_var('tingit_status', {
+      buffer:set_var('git_status', {
         added = 0,
         changed = 0,
         removed = 0,
       })
-      eq(vim.api.nvim_buf_get_var(buffer.bufnr, 'tingit_status'), {
+      eq(vim.api.nvim_buf_get_var(buffer.bufnr, 'git_status'), {
         added = 0,
         changed = 0,
         removed = 0,
       })
+    end)
+  end)
+
+  describe('append', function()
+    it('appends lines at the end of a read-only buffer', function()
+      buffer:assign_options({ modifiable = false })
+      buffer:set_lines({ 'base' })
+      buffer:append({ 'first' })
+      buffer:append({ 'second', 'third' })
+
+      eq({ 'base', 'first', 'second', 'third' }, vim.api.nvim_buf_get_lines(buffer.bufnr, 0, -1, false))
+    end)
+  end)
+
+  describe('set_text', function()
+    it('replaces a range within a line on a read-only buffer', function()
+      buffer:assign_options({ modifiable = false })
+      buffer:set_lines({ 'hello world' })
+      buffer:set_text(0, 6, 'there', 0, 11)
+
+      eq({ 'hello there' }, vim.api.nvim_buf_get_lines(buffer.bufnr, 0, -1, false))
+    end)
+
+    it('inserts at a position when no end range is given', function()
+      buffer:assign_options({ modifiable = false })
+      buffer:set_lines({ 'ab' })
+      buffer:set_text(0, 1, 'X')
+
+      eq({ 'aXb' }, vim.api.nvim_buf_get_lines(buffer.bufnr, 0, -1, false))
+    end)
+  end)
+
+  describe('place_extmark_virt_lines', function()
+    it('places a virt_lines extmark', function()
+      buffer:set_lines({ 'anchor' })
+      buffer:place_extmark_virt_lines({
+        row = 0,
+        lines = { { { 'added line', 'DiffAdd' } } },
+      })
+
+      local ns_id = buffer._text_extmark.ns_id
+      local marks = vim.api.nvim_buf_get_extmarks(buffer.bufnr, ns_id, 0, -1, { details = true })
+      eq(1, #marks)
+      eq('added line', marks[1][4].virt_lines[1][1][1])
     end)
   end)
 end)

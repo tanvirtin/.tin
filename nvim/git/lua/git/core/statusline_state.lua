@@ -1,0 +1,96 @@
+local HUNK_CLEAR_MS = 2000
+
+local state = {
+  hunk_index = nil,
+  hunk_count = nil,
+  diff_stats = nil,
+  branch = nil,
+}
+
+local hunk_timer = nil
+
+local statusline_state = {}
+
+local function redraw()
+  vim.cmd('redrawstatus')
+end
+
+local function close_hunk_timer()
+  if not hunk_timer then return end
+  hunk_timer:stop()
+  if not hunk_timer:is_closing() then hunk_timer:close() end
+  hunk_timer = nil
+end
+
+local function clear_hunk()
+  close_hunk_timer()
+  state.hunk_index = nil
+  state.hunk_count = nil
+  vim.g.git_hunk_index = nil
+  vim.g.git_hunk_count = nil
+  redraw()
+end
+
+function statusline_state.set_hunk(hunk)
+  close_hunk_timer()
+
+  local index = hunk.index
+  local count = hunk.count
+  state.hunk_index = index
+  state.hunk_count = count
+  vim.g.git_hunk_index = index
+  vim.g.git_hunk_count = count
+  redraw()
+
+  hunk_timer = vim.uv.new_timer()
+  hunk_timer:start(HUNK_CLEAR_MS, 0, vim.schedule_wrap(clear_hunk))
+end
+
+function statusline_state.set_diff_stats(stats)
+  state.diff_stats = stats
+  if stats then
+    vim.g.git_added = stats.added
+    vim.g.git_removed = stats.removed
+    vim.g.git_changed = stats.changed
+  else
+    vim.g.git_added = nil
+    vim.g.git_removed = nil
+    vim.g.git_changed = nil
+  end
+  redraw()
+end
+
+function statusline_state.set_branch(name)
+  state.branch = name
+  vim.g.git_branch = name
+  redraw()
+end
+
+function statusline_state.reset()
+  close_hunk_timer()
+  state.hunk_index = nil
+  state.hunk_count = nil
+  state.diff_stats = nil
+  state.branch = nil
+  vim.g.git_hunk_index = nil
+  vim.g.git_hunk_count = nil
+  vim.g.git_added = nil
+  vim.g.git_removed = nil
+  vim.g.git_changed = nil
+  vim.g.git_branch = nil
+end
+
+function statusline_state.get_hunk()
+  if state.hunk_index and state.hunk_count then return { index = state.hunk_index, count = state.hunk_count } end
+  return nil
+end
+
+function statusline_state.get_diff_stats()
+  return state.diff_stats
+end
+
+function statusline_state.get_branch()
+  return state.branch
+end
+
+return statusline_state

@@ -8,6 +8,9 @@ local Spawn = Object:extend()
 function Spawn:constructor(spec)
   return {
     ['$spec'] = spec,
+    handle = nil,
+    stdin = nil,
+    pid = nil,
     stdout_buffer = {
       len = 0,
       index = 1,
@@ -93,6 +96,7 @@ function Spawn:flush(buffer, cb)
 end
 
 function Spawn:start()
+  local stdin = vim.uv.new_pipe(false)
   local stdout = vim.uv.new_pipe(false)
   local stderr = vim.uv.new_pipe(false)
 
@@ -111,30 +115,64 @@ function Spawn:start()
     stderr:read_stop()
     stdout:close()
     stderr:close()
+    if stdin and not stdin:is_closing() then stdin:close() end
     if handle and not handle:is_closing() then handle:close() end
 
     self:flush(self.stdout_buffer, self.spec.on_stdout)
     self:flush(self.stderr_buffer, self.spec.on_stderr)
 
+    self.handle = nil
+    self.stdin = nil
+    self.pid = nil
+
     if self.spec.on_exit then self.spec.on_exit(code, signal) end
   end)
 
-  handle = vim.uv.spawn(self.spec.command, {
+  handle, self.pid = vim.uv.spawn(self.spec.command, {
     args = self.spec.args,
-    stdio = { nil, stdout, stderr },
+    stdio = { stdin, stdout, stderr },
     cwd = self.spec.cwd,
     env = self.spec.env,
+    detached = self.spec.detached,
   }, on_exit)
 
   if not handle then
     stdout:close()
     stderr:close()
+    if stdin and not stdin:is_closing() then stdin:close() end
     if self.spec.on_exit then self.spec.on_exit(1) end
     return self
   end
 
+  self.handle = handle
+  self.stdin = stdin
+
   stdout:read_start(on_stdout)
   stderr:read_start(on_stderr)
+
+  return self
+end
+
+function Spawn:write(data)
+  if not self.stdin or self.stdin:is_closing() then return false end
+  self.stdin:write(data)
+  return true
+end
+
+function Spawn:is_running()
+  return self.handle ~= nil and not self.handle:is_closing()
+end
+
+function Spawn:stop(signal)
+  signal = signal or 'sigterm'
+  if not self.handle then return self end
+
+  if self.spec.detached and self.pid and vim.fn.has('win32') == 0 then
+    pcall(vim.uv.kill, -self.pid, 15)
+    pcall(vim.uv.kill, -self.pid, 9)
+  elseif not self.handle:is_closing() then
+    pcall(self.handle.kill, self.handle, signal)
+  end
 
   return self
 end

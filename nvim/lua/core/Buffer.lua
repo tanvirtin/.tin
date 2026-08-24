@@ -90,6 +90,10 @@ function Buffer:place_extmark_highlight(opts)
   return self._highlight_extmark:highlight(opts)
 end
 
+function Buffer:place_extmark_virt_lines(opts)
+  return self._text_extmark:virt_lines(opts)
+end
+
 function Buffer:clear_extmark_texts()
   if not self:is_valid() then return self end
   self._text_extmark:clear()
@@ -197,6 +201,34 @@ function Buffer:set_lines(lines, top, bot)
 
   vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
   vim.api.nvim_buf_set_lines(bufnr, top, bot, false, lines)
+  vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr })
+
+  return self
+end
+
+function Buffer:append(lines)
+  local line_count = vim.api.nvim_buf_line_count(self.bufnr)
+  return self:set_lines(lines, line_count, line_count)
+end
+
+function Buffer:set_text(row, col, text, end_row, end_col)
+  local bufnr = self.bufnr
+  end_row = end_row or row
+  end_col = end_col or col
+
+  local modifiable = self._modifiable
+  if modifiable == nil then
+    modifiable = vim.api.nvim_get_option_value('modifiable', { buf = bufnr })
+    self._modifiable = modifiable
+  end
+
+  if modifiable then
+    pcall(vim.api.nvim_buf_set_text, bufnr, row, col, end_row, end_col, { text })
+    return self
+  end
+
+  vim.api.nvim_set_option_value('modifiable', true, { buf = bufnr })
+  vim.api.nvim_buf_set_text(bufnr, row, col, end_row, end_col, { text })
   vim.api.nvim_set_option_value('modifiable', false, { buf = bufnr })
 
   return self

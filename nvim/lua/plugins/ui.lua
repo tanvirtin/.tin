@@ -20,14 +20,14 @@ return {
           { 'branch', icon = '' },
           {
             function()
-              local ok, sl = pcall(require, 'tingit.statusline')
+              local ok, sl = pcall(require, 'git.statusline')
               if not ok then return '' end
               local h = sl.get_hunk()
               if h then return string.format('Hunk %d/%d', h.index, h.count) end
               return ''
             end,
             cond = function()
-              local ok, sl = pcall(require, 'tingit.statusline')
+              local ok, sl = pcall(require, 'git.statusline')
               return ok and sl.get_hunk() ~= nil
             end,
             color = { fg = '#e0af68' },
@@ -56,9 +56,7 @@ return {
           {
             function()
               local ok, result = pcall(vim.fn.searchcount, { maxcount = 999, timeout = 250 })
-              if ok and result.total > 0 then
-                return string.format(' %d/%d', result.current, result.total)
-              end
+              if ok and result.total > 0 then return string.format(' %d/%d', result.current, result.total) end
               return ''
             end,
           },
@@ -75,12 +73,16 @@ return {
           },
           {
             'encoding',
-            cond = function() return vim.opt.fileencoding:get() ~= 'utf-8' end,
+            cond = function()
+              return vim.opt.fileencoding:get() ~= 'utf-8'
+            end,
           },
           {
             'fileformat',
             symbols = { unix = '', dos = '', mac = '' },
-            cond = function() return vim.opt.fileformat:get() ~= 'unix' end,
+            cond = function()
+              return vim.opt.fileformat:get() ~= 'unix'
+            end,
           },
           { 'filetype', icon_only = true },
         },

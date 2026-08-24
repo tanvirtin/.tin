@@ -95,4 +95,34 @@ describe('Spawn:', function()
       assert.is_true(#stderr > 0, 'should have received stderr output')
     end)
   end)
+
+  describe('write', function()
+    it('round-trips data through stdin', function()
+      local echoed = {}
+
+      local spawn = Spawn({
+        command = 'sh',
+        args = { '-c', 'while IFS= read -r line; do printf "%s\\n" "$line"; done' },
+        on_stdout = function(line)
+          if line ~= '' then table.insert(echoed, line) end
+        end,
+        on_stderr = function() end,
+        on_exit = function() end,
+      }):start()
+
+      spawn:write('ping\n')
+
+      vim.wait(5000, function()
+        return #echoed >= 1
+      end, 50)
+
+      assert.is_true(#echoed >= 1, 'expected echoed stdin data')
+      eq({ 'ping' }, echoed)
+
+      spawn:stop()
+      vim.wait(500, function()
+        return true
+      end, 10)
+    end)
+  end)
 end)

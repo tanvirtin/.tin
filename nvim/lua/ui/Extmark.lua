@@ -21,7 +21,7 @@ end
 local Extmark = Object:extend()
 
 function Extmark:constructor(bufnr, ns_name_extension)
-  local ns_name = 'tingit.extmarks'
+  local ns_name = 'git.extmarks'
   if ns_name_extension then ns_name = ns_name .. '.' .. ns_name_extension end
   local ns_id = vim.api.nvim_create_namespace(ns_name)
 
@@ -138,6 +138,23 @@ function Extmark:lnum(opts)
     id = id,
     virt_text = { { text, hl } },
     virt_text_pos = 'inline',
+    hl_mode = hl_mode,
+    priority = priority,
+  })
+end
+
+function Extmark:virt_lines(opts)
+  local row = opts.row
+  local lines = opts.lines
+  local priority = opts.priority
+  local hl_mode = opts.hl_mode or 'combine'
+  local virt_lines_above = opts.above or false
+
+  local id = self:derive_id(row)
+  return pcall(vim.api.nvim_buf_set_extmark, self.bufnr, self.ns_id, row, 0, {
+    id = id,
+    virt_lines = lines,
+    virt_lines_above = virt_lines_above,
     hl_mode = hl_mode,
     priority = priority,
   })

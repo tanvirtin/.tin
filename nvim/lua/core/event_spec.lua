@@ -271,50 +271,50 @@ describe('event:', function()
     end)
   end)
 
-  describe('tingitDirChanged', function()
+  describe('gitDirChanged', function()
     it('should be emittable and receivable via custom_on', function()
       local received = false
-      event.custom_on('tingitDirChanged', function()
+      event.custom_on('gitDirChanged', function()
         received = true
       end)
-      event.emit('tingitDirChanged', {})
+      event.emit('gitDirChanged', {})
       assert.is_true(received)
     end)
 
-    it('should emit tingitDirChanged for global DirChanged scope', function()
+    it('should emit gitDirChanged for global DirChanged scope', function()
       local count = 0
-      event.custom_on('tingitDirChanged', function()
+      event.custom_on('gitDirChanged', function()
         count = count + 1
       end)
       event.on({ 'DirChanged' }, function(args)
         if args.match ~= 'global' then return end
-        event.emit('tingitDirChanged', {})
+        event.emit('gitDirChanged', {})
       end)
       vim.api.nvim_exec_autocmds('DirChanged', { pattern = 'global', modeline = false })
       eq(count, 1)
     end)
 
-    it('should not emit tingitDirChanged for local DirChanged scope', function()
+    it('should not emit gitDirChanged for local DirChanged scope', function()
       local count = 0
-      event.custom_on('tingitDirChanged', function()
+      event.custom_on('gitDirChanged', function()
         count = count + 1
       end)
       event.on({ 'DirChanged' }, function(args)
         if args.match ~= 'global' then return end
-        event.emit('tingitDirChanged', {})
+        event.emit('gitDirChanged', {})
       end)
       vim.api.nvim_exec_autocmds('DirChanged', { pattern = 'local', modeline = false })
       eq(count, 0)
     end)
 
-    it('should not emit tingitDirChanged for tab DirChanged scope', function()
+    it('should not emit gitDirChanged for tab DirChanged scope', function()
       local count = 0
-      event.custom_on('tingitDirChanged', function()
+      event.custom_on('gitDirChanged', function()
         count = count + 1
       end)
       event.on({ 'DirChanged' }, function(args)
         if args.match ~= 'global' then return end
-        event.emit('tingitDirChanged', {})
+        event.emit('gitDirChanged', {})
       end)
       vim.api.nvim_exec_autocmds('DirChanged', { pattern = 'tab', modeline = false })
       eq(count, 0)

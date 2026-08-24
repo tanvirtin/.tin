@@ -1,10 +1,10 @@
 return {
   {
-    dir = vim.fn.stdpath('config') .. '/tingit',
+    dir = vim.fn.stdpath('config') .. '/git',
     dependencies = { 'nvim-lua/plenary.nvim' },
     event = 'VimEnter',
     config = function()
-      require('tingit').setup({
+      require('git').setup({
         keymaps = {
           ['n <C-k>'] = 'hunk_up',
           {

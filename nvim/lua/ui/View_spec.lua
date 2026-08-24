@@ -276,7 +276,7 @@ describe('View:', function()
     it('should not leave orphaned scratch buffers after render', function()
       local buf_count_before = #vim.api.nvim_list_bufs()
       view:_render({ component = TestComponent(), mode = 'screen' })
-      -- tabnew creates a scratch buffer; it should be deleted once tingit
+      -- tabnew creates a scratch buffer; it should be deleted once git
       -- sets its own buffer into the window, leaving only the component buffer
       assert.are.equal(buf_count_before + 1, #vim.api.nvim_list_bufs())
       view:destroy()

@@ -20,3 +20,10 @@ if config.features.lint_on_save then
     end,
   })
 end
+
+-- Reload buffers changed outside the editor (e.g. by opencode)
+augroup('AutoReload', { clear = true })
+autocmd({ 'FocusGained', 'BufEnter', 'CursorHold', 'CursorHoldI' }, {
+  group = 'AutoReload',
+  command = 'checktime',
+})

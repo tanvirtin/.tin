@@ -406,4 +406,44 @@ describe('Element:', function()
       assert.are.equal(el, el:scroll_to('center'))
     end)
   end)
+
+  describe('append', function()
+    it('appends lines to a read-only element buffer', function()
+      local el = create_element()
+      el:mount()
+      el:set_lines({ 'base' })
+      el:append({ 'one' })
+      el:append({ 'two' })
+
+      eq({ 'base', 'one', 'two' }, el:get_lines())
+    end)
+  end)
+
+  describe('set_text', function()
+    it('replaces a range within a line', function()
+      local el = create_element()
+      el:mount()
+      el:set_lines({ 'hello world' })
+      el:set_text(0, 6, 'there', 0, 11)
+
+      eq({ 'hello there' }, el:get_lines())
+    end)
+  end)
+
+  describe('place_extmark_virt_lines', function()
+    it('places a virt_lines extmark on the element buffer', function()
+      local el = create_element()
+      el:mount()
+      el:set_lines({ 'anchor' })
+      el:place_extmark_virt_lines({
+        row = 0,
+        lines = { { { 'added', 'DiffAdd' } } },
+      })
+
+      local marks =
+        vim.api.nvim_buf_get_extmarks(el._buffer.bufnr, el._buffer._text_extmark.ns_id, 0, -1, { details = true })
+      eq(1, #marks)
+      eq('added', marks[1][4].virt_lines[1][1][1])
+    end)
+  end)
 end)

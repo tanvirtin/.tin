@@ -14,6 +14,7 @@ const status = @import("commands/status.zig");
 const unlink = @import("commands/unlink.zig");
 const recipe = @import("commands/recipe.zig");
 const validate = @import("commands/validate.zig");
+const schema = @import("commands/schema.zig");
 
 const install = @import("commands/install.zig");
 
@@ -41,6 +42,7 @@ pub const command_entries = [_]Entry{
     entry(unlink),
     entry(recipe),
     entry(validate),
+    entry(schema),
     entry(workspace),
     entry(methods),
     entry(web),

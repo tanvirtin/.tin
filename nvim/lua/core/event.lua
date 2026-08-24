@@ -8,7 +8,7 @@ local _augroup_created = false
 local function ensure_augroup()
   if _augroup_created then return end
   _augroup_created = true
-  vim.api.nvim_create_augroup('tingitGroup', { clear = false })
+  vim.api.nvim_create_augroup('gitGroup', { clear = false })
 end
 
 local function safe_async_void(func)
@@ -21,7 +21,7 @@ local function safe_async_void(func)
     local function error_handler(err)
       local error_trace = debug.traceback('', 2)
       local msg = string.format(
-        '[Tingit] Async Error: %s\n\n--- Error Location ---\n%s\n--- Call Site ---\n%s',
+        '[Git] Async Error: %s\n\n--- Error Location ---\n%s\n--- Call Site ---\n%s',
         tostring(err),
         error_trace,
         call_site_trace
@@ -43,7 +43,7 @@ local function safe_async_void(func)
 end
 
 local event = {
-  group = 'tingitGroup',
+  group = 'gitGroup',
   async = safe_async_void,
   promisify = async.wrap,
   await = async.wrap(vim.schedule, 1),

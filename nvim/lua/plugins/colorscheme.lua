@@ -6,9 +6,7 @@ return {
     lazy = false,
     priority = 1000,
     config = function()
-      if config.colorscheme == 'monokai' then
-        vim.cmd.colorscheme('monokai')
-      end
+      if config.colorscheme == 'monokai' then vim.cmd.colorscheme('monokai') end
     end,
   },
   {
@@ -20,9 +18,7 @@ return {
     },
     config = function(_, opts)
       require('tokyonight').setup(opts)
-      if config.colorscheme == 'tokyonight' then
-        vim.cmd.colorscheme('tokyonight')
-      end
+      if config.colorscheme == 'tokyonight' then vim.cmd.colorscheme('tokyonight') end
     end,
   },
 }
