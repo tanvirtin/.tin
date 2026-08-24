@@ -1,3 +1,5 @@
+# Copy to ~/.tin/tinrc.yml and make it yours. Every section is optional.
+
 identity:
   name: Your Name
   email: you@example.com
@@ -21,25 +23,6 @@ symlinks:
     - source: assets/ghostty/config
       target: ~/.config/ghostty/config
 
-  ai:
-    - source: assets/agent/AGENTS.md
-      target: ~/.pi/agent/AGENTS.md
-
-    - source: assets/agent/AGENTS.md
-      target: ~/.config/opencode/AGENTS.md
-
-    - source: assets/pi/APPEND_SYSTEM.md
-      target: ~/.pi/agent/APPEND_SYSTEM.md
-
-    - source: assets/pi/settings.json
-      target: ~/.pi/agent/settings.json
-
-    - source: assets/pi/models.json
-      target: ~/.pi/agent/models.json
-
-    - source: assets/pi/themes/monokai.json
-      target: ~/.pi/agent/themes/monokai.json
-
 fonts: assets/fonts
 
 recipes:
@@ -55,10 +38,6 @@ recipes:
     - git
     - gh
     - rust
-    - nvm
-    - deno
-    - pi
-    - opencode
 
   infra:
     - ripgrep

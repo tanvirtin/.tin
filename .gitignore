@@ -57,3 +57,6 @@ auth.json
 /assets/pi/
 /artifacts/
 /sn/
+
+# personal machine config — see tinrc.example.yml
+/tinrc.yml

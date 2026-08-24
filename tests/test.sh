@@ -36,7 +36,6 @@ cp -r recipes "$TIN_DIR/"
 cp -r assets "$TIN_DIR/"
 mkdir -p "$TIN_DIR/src"
 cp -r src/schemas "$TIN_DIR/src/"
-cp tinrc.yml "$TIN_DIR/"
 # Patch tinrc.yml to avoid problematic recipes in tests
 cat > "$TIN_DIR/tinrc.yml" << 'EOF'
 identity:

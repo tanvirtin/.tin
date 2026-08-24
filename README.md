@@ -11,12 +11,14 @@ tin install
 
 `tin` is a CLI that reads `tinrc.yml` and executes recipes. Everything about your environment — identity, symlinks, fonts, tools — is defined in YAML. The Zig binary is the engine; the YAML is the configuration.
 
+`tinrc.yml` is personal and not committed — start from [`tinrc.example.yml`](tinrc.example.yml):
+
 ```
-tinrc.yml          ← what to set up
-recipes/           ← how to set up each tool
-assets/            ← dotfiles, terminal configs, fonts
-nvim/              ← neovim config
-tin (binary)       ← runs it all
+tinrc.example.yml   ← template — copy to ~/.tin/tinrc.yml
+recipes/            ← how to set up each tool
+assets/             ← dotfiles, terminal configs, fonts
+nvim/               ← neovim config
+tin (binary)        ← runs it all
 ```
 
 <details>

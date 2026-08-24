@@ -37,7 +37,7 @@ const cases = [_]SchemaCases{
         "recipes/zsh-autosuggestions.yml",
         "recipes/zsh.yml",
     } },
-    .{ .schema = "tinrc.yaml", .files = &.{"tinrc.yml"} },
+    .{ .schema = "tinrc.yaml", .files = &.{"tinrc.example.yml"} },
     .{ .schema = "workspace.yaml", .files = &.{} },
     .{ .schema = "github_workflow.yaml", .files = &.{
         ".github/workflows/nightly.yml",
