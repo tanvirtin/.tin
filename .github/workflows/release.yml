@@ -24,6 +24,9 @@ jobs:
           - os: macos-15
             target: aarch64-macos
             artifact: tin-darwin-aarch64
+          - os: macos-15-intel
+            target: x86_64-macos
+            artifact: tin-darwin-x86_64
           - os: macos-15
             target: x86_64-macos
             artifact: tin-darwin-x86_64
