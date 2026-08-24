@@ -43,10 +43,6 @@ jobs:
         working-directory: .tin
         run: bash tests/test.sh
 
-      - name: YAML spec test suite (333/333)
+      - name: YAML spec test suite
         working-directory: .tin
-        run: |
-          cp tests/test_yaml_one.zig .
-          zig build-exe test_yaml_one.zig -ODebug
-          bash tests/test_yaml_suite.sh ./test_yaml_one /tmp/yaml-test-data
-          rm test_yaml_one.zig
+        run: bash tests/test_yaml_suite.sh ./zig-out/bin/test_yaml_one /tmp/yaml-test-data
