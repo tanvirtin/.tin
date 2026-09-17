@@ -115,13 +115,6 @@ pub const Validator = struct {
     }
 };
 
-fn spanFromValue(value: yaml.Value) Span {
-    if (value.idx >= value.tree.nodes.items.len)
-        return Span{ .file_id = 0, .start = 0, .end = 0 };
-    const node = value.tree.nodes.items[value.idx];
-    return Span{ .file_id = 0, .start = node.start, .end = node.end };
-}
-
 pub const Resolver = struct {
     definitions: std.StringHashMap(*const Schema),
 
@@ -179,7 +172,7 @@ pub const Resolver = struct {
 
 fn validatePrimitive(v: *Validator, prim: Primitive, value: yaml.Value) !bool {
     const s = value.getString();
-    const span = spanFromValue(value);
+    const span = diag.spanFromValue(value);
     switch (prim) {
         .string => {
             if (s == null) {
@@ -246,10 +239,10 @@ fn validatePrimitive(v: *Validator, prim: Primitive, value: yaml.Value) !bool {
 
 fn validateConstant(v: *Validator, constant: ConstValue, value: yaml.Value) !bool {
     const s = value.getString() orelse {
-        try v.emit(spanFromValue(value), "constant_mismatch", "expected constant value");
+        try v.emit(diag.spanFromValue(value), "constant_mismatch", "expected constant value");
         return false;
     };
-    const span = spanFromValue(value);
+    const span = diag.spanFromValue(value);
     switch (constant) {
         .string => |expected| {
             if (!std.mem.eql(u8, s, expected)) {
@@ -304,7 +297,7 @@ fn validateConstant(v: *Validator, constant: ConstValue, value: yaml.Value) !boo
 
 fn validateEnum(v: *Validator, values: []const ConstValue, value: yaml.Value) !bool {
     const s = value.getString() orelse {
-        try v.emit(spanFromValue(value), "enum_mismatch", "expected enum value");
+        try v.emit(diag.spanFromValue(value), "enum_mismatch", "expected enum value");
         return false;
     };
     for (values) |cv| {
@@ -321,26 +314,26 @@ fn validateEnum(v: *Validator, values: []const ConstValue, value: yaml.Value) !b
         };
         if (matched) return true;
     }
-    try v.emit(spanFromValue(value), "enum_mismatch", "value not in enum");
+    try v.emit(diag.spanFromValue(value), "enum_mismatch", "value not in enum");
     return false;
 }
 
 fn matchesPattern(pattern: []const u8, s: []const u8) bool {
-    var pi: usize = 0;
+    var p: usize = 0;
     var si: usize = 0;
     var wildcard: ?usize = null;
     var match: usize = 0;
 
     while (si < s.len) {
-        if (pi < pattern.len and (pattern[pi] == s[si] or pattern[pi] == '?')) {
-            pi += 1;
+        if (p < pattern.len and (pattern[p] == s[si] or pattern[p] == '?')) {
+            p += 1;
             si += 1;
-        } else if (pi < pattern.len and pattern[pi] == '*') {
-            wildcard = pi;
+        } else if (p < pattern.len and pattern[p] == '*') {
+            wildcard = p;
             match = si;
-            pi += 1;
-        } else if (wildcard) |wp| {
-            pi = wp + 1;
+            p += 1;
+        } else if (wildcard) |w| {
+            p = w + 1;
             match += 1;
             si = match;
         } else {
@@ -348,14 +341,14 @@ fn matchesPattern(pattern: []const u8, s: []const u8) bool {
         }
     }
 
-    while (pi < pattern.len and pattern[pi] == '*') pi += 1;
-    return pi == pattern.len;
+    while (p < pattern.len and pattern[p] == '*') p += 1;
+    return p == pattern.len;
 }
 
 fn validateStringConstraints(v: *Validator, sc: ?StringConstraints, value: yaml.Value) !bool {
     const constraints = sc orelse return true;
     const s = value.getString() orelse return true;
-    const span = spanFromValue(value);
+    const span = diag.spanFromValue(value);
 
     if (constraints.min_length) |min| if (s.len < min) {
         try v.emit(span, "min_length", "string too short");
@@ -379,7 +372,7 @@ fn validateRefinements(v: *Validator, refinements: []const Refinement, value: ya
 
     const node = value.tree.nodes.items[value.idx];
     if (node.tag != .mapping) return;
-    const span = spanFromValue(value);
+    const span = diag.spanFromValue(value);
 
     for (refinements) |ref| {
         switch (ref) {
@@ -478,18 +471,18 @@ fn codePriority(code: []const u8) u8 {
 fn isBetter(a: Validator, b: Validator) bool {
     if (a.diagnostics.items.len < b.diagnostics.items.len) return true;
     if (a.diagnostics.items.len > b.diagnostics.items.len) return false;
-    
+
     if (a.diagnostics.items.len > 0) {
         const ap = codePriority(a.diagnostics.items[0].code);
         const bp = codePriority(b.diagnostics.items[0].code);
         if (ap > bp) return true;
     }
-    
+
     return false;
 }
 
 pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !void {
-    const span = spanFromValue(value);
+    const span = diag.spanFromValue(value);
 
     if (schema.push_scope) |kind| {
         try v.pushScope(kind);
@@ -507,7 +500,6 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !vo
     }
     defer v.context = old_context;
 
-    // Register declaration if decl_as is present
     if (schema.decl_as) |_| {
         if (v.currentScope()) |s| {
             if (value.getString()) |name| {
@@ -533,7 +525,7 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !vo
             if (value.getString()) |name| {
                 try v.pending_refs.append(v.allocator, .{
                     .span = span,
-                    .kind = rt.kind, // No dupe needed here as it's from Schema
+                    .kind = rt.kind,
                     .name = try v.allocator.dupe(u8, name),
                     .scope = s,
                     .path = try resolve_mod.PathExpression.parse(v.allocator, rt.path),
@@ -596,8 +588,8 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !vo
                 key_v.scopes = v.scopes;
                 key_v.path = v.path;
                 defer {
-                    key_v.scopes = .{}; // Don't let key_v.deinit free v.scopes
-                    key_v.path = .{}; // Don't let key_v.deinit free v.path
+                    key_v.scopes = .{};
+                    key_v.path = .{};
                     key_v.deinit();
                 }
                 try validateImpl(&key_v, map.keys, yaml.Value{ .tree = value.tree, .idx = child, .arena = value.arena });
@@ -661,7 +653,7 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !vo
 
                 if (!found) {
                     switch (obj.additional) {
-                        .forbid => try v.emit(spanFromValue(yaml.Value{ .tree = value.tree, .idx = child, .arena = value.arena }), "unexpected_field", "field not allowed"),
+                        .forbid => try v.emit(diag.spanFromValue(yaml.Value{ .tree = value.tree, .idx = child, .arena = value.arena }), "unexpected_field", "field not allowed"),
                         .allow => {},
                         .schema => |additional_schema| try validateImpl(v, additional_schema, val),
                     }
@@ -803,7 +795,7 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !vo
                 try v.emit(span, "switch_no_match", "switch field must be a string");
                 return;
             };
-            
+
             if (sw.common) |common| {
                 try validateImpl(v, common, value);
             }
@@ -815,24 +807,6 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) !vo
                 }
             }
             try v.emit(span, "switch_no_match", "no switch case matched");
-        },
-        .path_ref => |pr| {
-            if (value.getString()) |name| {
-                const scope = v.currentScope() orelse {
-                    try v.emit(span, "no_scope", "no scope available for path reference");
-                    return;
-                };
-                try v.pending_refs.append(v.allocator, .{
-                    .span = span,
-                    .kind = pr.kind,
-                    .name = try v.allocator.dupe(u8, name),
-                    .scope = scope,
-                    .path = try resolve_mod.PathExpression.parse(v.allocator, pr.path),
-                    .catalog_kind = pr.catalog,
-                });
-            } else {
-                try v.emit(span, "type_mismatch", "expected string for path reference");
-            }
         },
         .sublang => |s| {
             if (value.getString()) |str| {
@@ -867,7 +841,6 @@ pub fn validate(
     var v = Validator.init(allocator, resolver, sublangs, catalog);
     try validateImpl(&v, schema, value);
 
-    // Pass 2: Resolution
     for (v.pending_refs.items) |pr| {
         var decl: ?resolve_mod.Declaration = null;
         if (pr.catalog_kind) |ck| {

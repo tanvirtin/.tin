@@ -56,7 +56,7 @@ pub fn decode(comptime T: type, allocator: std.mem.Allocator, val: Value) Decode
         const seq = val.getSequence() orelse return DecodeError.TypeMismatch;
         var items: std.ArrayListUnmanaged(Child) = .{};
         defer items.deinit(allocator);
-        
+
         for (seq) |item| {
             const decoded = try decode(Child, allocator, item);
             try items.append(allocator, decoded);

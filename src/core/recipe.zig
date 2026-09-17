@@ -6,6 +6,8 @@ const process = @import("../lib/process.zig");
 const Environment = @import("environment.zig");
 const template = @import("../lib/template.zig");
 const platform = @import("../platform/platform.zig");
+const expression = @import("../spec/sublang/expression/mod.zig");
+const diag = @import("../spec/diagnostic.zig");
 
 const Recipe = @This();
 
@@ -125,7 +127,7 @@ fn parseAction(step_val: yaml.Value, allocator: std.mem.Allocator) !Action {
     return RecipeError.InvalidStep;
 }
 
-pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) !void {
+pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void {
     const paths = Environment.Paths.init(allocator) catch {
         output.err("could not resolve environment paths", .{});
         return;
@@ -141,9 +143,14 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) !void {
         output.plain("  {s}", .{desc});
     }
 
+    const cond_env = buildConditionEnv(allocator) catch |err| {
+        output.err("could not build condition environment: {s}", .{@errorName(err)});
+        return;
+    };
+
     for (self.steps) |step| {
         if (step.condition) |condition| {
-            if (!checkCondition(condition)) {
+            if (!checkCondition(condition, allocator, &cond_env)) {
                 if (step.name) |name| {
                     output.info("  skip {s} (condition not met)", .{name});
                 }
@@ -162,7 +169,7 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) !void {
     }
 }
 
-fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar, paths: Environment.Paths) !void {
+fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar, paths: Environment.Paths) anyerror!void {
     switch (action) {
         .run => |cmd| {
             const rendered = template.render(allocator, cmd, vars) catch cmd;
@@ -172,7 +179,15 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
             try platform.installPackage(allocator, pkg);
         },
         .recipe => |recipe_name| {
-            _ = recipe_name;
+            const rendered = template.render(allocator, recipe_name, vars) catch recipe_name;
+            const recipes_dir = try paths.recipesDir(allocator);
+            defer allocator.free(recipes_dir);
+            const sub_path = try std.fmt.allocPrint(allocator, "{s}/{s}.yml", .{ recipes_dir, rendered });
+            defer allocator.free(sub_path);
+            const content = try fs.readFileAlloc(allocator, sub_path);
+            defer allocator.free(content);
+            const sub = try parse(allocator, content);
+            try sub.execute(allocator);
         },
         .link => {},
         .fonts => {},
@@ -204,28 +219,33 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
     }
 }
 
-fn checkCondition(cond: []const u8) bool {
-    if (std.mem.startsWith(u8, cond, "os == ")) {
-        const expected = unquote(cond[6..]);
-        return std.mem.eql(u8, expected, @tagName(@import("builtin").os.tag));
-    }
-    if (std.mem.startsWith(u8, cond, "exists ")) {
-        return fs.pathExists(unquote(cond[7..]));
-    }
-    if (std.mem.startsWith(u8, cond, "not exists ")) {
-        return !fs.pathExists(unquote(cond[11..]));
-    }
-    return true;
+fn checkCondition(cond: []const u8, allocator: std.mem.Allocator, env: *const expression.EvalEnv) bool {
+    var diagnostics = std.ArrayListUnmanaged(diag.Diagnostic){};
+    defer diagnostics.deinit(allocator);
+    const v = expression.evaluateDetailed(allocator, cond, env, &diagnostics, .{ .file_id = 0, .start = 0, .end = 0 }) catch |err| {
+        if (diagnostics.items.len > 0) {
+            output.err("invalid condition '{s}': {s}", .{ cond, diagnostics.items[0].message });
+        } else {
+            output.err("invalid condition '{s}': {s}", .{ cond, @errorName(err) });
+        }
+        return false;
+    };
+    return v.truthy();
 }
 
-fn unquote(s: []const u8) []const u8 {
-    if (s.len >= 2 and s[0] == '\'' and s[s.len - 1] == '\'') {
-        return s[1 .. s.len - 1];
+fn buildConditionEnv(allocator: std.mem.Allocator) !expression.EvalEnv {
+    var env = expression.EvalEnv.init(allocator);
+    try env.set("os", .{ .string = @tagName(@import("builtin").os.tag) });
+
+    var map = std.StringHashMap(expression.Value).init(allocator);
+    var env_map = try std.process.getEnvMap(allocator);
+    defer env_map.deinit();
+    var it = env_map.hash_map.iterator();
+    while (it.next()) |entry| {
+        try map.put(try allocator.dupe(u8, entry.key_ptr.*), .{ .string = try allocator.dupe(u8, entry.value_ptr.*) });
     }
-    if (s.len >= 2 and s[0] == '"' and s[s.len - 1] == '"') {
-        return s[1 .. s.len - 1];
-    }
-    return s;
+    try env.set("env", .{ .object = map });
+    return env;
 }
 
 test "parse minimal recipe" {
@@ -235,4 +255,14 @@ test "parse minimal recipe" {
     try std.testing.expectEqualStrings("test", r.name);
     try std.testing.expectEqual(@as(usize, 1), r.steps.len);
     try std.testing.expectEqualStrings("echo hello", r.steps[0].action.run);
+}
+
+test "parse recipe step composes another recipe" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const r = try parse(arena.allocator(), "name: parent\nsteps:\n  - recipe: child");
+    switch (r.steps[0].action) {
+        .recipe => |name| try std.testing.expectEqualStrings("child", name),
+        else => @panic("expected recipe action"),
+    }
 }

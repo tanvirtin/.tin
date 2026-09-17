@@ -3,6 +3,7 @@ const yaml = @import("yaml");
 const fs = @import("../lib/fs.zig");
 const output = @import("../lib/output.zig");
 const validate_mod = @import("../spec/validate.zig");
+const diag = @import("../spec/diagnostic.zig");
 const Environment = @import("../core/environment.zig");
 
 const Engine = @import("../spec/engine.zig").Engine;
@@ -26,7 +27,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
         output.err("could not resolve environment", .{});
         std.process.exit(2);
     };
-    const schemas_dir = std.fs.path.join(allocator, &.{ env.paths.tin_dir, "src", "schemas" }) catch {
+    const schemas_dir = env.paths.schemasDir(allocator) catch {
         output.err("could not resolve schemas directory", .{});
         std.process.exit(2);
     };
@@ -98,8 +99,6 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     }
 
     output.err("Validation failed for {s}:", .{file_path});
-    for (diagnostics) |d| {
-        output.plain("  [{s}] {s} at byte {d}", .{ d.code, d.message, d.span.start });
-    }
+    diag.printDiagnostics(diagnostics);
     std.process.exit(1);
 }

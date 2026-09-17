@@ -47,14 +47,14 @@ pub const Composer = struct {
 
     fn addNode(self: *Composer, node: Node) Error!u32 {
         const parent = self.currentParent();
-        
+
         if (parent == 0 and self.tree.nodes.items[0].tag == .null and (node.tag == .mapping or node.tag == .sequence)) {
             self.tree.nodes.items[0].tag = node.tag;
             return 0;
         }
 
         const idx = try self.tree.addNode(self.alloc, node);
-        
+
         if (idx != 0) {
             if (self.tree.nodes.items[parent].first_child == 0) {
                 self.tree.nodes.items[parent].first_child = idx;
@@ -70,8 +70,8 @@ pub const Composer = struct {
 
     pub fn compose(self: *Composer) Error!void {
         if (self.tokens.len == 0) return;
-        _ = self.next(); // stream_start
-        try self.parent_stack.append(self.alloc, 0); // Root
+        _ = self.next();
+        try self.parent_stack.append(self.alloc, 0);
 
         while (self.peek()) |t| {
             if (t.tag == .stream_end) break;
@@ -82,7 +82,7 @@ pub const Composer = struct {
 
             _ = try self.composeNode();
         }
-        
+
         if (self.tree.nodes.items[0].tag == .null) {
             const first = self.tree.nodes.items[0].first_child;
             if (first != 0) {
@@ -139,11 +139,11 @@ pub const Composer = struct {
                     .parent = self.currentParent(),
                 });
             },
-            .block_sequence_start, .flow_sequence_start => { 
-                idx = try self.composeSeq(); 
+            .block_sequence_start, .flow_sequence_start => {
+                idx = try self.composeSeq();
             },
-            .block_mapping_start, .flow_mapping_start => { 
-                idx = try self.composeMap(); 
+            .block_mapping_start, .flow_mapping_start => {
+                idx = try self.composeMap();
             },
             .key_token => {
                 idx = try self.composeMap();
@@ -155,7 +155,7 @@ pub const Composer = struct {
     }
 
     fn composeSeq(self: *Composer) Error!u32 {
-        _ = self.next(); // start
+        _ = self.next();
         const idx = try self.addNode(.{
             .tag = .sequence,
             .parent = self.currentParent(),
@@ -199,20 +199,20 @@ pub const Composer = struct {
 
             if (tok.tag == .key_token) {
                 _ = self.next();
-                _ = try self.composeNode(); // Key
+                _ = try self.composeNode();
                 if (self.peek()) |nx| {
                     if (nx.tag == .value_token) {
                         _ = self.next();
-                        _ = try self.composeNode(); // Value
+                        _ = try self.composeNode();
                     }
                 }
             } else {
-                const key_idx = try self.composeNode(); // Key
+                const key_idx = try self.composeNode();
                 if (key_idx != 0) {
                     if (self.peek()) |nx| {
                         if (nx.tag == .value_token) {
                             _ = self.next();
-                            _ = try self.composeNode(); // Value
+                            _ = try self.composeNode();
                         }
                     }
                 }

@@ -9,24 +9,16 @@ pub const Capture = struct {
     stdout: []const u8,
 };
 
-/// Run a command, collecting its stdout and exit code (no shell). Pass an
-/// optional `cwd` to set the working directory. The caller owns the returned
-/// stdout slice (use an arena for simplicity).
-pub fn captureExitCwd(allocator: std.mem.Allocator, argv: []const []const u8, cwd: ?[]const u8) !Capture {
+pub fn captureExit(allocator: std.mem.Allocator, argv: []const []const u8) !Capture {
     const result = std.process.Child.run(.{
         .allocator = allocator,
         .argv = argv,
-        .cwd = cwd,
     }) catch |e| return e;
     const code: u32 = switch (result.term) {
         .Exited => |c| @intCast(c),
         else => 1,
     };
     return .{ .code = code, .stdout = result.stdout };
-}
-
-pub fn captureExit(allocator: std.mem.Allocator, argv: []const []const u8) !Capture {
-    return captureExitCwd(allocator, argv, null);
 }
 
 pub fn run(allocator: std.mem.Allocator, argv: []const []const u8) !void {

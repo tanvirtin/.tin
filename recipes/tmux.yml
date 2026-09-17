@@ -4,3 +4,7 @@ description: Install tmux
 steps:
   - name: Install tmux
     install: tmux
+
+  - name: Install tmux plugin manager (tpm)
+    clone: https://github.com/tmux-plugins/tpm
+    to: ~/.tmux/plugins/tpm

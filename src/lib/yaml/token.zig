@@ -32,7 +32,7 @@ pub const SourceMap = struct {
 
     pub fn map(self: SourceMap, offset: u32) u32 {
         if (self.entries.len == 0) return offset;
-        
+
         var low: usize = 0;
         var high: usize = self.entries.len;
 

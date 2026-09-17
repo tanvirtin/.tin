@@ -69,7 +69,7 @@ pub fn getManagedSymlinks(allocator: std.mem.Allocator, config: Config, paths: P
     while (key_idx != 0) {
         const val_idx = symlinks_section.tree.nodes.items[key_idx].next_sibling;
         if (val_idx == 0) break;
-        
+
         const group_val = yaml.Value{ .tree = symlinks_section.tree, .idx = val_idx, .arena = symlinks_section.arena };
         const entries = group_val.getSequence() orelse {
             key_idx = symlinks_section.tree.nodes.items[val_idx].next_sibling;
@@ -87,7 +87,7 @@ pub fn getManagedSymlinks(allocator: std.mem.Allocator, config: Config, paths: P
                 .name = try allocator.dupe(u8, std.fs.path.basename(entry.source)),
             });
         }
-        
+
         key_idx = symlinks_section.tree.nodes.items[val_idx].next_sibling;
     }
 
@@ -99,4 +99,42 @@ pub fn getFontSourceDir(allocator: std.mem.Allocator, config: Config, paths: Pat
     const fonts_val = config.getMapping("fonts") orelse return default_path;
     const fonts_path = fonts_val.getString() orelse return default_path;
     return paths.absolutePath(allocator, fonts_path);
+}
+
+pub const ExportTarget = struct {
+    name: []const u8,
+    dir: []const u8,
+};
+
+pub fn getExportTargets(allocator: std.mem.Allocator, config: Config, paths: Paths) ![]const ExportTarget {
+    const exports_section = config.getMapping("exports") orelse return &.{};
+
+    const node = exports_section.tree.nodes.items[exports_section.idx];
+    if (node.tag != .mapping) return &.{};
+
+    var collected: std.ArrayListUnmanaged(ExportTarget) = .{};
+    defer collected.deinit(allocator);
+
+    var key_idx = node.first_child;
+    while (key_idx != 0) {
+        const val_idx = exports_section.tree.nodes.items[key_idx].next_sibling;
+        if (val_idx == 0) break;
+
+        const key_val = exports_section.tree.nodes.items[key_idx];
+        const name = key_val.computed_value orelse exports_section.tree.source[key_val.start..key_val.end];
+
+        const dir_val = yaml.Value{ .tree = exports_section.tree, .idx = val_idx, .arena = exports_section.arena };
+        if (dir_val.getMapping("dir")) |dir_raw| {
+            if (dir_raw.getString()) |dir_str| {
+                try collected.append(allocator, .{
+                    .name = try allocator.dupe(u8, name),
+                    .dir = try paths.absolutePath(allocator, dir_str),
+                });
+            }
+        }
+
+        key_idx = exports_section.tree.nodes.items[val_idx].next_sibling;
+    }
+
+    return try collected.toOwnedSlice(allocator);
 }

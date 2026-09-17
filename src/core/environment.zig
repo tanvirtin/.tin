@@ -45,15 +45,12 @@ pub fn fontSourceDir(self: *const Environment, allocator: std.mem.Allocator) ![]
     return RecipeManager.getFontSourceDir(allocator, self.config, self.paths);
 }
 
-/// Validate tinrc.yml against schemas/tinrc.yaml. Returns diagnostics (empty
-/// on success) or null when the file is missing or validation can't run. The
-/// caller owns the returned diagnostics.
 pub fn validateTinrc(allocator: std.mem.Allocator, paths: Paths) ?[]const Diagnostic {
     const tinrc_path = std.fs.path.join(allocator, &.{ paths.tin_dir, "tinrc.yml" }) catch return null;
     defer allocator.free(tinrc_path);
     if (!fs.pathExists(tinrc_path)) return null;
 
-    const schemas_dir = std.fs.path.join(allocator, &.{ paths.tin_dir, "src", "schemas" }) catch return null;
+    const schemas_dir = paths.schemasDir(allocator) catch return null;
     defer allocator.free(schemas_dir);
 
     var engine = Engine.initWithSchemasDir(allocator, schemas_dir) catch return null;

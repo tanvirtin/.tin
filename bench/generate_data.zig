@@ -11,7 +11,7 @@ pub fn main() !void {
 fn generateChaos(path: []const u8) !void {
     const file = try std.fs.cwd().createFile(path, .{});
     defer file.close();
-    
+
     try file.writeAll(
         \\# Chaos
         \\---
@@ -53,7 +53,7 @@ fn generateChaos(path: []const u8) !void {
 fn generateLargeRecipe(path: []const u8, step_count: usize) !void {
     const file = try std.fs.cwd().createFile(path, .{});
     defer file.close();
-    
+
     try file.writeAll("name: large-recipe\ndescription: A very large recipe for benchmarking\n\nsteps:\n");
     var i: usize = 0;
     while (i < step_count) : (i += 1) {
@@ -66,7 +66,7 @@ fn generateLargeRecipe(path: []const u8, step_count: usize) !void {
 fn generateLargeList(path: []const u8, count: usize) !void {
     const file = try std.fs.cwd().createFile(path, .{});
     defer file.close();
-    
+
     try file.writeAll("items:\n");
     var i: usize = 0;
     while (i < count) : (i += 1) {
@@ -79,7 +79,7 @@ fn generateLargeList(path: []const u8, count: usize) !void {
 fn generateLargeMap(path: []const u8, count: usize) !void {
     const file = try std.fs.cwd().createFile(path, .{});
     defer file.close();
-    
+
     var i: usize = 0;
     while (i < count) : (i += 1) {
         var buf: [64]u8 = undefined;
@@ -91,7 +91,7 @@ fn generateLargeMap(path: []const u8, count: usize) !void {
 fn generateDeeplyNested(path: []const u8, depth: usize) !void {
     const file = try std.fs.cwd().createFile(path, .{});
     defer file.close();
-    
+
     var i: usize = 0;
     while (i < depth) : (i += 1) {
         var j: usize = 0;

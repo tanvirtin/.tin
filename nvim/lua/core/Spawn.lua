@@ -1,6 +1,5 @@
 local lazy = require('core.lazy')
 
-local event = lazy('core.event')
 local Object = lazy('core.Object')
 
 local Spawn = Object:extend()
@@ -110,11 +109,11 @@ function Spawn:start()
 
   local handle
 
-  local on_exit = event.async(function(code, signal)
-    stdout:read_stop()
-    stderr:read_stop()
-    stdout:close()
-    stderr:close()
+  local on_exit = function(code, signal)
+    pcall(stdout.read_stop, stdout)
+    pcall(stderr.read_stop, stderr)
+    pcall(stdout.close, stdout)
+    pcall(stderr.close, stderr)
     if stdin and not stdin:is_closing() then stdin:close() end
     if handle and not handle:is_closing() then handle:close() end
 
@@ -126,7 +125,7 @@ function Spawn:start()
     self.pid = nil
 
     if self.spec.on_exit then self.spec.on_exit(code, signal) end
-  end)
+  end
 
   handle, self.pid = vim.uv.spawn(self.spec.command, {
     args = self.spec.args,
@@ -174,6 +173,16 @@ function Spawn:stop(signal)
     pcall(self.handle.kill, self.handle, signal)
   end
 
+  return self
+end
+
+function Spawn:close(callback)
+  self:stop('sigterm')
+  if self.handle and not self.handle:is_closing() then pcall(self.handle.close, self.handle) end
+  if self.stdin and not self.stdin:is_closing() then self.stdin:close() end
+  self.handle = nil
+  self.stdin = nil
+  if callback then callback() end
   return self
 end
 

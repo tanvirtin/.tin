@@ -49,7 +49,6 @@ fn runParserMode(allocator: std.mem.Allocator, path: []const u8, iterations: usi
     const content = try file.readToEndAlloc(allocator, 50 * 1024 * 1024);
     defer allocator.free(content);
 
-    // Warmup
     {
         var arena = std.heap.ArenaAllocator.init(allocator);
         defer arena.deinit();
@@ -105,7 +104,7 @@ fn runOrchestrator(allocator: std.mem.Allocator, args: [][:0]u8) !void {
         parsers[parsers_len] = .{ .name = "tin", .cmd = self_cmd_alloc.? };
         parsers_len += 1;
     }
-    
+
     const active_parsers = parsers[0..parsers_len];
 
     const datasets = [_][]const u8{
@@ -123,7 +122,7 @@ fn runOrchestrator(allocator: std.mem.Allocator, args: [][:0]u8) !void {
         std.debug.print(" | {s:^21}", .{p.name});
     }
     std.debug.print("\n", .{});
-    
+
     std.debug.print("{s:-<20}", .{""});
     for (active_parsers) |_| {
         std.debug.print("-|-{s:-<21}", .{""});
@@ -174,7 +173,7 @@ fn runOrchestrator(allocator: std.mem.Allocator, args: [][:0]u8) !void {
 
             const output = try child.stderr.?.readToEndAlloc(allocator, 1024);
             defer allocator.free(output);
-            
+
             _ = try child.wait();
 
             const trimmed = std.mem.trim(u8, output, " \r\n");
@@ -195,7 +194,7 @@ fn runOrchestrator(allocator: std.mem.Allocator, args: [][:0]u8) !void {
         std.debug.print("-|-{s:-<21}", .{""});
     }
     std.debug.print("\n", .{});
-    
+
     std.debug.print("{s:<20}", .{"TOTAL SCORE"});
     for (active_parsers, 0..) |p, p_idx| {
         _ = p;

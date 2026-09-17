@@ -2,8 +2,17 @@
 
 Your developer environment as code. Clone it, run it, you're you on any machine.
 
+## Quickstart
+
+One command bootstraps everything — installs the `tin` binary, clones this repo to `~/.tin`, and runs `tin install` (symlinks, fonts, tool recipes):
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh
+```
+
+If you already have `tin`, just run the install steps directly:
+
+```bash
 tin install
 ```
 
@@ -14,11 +23,12 @@ tin install
 `tinrc.yml` is personal and not committed — start from [`tinrc.example.yml`](tinrc.example.yml):
 
 ```
-tinrc.example.yml   ← template — copy to ~/.tin/tinrc.yml
-recipes/            ← how to set up each tool
-assets/             ← dotfiles, terminal configs, fonts
-nvim/               ← neovim config
-tin (binary)        ← runs it all
+tinrc.yml         ← personal config — copy from tinrc.example.yml
+tinrc.example.yml ← template
+assets/           ← dotfiles (incl. .tmux.conf), terminal configs, fonts
+recipes/          ← how to install and configure each tool
+nvim/             ← neovim config
+tin (binary)      ← runs it all
 ```
 
 <details>
@@ -201,65 +211,54 @@ Available variables: `{{ identity.name }}`, `{{ identity.email }}`.
 tin install                         Full environment setup from tinrc.yml
 tin link                            Create managed symlinks
 tin unlink                          Remove symlinks and restore backups
-tin status                          Show linked, missing, and broken files
-tin heal                            Repair managed state safely
+tin heal                            Inspect symlink state, then repair safely
 tin fonts                           Install fonts
 tin recipe [name]                   List or run recipes
 tin artifact                        Browse, validate, and export skills
-tin methods list|show [name]        Browse the run-method catalog
-tin workspace add|up|down ...       Register and run project workspaces
 tin web search|extract|fetch ...    Search, extract, or fetch web content
-tin env                             Manage provider keys and model defaults
 tin help                            Show runtime command reference and index
 ```
 
 `web` is a namespace: web access belongs under `tin web`.
 
-### Workspaces
+### Agent control
 
-A workspace is a project-specific composition of catalog methods. Register a
-project, edit its generated YAML, validate it, then boot it in tmux:
+Tin connects OpenCode conversations to Neovim. A Git worktree can have its own
+tmux window, with Neovim and an OpenCode coordinator side by side.
 
-```bash
-tin workspace add myapp ~/workspace/myapp
-# edit ~/.config/tin/workspaces/myapp.yml
-tin workspace validate myapp
-tin workspace up myapp
-tin workspace status myapp
-tin workspace down myapp
+```sh
+tin agent open "$PWD"            # current worktree's editor + conversation (boots the server in the background if needed)
+tin agent open --new "$PWD"      # force a fresh coordinator instead of resuming the previous Control: session
+tin agent worktree feature/auth   # separate editing task
+tin help agent
 ```
 
-Example:
+In Neovim, `<leader>os` asks OpenCode about the current line or a visual range
+through a composer; `<leader>oX` clears its draft; `<leader>o<Space>` toggles the paired OpenCode
+pane: Neovim full-window with the pane hidden, or the 73/27 split restored, so
+the chat behaves as if it were part of Neovim. Each worktree window is one
+strict pair: a Neovim
+instance can only communicate with the OpenCode pane beside it, and a moved
+pane invalidates the pair immediately. Messages are delivered by session ID
+through the OpenCode API, never by typing into a tmux pane.
+See [the agent-control guide](nvim/AGENT_CONTROL.md) for setup, keybindings,
+remote connections, and lifecycle details.
 
-```yaml
-name: myapp
-path: ~/workspace/myapp
-components:
-  db:
-    method: postgres
-    params: { port: 5433 }
-  api:
-    method: node-dev
-    params: { dir: services/api, script: dev }
-topology:
-  api:
-    depends_on: { db: { condition: healthy } }
-```
+### Tmux config
 
-Tin discovers the project and proposes mappings; the workspace file is the
-reviewed contract that tin executes.
+tmux is installed via the `tmux` recipe (`tin recipe tmux`, which also clones
+tpm) and configured with a plain committed file at `assets/.tmux.conf` — symlinked
+to `~/.tmux.conf` via `tin link`/`tinrc.yml` (see `symlinks: shell`). There is
+no `tin tmux` command: the config is a checked-in tmux script, edited directly.
 
-### Methods
+The current file uses a monokai status bar and the `tmux-sessionx` plugin
+(bound to `L` in the prefix table) with the current session shown (not filtered
+out) and prefixed with a `●` marker so it's easy to spot and avoid picking,
+tree/window mode, git branches, and fzf colors.
 
-Methods are reusable run definitions in `~/.tin/methods/` (seed) and
-`~/.config/tin/methods/` (user). A method declares a runtime, command or
-container image, parameters, health checks, and installation requirements.
-User methods shadow seed methods with the same ID.
-
-```bash
-tin methods list
-tin methods show postgres
-```
+After changing `assets/.tmux.conf`, re-apply with:
+`tmux source-file ~/.tmux.conf`. The sessionx plugin must also re-run its
+`sessionx.tmux` (as bash) to rebuild its `@sessionx-_built-*` args.
 
 ### Self-documenting CLI
 
@@ -268,9 +267,8 @@ Tin is runtime-discoverable. Agents should load only the compact contract, then 
 ```bash
 tin --help
 tin help --index
-tin help workspace
-tin help workspace schema
-tin help methods postgres
+tin help artifact
+tin help schema tinrc
 ```
 
 `tin help --index` is the compact machine-readable map. Topic and detail pages are generated from command metadata, schemas, and live catalogs.
@@ -293,8 +291,8 @@ not suitable for extraction. `TAVILY_API_KEY` belongs in the gitignored
 
 ### Self-healing
 
-Run `tin heal` when managed state is degraded. It repairs symlinks and reports
-catalog faults; judgment-heavy fixes are left to the agent.
+Run `tin heal` when managed state is degraded. It repairs symlinks and surfaces
+config faults; judgment-heavy fixes are left to the agent.
 
 <details>
 <summary>Adding tools</summary>
@@ -352,16 +350,16 @@ symlinks:
 
 ## Skills for agent runtimes — config, not orchestration
 
-Pi and OpenCode are agent runtimes that consume tin: the CLI is their source of
-truth, and tin exports its YAML artifacts to each runtime's native skill
+OpenCode is an agent runtime that consumes tin: the CLI is its source of
+truth, and tin exports its YAML artifacts to the runtime's native skill
 directory. Tin does not launch or manage agents. The shared compact agent
-contract lives in `assets/agent/AGENTS.md` and is linked into both runtimes.
+contract lives in `assets/agent/AGENTS.md` and is linked into the runtime.
 Everything the agent knows and can do is defined in Tin's YAML artifacts,
-exported to each runtime's native skill directory.
+exported to the runtime's native skill directory.
 
 Any agent that reads the [Agent Skills](https://agentskills.io/specification)
-standard gets the same ecosystem. Use `tin artifact export all` to refresh Pi
-and OpenCode skill directories. Both runtimes use the same self-documenting
+standard gets the same ecosystem. Use `tin artifact export opencode` to refresh
+the skill directory. The runtime uses the same self-documenting
 Tin CLI for deeper context.
 
 ```
@@ -369,7 +367,6 @@ artifacts/
   skills/       ← workflows, procedures, composed skills
   rules/        ← reusable rule sets included by skills
 assets/agent/   ← shared runtime contract
-assets/pi/      ← Pi-specific config symlinked into ~/.pi/agent/
 ```
 
 ### Commands
@@ -379,7 +376,7 @@ tin artifact list                              List all skills
 tin artifact --path=skills/develop/plan --format=md    Export as SKILL.md
 tin artifact --path=skills/develop/plan --format=json  Export as JSON
 tin artifact validate                          Check all references are valid
-tin artifact export <pi|opencode|all>       Export skills for an agent runtime
+tin artifact export opencode                   Export skills for an agent runtime
 ```
 
 ### Adding a skill
@@ -470,9 +467,9 @@ The `{{ clarity }}` placeholder is replaced with the rule's `content` at export 
 tin artifact export all
 ```
 
-Exports skills as `SKILL.md` files (the [agentskills.io](https://agentskills.io) standard) for Pi and/or OpenCode. Use `tin artifact export all` to refresh both runtimes.
+Exports skills as `SKILL.md` files (the [agentskills.io](https://agentskills.io) standard) for agent runtimes. Use `tin artifact export opencode` to refresh the skill directory.
 
-`bootstrap.sh` runs this automatically after `tin install`.
+`install.sh` runs this automatically after `tin install`.
 
 ### Current skills
 

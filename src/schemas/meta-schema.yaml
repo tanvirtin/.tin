@@ -74,11 +74,14 @@ fields:
   - name: common
     type: any
     required: false
-  - name: grammar
-    type: string
-    required: false
   - name: contexts
     type: any
+    required: false
+  - name: decl_as
+    type: string
+    required: false
+  - name: push_scope
+    type: string
     required: false
   - name: min_items
     type: integer
@@ -113,12 +116,6 @@ fields:
         required: false
     required: false
     additional: allow
-  - name: decl_as
-    type: string
-    required: false
-  - name: push_scope
-    type: string
-    required: false
   - name: refinements
     type: sequence
     items:

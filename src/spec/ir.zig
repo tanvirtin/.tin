@@ -94,7 +94,6 @@ pub const PathRef = struct {
 
 pub const SublangSchema = struct {
     grammar: []const u8,
-    contexts: ?[]const []const u8,
     proxy: ?[]const u8 = null,
 };
 
@@ -127,7 +126,6 @@ pub const Kind = union(enum) {
     ref: SchemaRef,
     discriminated: *DiscriminatedUnion,
     switch_on: *SwitchSchema,
-    path_ref: PathRef,
     sublang: SublangSchema,
 };
 
@@ -139,5 +137,5 @@ pub const Schema = struct {
     string_constraints: ?StringConstraints = null,
     ref_to: ?PathRef = null,
     decl_as: ?[]const u8 = null,
-    push_scope: ?ReferenceKind = null,
+    push_scope: ?[]const u8 = null,
 };

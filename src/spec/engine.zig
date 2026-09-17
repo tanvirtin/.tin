@@ -12,6 +12,7 @@ const SublangRegistry = sublang.SublangRegistry;
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
 
 const output = @import("../lib/output.zig");
+const diag = @import("diagnostic.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
@@ -45,9 +46,7 @@ pub const Engine = struct {
         const diagnostics = try validate_mod.validate(allocator, &bootstrap_schema, meta_doc.value, null, &sublangs, null);
         if (diagnostics.len > 0) {
             output.warn("meta-schema.yaml has validation errors against bootstrap:", .{});
-            for (diagnostics) |d| {
-                output.plain("  [{s}] {s} at byte {d}", .{ d.code, d.message, d.span.start });
-            }
+            diag.printDiagnostics(diagnostics);
         }
 
         const meta_schema = try compile.compile(allocator, &meta_doc);
@@ -70,17 +69,13 @@ pub const Engine = struct {
         const diagnostics = try validate_mod.validate(self.allocator, &self.meta_schema, doc.value, null, &self.sublangs, null);
         if (diagnostics.len > 0) {
             output.err("schema has validation errors against meta-schema:", .{});
-            for (diagnostics) |d| {
-                output.plain("  [{s}] {s} at byte {d}", .{ d.code, d.message, d.span.start });
-            }
+            diag.printDiagnostics(diagnostics);
             return error.InvalidSchema;
         }
 
         return try compile.compile(self.allocator, &doc);
     }
 
-    /// Load a schema by file name from `schemas_dir` and validate a document
-    /// file against it. Returns diagnostics (empty on success).
     pub fn validateFile(
         self: *const Engine,
         allocator: std.mem.Allocator,

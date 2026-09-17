@@ -47,8 +47,8 @@ pub const Scope = struct {
 
 pub const PathSegment = union(enum) {
     key: []const u8,
-    wildcard,      // *
-    recursive,     // **
+    wildcard,
+    recursive,
 };
 
 pub const PathExpression = struct {

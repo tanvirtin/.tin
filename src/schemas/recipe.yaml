@@ -15,8 +15,17 @@ fields:
           type: string
           required: false
         - name: if
-          type: string
           required: false
+          sublang:
+            grammar: expression
+          contexts:
+            os:
+              type: string
+            env:
+              type: mapping
+              keys: string
+              values:
+                type: string
         - name: run
           type: string
           required: false

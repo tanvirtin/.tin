@@ -58,5 +58,11 @@ auth.json
 /artifacts/
 /sn/
 
+# runtime state
+serve.log
+serve.pid
+tests/__pycache__/
+/tin
+
 # personal machine config — see tinrc.example.yml
 /tinrc.yml

@@ -1,15 +1,12 @@
 local lazy = require('core.lazy')
 
 local env = lazy('core.env')
-local event = lazy('core.event')
 local Spawn = lazy('core.Spawn')
 local console = lazy('core.console')
 
 local gitcli = {}
 
-local _run = event.promisify(function(args, opts, callback)
-  local cmd = 'git'
-
+local function run_git(args, opts)
   opts = opts or {}
 
   local config_args = {}
@@ -30,39 +27,52 @@ local _run = event.promisify(function(args, opts, callback)
   local spawn_env = env.get_all()
   if opts.env then spawn_env = vim.list_extend(vim.list_extend({}, spawn_env), opts.env) end
 
-  Spawn({
-    command = cmd,
-    args = effective_args,
-    env = spawn_env,
-    on_stderr = function(line)
-      err[#err + 1] = line
-    end,
-    on_stdout = function(line)
-      stdout[#stdout + 1] = line
-    end,
-    on_exit = function(code)
-      local cmd_str = 'git ' .. table.concat(effective_args, ' ')
-      if code == 0 then
-        console.debug.info(cmd_str .. ' (exit=0, ' .. #stdout .. ' lines)')
-        return callback(stdout, nil, code)
-      end
-      if #err ~= 0 then
-        local log_lines = { cmd_str .. ' (exit=' .. code .. ')' }
-        for _, line in ipairs(err) do
-          log_lines[#log_lines + 1] = line
-        end
-        console.debug.error(log_lines)
-        return callback(nil, err, code)
-      end
-      callback(stdout, nil, code)
-    end,
-  }):start()
-end, 3)
+  local code = vim.async.await(function(done)
+    return Spawn({
+      command = 'git',
+      args = effective_args,
+      env = spawn_env,
+      on_stderr = function(line)
+        err[#err + 1] = line
+      end,
+      on_stdout = function(line)
+        stdout[#stdout + 1] = line
+      end,
+      on_exit = function(exit_code)
+        done(exit_code)
+      end,
+    }):start()
+  end)
+
+  local cmd_str = 'git ' .. table.concat(effective_args, ' ')
+  if code == 0 then
+    console.debug.info(cmd_str .. ' (exit=0, ' .. #stdout .. ' lines)')
+    return stdout, nil, code
+  end
+  if #err ~= 0 then
+    local log_lines = { cmd_str .. ' (exit=' .. code .. ')' }
+    for _, line in ipairs(err) do
+      log_lines[#log_lines + 1] = line
+    end
+    console.debug.error(log_lines)
+    return nil, err, code
+  end
+  return stdout, nil, code
+end
+
+gitcli.task = function(args, opts)
+  return vim.async.run(function()
+    return run_git(args, opts)
+  end):detach()
+end
+
+gitcli.run_async = function(args, opts)
+  return gitcli.task(args, opts)
+end
 
 function gitcli.run(args, opts)
-  local result, err, code = _run(args, opts)
-  event.await()
-  return result, err, code
+  opts = opts or {}
+  return gitcli.task(args, opts):wait(opts.timeout)
 end
 
 return gitcli

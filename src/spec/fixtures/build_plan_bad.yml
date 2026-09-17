@@ -1,0 +1,17 @@
+jobs:
+  - id: build
+    steps:
+      - id: checkout
+        run: git checkout
+      - needs: missing_job
+        run: echo hi
+  - id: test
+    needs: [build, nowhere]
+    steps:
+      - if: steps.checkout.output == 'x'
+        run: echo
+      - if: job.nope != 'x'
+        run: echo
+      - id: weird
+        needs: ghost_step
+        run: echo

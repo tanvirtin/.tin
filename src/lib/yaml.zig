@@ -33,7 +33,7 @@ pub const DocNode = struct {
 pub fn parse(allocator: std.mem.Allocator, input: []const u8) !DocNode {
     const mutable = try allocator.dupe(u8, input);
     errdefer allocator.free(mutable);
-    
+
     var arena = try allocator.create(std.heap.ArenaAllocator);
     arena.* = std.heap.ArenaAllocator.init(allocator);
     errdefer {

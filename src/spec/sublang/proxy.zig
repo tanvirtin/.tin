@@ -10,7 +10,6 @@ const SourceMap = yaml.SourceMap;
 
 pub const ProxyOptions = struct {
     command: []const u8,
-    // Future: error_format: enum { gcc, json, ... } = .gcc,
 };
 
 pub fn validate(
@@ -24,7 +23,6 @@ pub fn validate(
 ) !void {
     _ = env;
 
-    // The command reads the source via stdin ('-'), shellcheck-style.
     var child = std.process.Child.init(&[_][]const u8{ "/bin/sh", "-c", options.command }, allocator);
     child.stdin_behavior = .Pipe;
     child.stdout_behavior = .Pipe;
@@ -43,14 +41,12 @@ pub fn validate(
 
     _ = try child.wait();
 
-    // GCC format: <file>:<line>:<col>: <severity>: <message>. With stdin,
-    // <file> is usually "stdin" or "-".
     var it = std.mem.splitScalar(u8, stdout, '\n');
     while (it.next()) |line| {
         if (line.len == 0) continue;
 
         var parts = std.mem.splitScalar(u8, line, ':');
-        _ = parts.next(); // skip "stdin"
+        _ = parts.next();
         const line_str = parts.next() orelse continue;
         const col_str = parts.next() orelse continue;
         const rest = parts.rest();
@@ -60,11 +56,10 @@ pub fn validate(
 
         const offset = getOffset(source, line_num, col_num);
 
-        // Map line:col back to original YAML source bytes via the source map.
         const physical_offset = if (source_map) |sm| sm.map(offset) else span.start + offset;
 
         try diagnostics.append(allocator, .{
-            .severity = .err, // Future: parse severity from 'rest'
+            .severity = .err,
             .span = .{ .file_id = span.file_id, .start = physical_offset, .end = physical_offset + 1 },
             .code = try allocator.dupe(u8, "external_linter"),
             .message = try allocator.dupe(u8, std.mem.trim(u8, rest, " ")),

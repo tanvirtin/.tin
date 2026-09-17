@@ -12,8 +12,8 @@ steps:
 
   - name: Set default shell
     run: chsh -s "$(which zsh)"
-    if: not exists ~/.zsh_configured
+    if: "!exists('~/.zsh_configured')"
 
   - name: Mark zsh configured
     run: touch ~/.zsh_configured
-    if: not exists ~/.zsh_configured
+    if: "!exists('~/.zsh_configured')"

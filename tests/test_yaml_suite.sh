@@ -9,7 +9,6 @@ if [ ! -d "$TEST_DIR" ]; then
     git clone --branch data --depth 1 https://github.com/yaml/yaml-test-suite.git "$TEST_DIR"
 fi
 
-# Use timeout (Linux/CI) or perl (macOS) for per-test time limits
 run_with_timeout() {
     if command -v timeout &>/dev/null; then
         timeout 2 "$@" 2>/dev/null || echo "TIMEOUT"

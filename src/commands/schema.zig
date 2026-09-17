@@ -1,7 +1,7 @@
 const std = @import("std");
 const fs = @import("../lib/fs.zig");
 const output = @import("../lib/output.zig");
-const Environment = @import("../core/environment.zig");
+const Paths = @import("../core/environment/paths.zig").Paths;
 
 pub const meta = .{
     .name = "schema",
@@ -9,8 +9,8 @@ pub const meta = .{
 };
 
 pub fn schemasDir(allocator: std.mem.Allocator) ?[]const u8 {
-    const env = Environment.init(allocator) catch return null;
-    return std.fs.path.join(allocator, &.{ env.paths.tin_dir, "src", "schemas" }) catch null;
+    const paths = Paths.init(allocator) catch return null;
+    return paths.schemasDir(allocator) catch null;
 }
 
 pub fn resolveSchemaRef(allocator: std.mem.Allocator, schemas_dir: []const u8, ref: []const u8) ?[]const u8 {

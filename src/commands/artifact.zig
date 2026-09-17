@@ -24,10 +24,11 @@ fn parseFlag(args: []const []const u8, prefix: []const u8) ?[]const u8 {
 }
 
 pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
-    const paths = Environment.Paths.init(allocator) catch {
+    var environment = Environment.init(allocator) catch {
         output.err("could not resolve environment paths", .{});
         return;
     };
+    const paths = environment.paths;
 
     var engine = Artifact.init(allocator, paths.tin_dir) catch {
         output.err("artifact directory not found — run from a .tin project", .{});
@@ -35,7 +36,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     };
 
     if (args.len == 0) {
-        showHelp();
+        showHelp(allocator, &environment);
         return;
     }
 
@@ -53,23 +54,32 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     } else if (std.mem.eql(u8, sub, "validate")) {
         validate(&engine);
     } else if (std.mem.eql(u8, sub, "export")) {
-        exportTarget(allocator, &engine, paths.tin_dir, paths.home_dir, sub_args);
+        exportTarget(allocator, &engine, &environment, sub_args);
     } else {
         output.err("unknown artifact command: {s}", .{sub});
-        showHelp();
+        showHelp(allocator, &environment);
     }
 }
 
-fn showHelp() void {
+fn showHelp(allocator: std.mem.Allocator, env: *const Environment) void {
     output.info("archive — Browse, validate, and export skills and rules", .{});
     output.plain("", .{});
     output.plain("  tin archive list [skills]                    List definitions", .{});
     output.plain("  tin archive validate                         Validate all references", .{});
     output.plain("  tin archive --path=<path> --format=<fmt>     Export a definition", .{});
-    output.plain("  tin archive export <target>                  Export all for a consumer", .{});
+    output.plain("  tin archive export [target]                  Export skills to a configured target (default: all)", .{});
     output.plain("", .{});
     output.plain("  Paths:   skills/search/ripgrep", .{});
-    output.plain("  Targets: pi", .{});
+    const targets = Environment.RecipeManager.getExportTargets(allocator, env.config, env.paths) catch &.{};
+    defer allocator.free(targets);
+    if (targets.len == 0) {
+        output.plain("  Targets: (none — add `exports:` to tinrc.yml)", .{});
+    } else {
+        var buf: std.ArrayList(u8) = .{};
+        const w = buf.writer(allocator);
+        for (targets) |t| w.print(" {s}", .{t.name}) catch {};
+        output.plain("  Targets:{s}", .{buf.items});
+    }
 }
 
 fn renderDef(allocator: std.mem.Allocator, engine: *const Artifact, path: []const u8, format_name: []const u8) void {
@@ -166,7 +176,7 @@ const formatters = [_]SkillFormatter{
 fn findAndRenderSkill(allocator: std.mem.Allocator, engine: *const Artifact, id: []const u8, format_name: []const u8) bool {
     const skills = engine.discoverSkills(allocator) catch return false;
     const rules = engine.discoverRules(allocator) catch &.{};
-    
+
     var selected_formatter: ?SkillFormatter = null;
     for (formatters) |f| {
         if (std.mem.eql(u8, f.name, format_name)) {
@@ -265,18 +275,17 @@ fn validate(engine: *Artifact) void {
     output.success("all references valid", .{});
 }
 
-const ExportTarget = enum { pi, opencode, all };
-
-fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, tin_dir: []const u8, home_dir: []const u8, args: []const []const u8) void {
-    if (args.len == 0) {
-        output.err("usage: tin artifact export <pi|opencode>", .{});
-        return;
-    }
-
-    const target = std.meta.stringToEnum(ExportTarget, args[0]) orelse {
-        output.err("unknown target: {s} (use pi, opencode, or all)", .{args[0]});
+fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, env: *const Environment, args: []const []const u8) void {
+    const targets = Environment.RecipeManager.getExportTargets(allocator, env.config, env.paths) catch {
+        output.err("could not read exports from tinrc.yml", .{});
         return;
     };
+    defer allocator.free(targets);
+
+    if (targets.len == 0) {
+        output.err("no export targets configured (add `exports:` to tinrc.yml)", .{});
+        return;
+    }
 
     const skills = engine.discoverSkills(allocator) catch {
         output.err("failed to discover skills", .{});
@@ -284,14 +293,24 @@ fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, tin_dir: 
     };
     const rules = engine.discoverRules(allocator) catch &.{};
 
-    switch (target) {
-        .pi => exportSkills(allocator, tin_dir, ".pi/skills", skills, rules),
-        .opencode => exportSkills(allocator, home_dir, ".config/opencode/skills", skills, rules),
-        .all => {
-            exportSkills(allocator, tin_dir, ".pi/skills", skills, rules);
-            exportSkills(allocator, home_dir, ".config/opencode/skills", skills, rules);
-        },
+    if (args.len == 0 or std.mem.eql(u8, args[0], "all")) {
+        for (targets) |target| {
+            exportSkills(allocator, target.dir, skills, rules);
+        }
+        return;
     }
+
+    for (targets) |target| {
+        if (std.mem.eql(u8, target.name, args[0])) {
+            exportSkills(allocator, target.dir, skills, rules);
+            return;
+        }
+    }
+
+    var buf: std.ArrayList(u8) = .{};
+    const w = buf.writer(allocator);
+    for (targets) |target| w.print("{s} ", .{target.name}) catch {};
+    output.err("unknown target: {s} (available: {s})", .{ args[0], buf.items });
 }
 
 fn writeExportFile(path: []const u8, content: []const u8) bool {
@@ -332,8 +351,8 @@ fn renderSkillToMd(allocator: std.mem.Allocator, skill: Artifact.Skill) []const 
     return buf.items;
 }
 
-fn exportSkills(allocator: std.mem.Allocator, tin_dir: []const u8, relative_dir: []const u8, skills: []const Artifact.Skill, rules: []const Artifact.Rule) void {
-    const base = std.fmt.allocPrint(allocator, "{s}/{s}", .{ tin_dir, relative_dir }) catch return;
+fn exportSkills(allocator: std.mem.Allocator, base_dir: []const u8, skills: []const Artifact.Skill, rules: []const Artifact.Rule) void {
+    const base = base_dir;
     utils.cleanDir(allocator, base);
     var count: usize = 0;
 

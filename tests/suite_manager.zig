@@ -8,42 +8,43 @@ pub fn main() !void {
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
 
-    _ = args.next(); // program name
+    _ = args.next();
     _ = args.next() orelse return error.MissingTinPath;
     const spec_runner_path = args.next() orelse return error.MissingSpecRunnerPath;
     const bench_path = args.next() orelse return error.MissingBenchPath;
     const unit_test_path = args.next() orelse return error.MissingUnitTestPath;
     const flow_test_path = args.next() orelse return error.MissingFlowTestPath;
+    const expression_test_path = args.next() orelse return error.MissingExpressionSuitePath;
+    const expression_corpus_path = args.next() orelse return error.MissingExpressionCorpusPath;
 
     var reporter = Reporter.init(allocator);
     defer reporter.deinit();
 
     try reporter.header("TIN NATIVE TEST SUITE");
 
-    // 1. Unit Tests
     try reporter.startGroup("Unit Tests");
     const unit_success = try runAndStream(allocator, &.{ unit_test_path });
     try reporter.endGroup(unit_success);
 
-    // 2. Integration Tests
     try reporter.startGroup("Integration Tests");
     const integ_success = try runAndStream(allocator, &.{ "./tests/test.sh" });
     try reporter.endGroup(integ_success);
 
-    // 3. YAML Spec Compliance
     try reporter.startGroup("YAML Spec Compliance");
     const spec_success = try runAndStream(allocator, &.{ "./tests/test_yaml_suite.sh", spec_runner_path });
     try reporter.endGroup(spec_success);
 
-    // 4. Flow Parsing Tests
     try reporter.startGroup("Flow Parsing Tests");
     const flow_success = try runAndStream(allocator, &.{ flow_test_path });
     try reporter.endGroup(flow_success);
 
-    // 5. Performance Benchmarks
     try reporter.startGroup("Performance Benchmarks");
     const bench_success = try runAndStream(allocator, &.{ bench_path });
     try reporter.endGroup(bench_success);
+
+    try reporter.startGroup("Expression Spec Compliance");
+    const expr_success = try runAndStream(allocator, &.{ expression_test_path, expression_corpus_path });
+    try reporter.endGroup(expr_success);
 
     try reporter.finalReport();
 
@@ -98,7 +99,6 @@ const Reporter = struct {
 
 fn runAndStream(allocator: std.mem.Allocator, argv: []const []const u8) !bool {
     var proc = std.process.Child.init(argv, allocator);
-    // Inherit stdout/stderr to stream directly to terminal
     proc.stdout_behavior = .Inherit;
     proc.stderr_behavior = .Inherit;
 

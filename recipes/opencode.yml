@@ -4,4 +4,4 @@ description: Install the OpenCode agent runtime
 steps:
   - name: Install OpenCode
     run: curl -fsSL https://opencode.ai/install | bash
-    if: not command_exists opencode
+    if: "!commandExists('opencode')"

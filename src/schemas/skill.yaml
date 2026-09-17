@@ -45,4 +45,4 @@ fields:
     required: false
 additional: forbid
 refinements:
-  - require_at_least: 1 # description + (command or system)
+  - require_at_least: 1

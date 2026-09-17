@@ -9,13 +9,15 @@ const ContextEnv = context.ContextEnv;
 const Diagnostic = diag.Diagnostic;
 const Schema = ir.Schema;
 
+pub const TypecheckError = error{OutOfMemory};
+
 pub const TypeChecker = struct {
     allocator: std.mem.Allocator,
     env: ?*const ContextEnv,
     diagnostics: *std.ArrayListUnmanaged(Diagnostic),
     span: diag.Span,
 
-    pub fn check(self: *TypeChecker, node: *const Node) anyerror!*const Schema {
+    pub fn check(self: *TypeChecker, node: *const Node) TypecheckError!*const Schema {
         switch (node.*) {
             .literal => |l| return self.checkLiteral(l),
             .variable => |v| return self.checkVariable(v),
@@ -48,21 +50,18 @@ pub const TypeChecker = struct {
 
     fn checkUnary(self: *TypeChecker, u: Node.Unary) !*const Schema {
         _ = try self.check(u.expr);
-        // Logical NOT returns boolean
         return self.primitiveSchema(.boolean);
     }
 
     fn checkBinary(self: *TypeChecker, b: Node.Binary) !*const Schema {
         _ = try self.check(b.left);
         _ = try self.check(b.right);
-        // All current binary ops return boolean (comparison or logical)
         return self.primitiveSchema(.boolean);
     }
 
     fn checkIndex(self: *TypeChecker, i: Node.Index) !*const Schema {
         const expr_schema = try self.check(i.expr);
-        
-        // If expr is an object, and index is a string literal, we can look up the field
+
         if (i.index.* == .literal and i.index.literal == .string) {
             const field_name = i.index.literal.string;
             if (expr_schema.kind == .object) {
@@ -83,7 +82,6 @@ pub const TypeChecker = struct {
 
     fn checkCall(self: *TypeChecker, c: Node.Call) !*const Schema {
         for (c.args) |*arg| _ = try self.check(arg);
-        // Functions usually return any/string for now
         return self.anySchema();
     }
 

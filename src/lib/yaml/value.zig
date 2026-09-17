@@ -36,7 +36,7 @@ pub const Tree = struct {
     pub fn init(allocator: std.mem.Allocator, source: []const u8) !*Tree {
         const self = try allocator.create(Tree);
         self.* = .{ .source = source };
-        try self.nodes.append(allocator, .{ .tag = .null }); // Root 0
+        try self.nodes.append(allocator, .{ .tag = .null });
         return self;
     }
 
@@ -57,7 +57,7 @@ pub const Tree = struct {
         self.nodes.deinit(allocator);
         allocator.destroy(self);
     }
-    
+
     pub fn addNode(self: *Tree, allocator: std.mem.Allocator, node: Node) !u32 {
         const idx: u32 = @intCast(self.nodes.items.len);
         try self.nodes.append(allocator, node);
@@ -85,12 +85,12 @@ pub const Value = struct {
             const k_node = self.tree.nodes.items[child];
             const k_str = k_node.computed_value orelse self.tree.source[k_node.start..k_node.end];
             const val_idx = k_node.next_sibling;
-            
+
             if (std.mem.eql(u8, k_str, key)) {
                 if (val_idx == 0) return null;
                 return .{ .tree = self.tree, .idx = val_idx, .arena = self.arena };
             }
-            
+
             if (val_idx == 0) break;
             child = self.tree.nodes.items[val_idx].next_sibling;
         }
@@ -113,11 +113,11 @@ pub const Value = struct {
     pub fn getSequence(self: Value) ?[]const Value {
         const node = self.tree.nodes.items[self.idx];
         if (node.tag != .sequence) return null;
-        
+
         var count: usize = 0;
         var child = node.first_child;
         while (child != 0) : (child = self.tree.nodes.items[child].next_sibling) count += 1;
-        
+
         const slice = self.arena.allocator().alloc(Value, count) catch return null;
         child = node.first_child;
         var i: usize = 0;

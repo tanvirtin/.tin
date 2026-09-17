@@ -27,3 +27,15 @@ autocmd({ 'FocusGained', 'BufEnter', 'CursorHold', 'CursorHoldI' }, {
   group = 'AutoReload',
   command = 'checktime',
 })
+
+-- Leaving Neovim closes the sibling OpenCode pane so the group window (and its
+-- tmux session, once last) tears down instead of persisting as an orphan.
+augroup('TinGroupTeardown', { clear = true })
+autocmd('VimLeavePre', {
+  group = 'TinGroupTeardown',
+  callback = function()
+    pcall(function()
+      require('core.opencode').teardown()
+    end)
+  end,
+})

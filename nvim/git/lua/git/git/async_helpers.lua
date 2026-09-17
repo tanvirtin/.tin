@@ -1,11 +1,9 @@
-local async = require('core.async')
-
 local function run(fn)
   local finished = false
   local test_error = nil
 
   vim.schedule(function()
-    async.run(function()
+    vim.async.run(function()
       local ok, err = pcall(fn)
       if not ok then test_error = err end
       finished = true

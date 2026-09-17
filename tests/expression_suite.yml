@@ -1,0 +1,309 @@
+- name: case-insensitive string equality
+  expr: "${{ 'ABC' == 'abc' }}"
+  expect: true
+- name: different strings are not equal
+  expr: "'abc' == 'abd'"
+  expect: false
+- name: same-kind numbers compare directly
+  expr: "1.5 == 1.5"
+  expect: true
+- name: null coerces to zero in equality
+  expr: "null == 0"
+  expect: true
+- name: true coerces to one
+  expr: "true == 1"
+  expect: true
+- name: false coerces to zero
+  expr: "false == 0"
+  expect: true
+- name: numeric string coerces to number
+  expr: "'1' == 1"
+  expect: true
+- name: empty string coerces to zero
+  expr: "'' == 0"
+  expect: true
+- name: non-numeric string is NaN so never equal
+  expr: "'true' == true"
+  expect: false
+- name: mixed NaN equality is false
+  expr: "'abc' == null"
+  expect: false
+- name: inequality coerces too
+  expr: "'1' != 2"
+  expect: true
+- name: null relational coerces to zero
+  expr: "null < 1"
+  expect: true
+- name: numeric string relational coerces
+  expr: "'5' > 1"
+  expect: true
+- name: NaN relational is always false
+  expr: "'abc' < 1"
+  expect: false
+- name: NaN relational is also false for floats side
+  expr: "0 > 'abc'"
+  expect: false
+- name: else branch of relational
+  expr: "1 >= 1"
+  expect: true
+- name: and returns operands, not booleans
+  expr: "'a' && 'b'"
+  expect: b
+- name: and short-circuits to falsy operand
+  expr: "'' && 'b'"
+  expect: ""
+  strict: true
+- name: and with null left side
+  expr: "null && 'b'"
+  expect: null
+  strict: true
+- name: or returns first truthy operand
+  expr: "'' || 'fallback'"
+  expect: fallback
+- name: or returns left when truthy
+  expr: "'x' || 'y'"
+  expect: x
+- name: or with zero left side is falsy
+  expr: "0 || 'z'"
+  expect: z
+- name: single-ampersand style chained guards
+  expr: "'a' && 'b' && 'c'"
+  expect: c
+- name: not on empty string
+  expr: "!''"
+  expect: true
+- name: not on zero
+  expr: "!0"
+  expect: true
+- name: not on null
+  expr: "!null"
+  expect: true
+- name: not on non-empty string
+  expr: "!'false'"
+  expect: false
+- name: not on NaN relational
+  expr: "!('abc' > 1)"
+  expect: true
+- name: grouping and precedence
+  expr: "('a' == 'A') && 1 == 1"
+  expect: true
+- name: contains case-insensitive substring
+  expr: "contains('Refs/heads/Main', 'main')"
+  expect: true
+- name: contains absent substring
+  expr: "contains('hello', 'z')"
+  expect: false
+- name: contains empty needle
+  expr: "contains('hello', '')"
+  expect: true
+- name: contains on array
+  env:
+    labels: ["bug", "ui"]
+  expr: "contains(labels, 'BUG')"
+  expect: true
+- name: contains on object key
+  env:
+    obj: { a: 1 }
+  expr: "contains(obj, 'a')"
+  expect: true
+- name: startsWith case-insensitive
+  expr: "startsWith('refs/heads/main', 'Refs/')"
+  expect: true
+- name: startsWith mismatch
+  expr: "startsWith('abc', 'b')"
+  expect: false
+- name: endsWith case-insensitive
+  expr: "endsWith('feature/ABC', 'abc')"
+  expect: true
+- name: format substitutes args
+  expr: "format('{0} am {1}', 'i', 'tim')"
+  expect: "i am tim"
+- name: format casts non-strings
+  expr: "format('{0}-{1}', 'app', 7)"
+  expect: app-7
+- name: format null renders empty
+  expr: "format('{0}x', null)"
+  expect: x
+- name: format missing arg renders empty
+  expr: "format('{0}')"
+  expect: ""
+  strict: true
+- name: format doubled braces stay literal
+  expr: "format('a{{b}}c')"
+  expect: "a{{b}}c"
+- name: join array with separator
+  env:
+    n: [1, 2, 3]
+  expr: "join(n, ',')"
+  expect: "1,2,3"
+- name: join with empty separator concatenates
+  env:
+    n: [1, 2, 3]
+  expr: "join(n, '')"
+  expect: "123"
+- name: join strings
+  env:
+    w: [hello, world]
+  expr: "join(w, ' ')"
+  expect: "hello world"
+- name: join output is a string
+  env:
+    w: [a, b]
+  expr: "join(w, '-') == 'a-b'"
+  expect: true
+- name: fromJSON scalar number
+  expr: "fromJSON('1.5') == 1.5"
+  expect: true
+- name: fromJSON string
+  expr: "fromJSON('\"hi\"')"
+  expect: hi
+- name: fromJSON boolean
+  expr: "fromJSON('true')"
+  expect: true
+  strict: true
+- name: fromJSON null
+  expr: "fromJSON('null')"
+  expect: null
+  strict: true
+- name: fromJSON array
+  expr: "fromJSON('[1, 2]')"
+  expect: [1, 2]
+- name: fromJSON object
+  expr: "fromJSON('{\"a\": 1}')"
+  expect: { a: 1 }
+- name: array index access
+  env:
+    xs: [a, b]
+  expr: "xs[1]"
+  expect: b
+- name: array index out of range is empty
+  env:
+    xs: [a]
+  expr: "xs[5]"
+  expect: ""
+  strict: true
+- name: object dot access
+  env:
+    conf: { name: tin }
+  expr: "conf.name"
+  expect: tin
+- name: object dot on missing key is empty
+  env:
+    conf: { name: tin }
+  expr: "conf.missing"
+  expect: ""
+  strict: true
+- name: object bracket key access
+  env:
+    conf: { name: tin }
+  expr: "conf['name']"
+  expect: tin
+- name: derived chain through indexes
+  env:
+    steps:
+      - { id: build }
+  expr: "steps[0].id"
+  expect: build
+- name: toJSON round-trips numbers
+  expr: "toJSON(fromJSON('1.5')) == '1.5'"
+  expect: true
+- name: toJSON serializes object
+  expr: "toJSON(fromJSON('{\"a\":1,\"b\":2}'))"
+  expect: '{"a":1,"b":2}'
+- name: toJSON escapes strings
+  expr: "toJSON(fromJSON('\"a\\nb\"'))"
+  expect: '"a\nb"'
+- name: toJSON null value
+  expr: "toJSON(null) == 'null'"
+  expect: true
+- name: case picks matching branch
+  expr: "case(false, 'no', 1 < 2, 'yes', 'fallback')"
+  expect: yes
+- name: case falls through to default
+  expr: "case(false, 'no', false, 'nah', 'fallback')"
+  expect: fallback
+- name: case no predicate matched and no default is null
+  expr: "case(false, 'no', false, 'nah')"
+  expect: null
+  strict: true
+- name: case uses truthiness not equality
+  expr: "case('' || 'a', 'first', 'second')"
+  expect: first
+- name: success status check defaults true
+  expr: "success()"
+  expect: true
+- name: failure status check defaults false
+  expr: "failure()"
+  expect: false
+- name: cancelled status check defaults false
+  expr: "cancelled()"
+  expect: false
+- name: always status check true
+  expr: "always()"
+  expect: true
+- name: function names are case-insensitive
+  expr: "STARTSWITH('AbC', 'a')"
+  expect: true
+- name: exists on present absolute path
+  expr: "exists('/')"
+  expect: true
+- name: exists on absent path
+  expr: "exists('/definitely/not/a/real/tin/path')"
+  expect: false
+- name: commandExists on a shell builtin binary
+  expr: "commandExists('sh')"
+  expect: true
+- name: commandExists on absent binary
+  expr: "commandExists('tin-no-such-binary-xyz')"
+  expect: false
+- name: wrapped and bare expressions behave the same
+  expr: "${{ os == 'web' }}"
+  env:
+    os: web
+  expect: true
+- name: truthy chain returns last operand
+  expr: "${{ '' || 'first' || 'second' }}"
+  expect: first
+- name: undefined context errors
+  expr: "nope == 1"
+  error: UnboundVariable
+- name: missing function errors
+  expr: "nope()"
+  error: UnknownFunction
+- name: too many args errors
+  expr: "fromJSON('1', '2')"
+  error: BadArgCount
+- name: join on non-array errors
+  expr: "join('notanarray', ',')"
+  error: TypeError
+- name: malformed JSON errors
+  expr: "fromJSON('{\"a\"}')"
+  error: InvalidJson
+- name: negative array index is a syntax error
+  env:
+    xs: [a]
+  expr: "xs[-1]"
+  error: UnexpectedToken
+- name: numeric index on non-integer errors
+  env:
+    xs: [a]
+  expr: "xs[0.5]"
+  error: InvalidIndex
+- name: truncated expression is a syntax error
+  expr: "os == "
+  error: UnexpectedToken
+- name: bare and operator errors
+  expr: "'a' and 'b'"
+  error: UnexpectedToken
+- name: single equal is a syntax error
+  expr: "a = b"
+  error: UnexpectedToken
+- name: single ampersand is a syntax error
+  expr: "a & b"
+  error: UnexpectedToken
+- name: bare minus is a syntax error
+  expr: "ref == 'main' - suffix"
+  error: UnexpectedToken
+- name: unterminated string is a syntax error
+  expr: "branch == 'main"
+  error: UnexpectedToken

@@ -1,3 +1,7 @@
+const std = @import("std");
+const yaml = @import("yaml");
+const output = @import("../lib/output.zig");
+
 pub const Severity = enum {
     err,
     warn,
@@ -28,3 +32,16 @@ pub const Diagnostic = struct {
     related: []const Related,
     suggestions: []const Suggestion,
 };
+
+pub fn spanFromValue(value: yaml.Value) Span {
+    if (value.idx >= value.tree.nodes.items.len)
+        return Span{ .file_id = 0, .start = 0, .end = 0 };
+    const node = value.tree.nodes.items[value.idx];
+    return Span{ .file_id = 0, .start = node.start, .end = node.end };
+}
+
+pub fn printDiagnostics(diags: []const Diagnostic) void {
+    for (diags) |d| {
+        output.plain("  [{s}] {s} at byte {d}", .{ d.code, d.message, d.span.start });
+    }
+}

@@ -2,15 +2,12 @@ const std = @import("std");
 const output = @import("lib/output.zig");
 
 const artifact = @import("commands/artifact.zig");
+const agent = @import("commands/agent.zig");
 const help = @import("commands/help.zig");
-const methods = @import("commands/methods.zig");
-const workspace = @import("commands/workspace.zig");
-const env = @import("commands/env.zig");
 const web = @import("commands/web.zig");
 const link = @import("commands/link.zig");
 const heal = @import("commands/heal.zig");
 const fonts = @import("commands/fonts.zig");
-const status = @import("commands/status.zig");
 const unlink = @import("commands/unlink.zig");
 const recipe = @import("commands/recipe.zig");
 const validate = @import("commands/validate.zig");
@@ -33,20 +30,17 @@ fn entry(comptime module: type) Entry {
 }
 
 pub const command_entries = [_]Entry{
+    entry(agent),
     entry(artifact),
     entry(help),
     entry(link),
     entry(heal),
     entry(fonts),
-    entry(status),
     entry(unlink),
     entry(recipe),
     entry(validate),
     entry(schema),
-    entry(workspace),
-    entry(methods),
     entry(web),
-    entry(env),
     entry(install),
 };
 

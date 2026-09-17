@@ -192,7 +192,7 @@ pub const Scanner = struct {
                     return;
                 }
             } else break;
-            if (self.pos == start_pos) break; // Rule 1: Progress-based
+            if (self.pos == start_pos) break;
         }
     }
 
@@ -318,14 +318,14 @@ pub const Scanner = struct {
                     if (is_yaml_dir and self.had_yaml_directive) return error.InvalidYaml;
                     if (is_yaml_dir) self.had_yaml_directive = true;
                     self.had_directive = true;
-                    while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step(); // skip %TAG/%YAML
-                    while (!self.eof() and isBlank(self.ch())) self.step(); // skip blanks
+                    while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step();
+                    while (!self.eof() and isBlank(self.ch())) self.step();
                     const handle_start = self.pos;
-                    while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step(); // scan handle
+                    while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step();
                     if (is_tag_dir) {
                         self.tag_handles.append(self.alloc, self.src[handle_start..self.pos]) catch return error.OutOfMemory;
                     }
-                    while (!self.eof() and isBlank(self.ch())) self.step(); // skip blanks
+                    while (!self.eof() and isBlank(self.ch())) self.step();
                     if (!self.eof() and !isBreak(self.ch()) and self.ch() != '#') {
                         if (is_yaml_dir) return error.InvalidYaml;
                     }
@@ -726,7 +726,7 @@ pub const Scanner = struct {
     }
 
     fn scanQuotedScalar(self: *Scanner, quote: u8) !void {
-        self.step(); // opening quote
+        self.step();
         const target_start = self.pos;
         var target_pos = target_start;
         const style: ScalarStyle = if (quote == '\'') .single_quoted else .double_quoted;
@@ -828,10 +828,10 @@ pub const Scanner = struct {
             final_map = .{ .entries = try source_map_entries.toOwnedSlice(self.alloc) };
         }
 
-        try self.emit(.{ 
-            .tag = .scalar, 
-            .start = @intCast(target_start), 
-            .end = @intCast(target_pos), 
+        try self.emit(.{
+            .tag = .scalar,
+            .start = @intCast(target_start),
+            .end = @intCast(target_pos),
             .style = style,
             .source_map = final_map,
         });
@@ -876,10 +876,10 @@ pub const Scanner = struct {
                 var entries = try self.alloc.alloc(token.SourceMap.Entry, 1);
                 entries[0] = .{ .parsed = 0, .source = @intCast(start) };
 
-                try self.emit(.{ 
-                    .tag = .scalar, 
-                    .start = @intCast(start), 
-                    .end = @intCast(end), 
+                try self.emit(.{
+                    .tag = .scalar,
+                    .start = @intCast(start),
+                    .end = @intCast(end),
                     .style = .plain,
                     .source_map = .{ .entries = entries },
                 });
@@ -1017,7 +1017,7 @@ pub const Scanner = struct {
             self.src[target_pos] = c;
             target_pos += 1;
             self.step();
-            if (self.pos == token_loop_start) break; // Progress invariant
+            if (self.pos == token_loop_start) break;
         }
 
         if (target_pos > target_start) {
@@ -1025,10 +1025,10 @@ pub const Scanner = struct {
                 token.SourceMap{ .entries = try source_map_entries.toOwnedSlice(self.alloc) }
             else null;
 
-            try self.emit(.{ 
-                .tag = .scalar, 
-                .start = @intCast(target_start), 
-                .end = @intCast(target_pos), 
+            try self.emit(.{
+                .tag = .scalar,
+                .start = @intCast(target_start),
+                .end = @intCast(target_pos),
                 .style = .plain,
                 .source_map = final_map,
             });

@@ -2,9 +2,6 @@ const std = @import("std");
 const yaml = @import("yaml");
 const Engine = @import("engine.zig").Engine;
 
-/// Dogfood the schema DSL on tin's own YAML. Every schema must validate
-/// against the meta-schema, and every shipped data file must validate against
-/// its schema. This is the enforcement point for full DSL adoption.
 const schemas_dir = "src/schemas";
 
 const SchemaCases = struct {
@@ -13,13 +10,6 @@ const SchemaCases = struct {
 };
 
 const cases = [_]SchemaCases{
-    .{ .schema = "method.yaml", .files = &.{
-        "methods/cargo-run.yml",
-        "methods/node-dev.yml",
-        "methods/postgres.yml",
-        "methods/redis.yml",
-        "methods/vite-dev.yml",
-    } },
     .{ .schema = "recipe.yaml", .files = &.{
         "recipes/curl.yml",
         "recipes/deno.yml",
@@ -28,7 +18,6 @@ const cases = [_]SchemaCases{
         "recipes/neovim.yml",
         "recipes/nvm.yml",
         "recipes/opencode.yml",
-        "recipes/pi.yml",
         "recipes/rbenv.yml",
         "recipes/ripgrep.yml",
         "recipes/rust.yml",
@@ -38,11 +27,7 @@ const cases = [_]SchemaCases{
         "recipes/zsh.yml",
     } },
     .{ .schema = "tinrc.yaml", .files = &.{"tinrc.example.yml"} },
-    .{ .schema = "workspace.yaml", .files = &.{} },
-    .{ .schema = "github_workflow.yaml", .files = &.{
-        ".github/workflows/nightly.yml",
-        ".github/workflows/release.yml",
-    } },
+    .{ .schema = "build_plan.yaml", .files = &.{"src/spec/fixtures/build_plan_ok.yml"} },
 };
 
 test "every schema validates against the meta-schema" {
@@ -51,13 +36,11 @@ test "every schema validates against the meta-schema" {
 
     const schemas = [_][]const u8{
         "meta-schema.yaml",
-        "method.yaml",
         "recipe.yaml",
         "tinrc.yaml",
         "rule.yaml",
         "skill.yaml",
-        "workspace.yaml",
-        "github_workflow.yaml",
+        "build_plan.yaml",
     };
 
     var engine = try Engine.init(allocator);
@@ -110,25 +93,24 @@ test "shipped data files validate against their schemas" {
     }
 }
 
-test "bad method is rejected by the method schema" {
+var arena_state: std.heap.ArenaAllocator = undefined;
+const allocator = arena_state.allocator();
+
+test "scoped references and expressions are rejected when broken" {
     arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena_state.deinit();
 
     var engine = try Engine.init(allocator);
     defer engine.deinit();
 
-    const tmp = "/tmp/tin_bad_method.yml";
-    std.fs.cwd().deleteFile(tmp) catch {};
-    {
-        const f = try std.fs.cwd().createFile(tmp, .{});
-        defer f.close();
-        try f.writeAll("name: broken\nruntime: process\ncomand: typo\n");
+    const diagnostics = try engine.validateFile(allocator, schemas_dir, "build_plan.yaml", "src/spec/fixtures/build_plan_bad.yml");
+
+    var saw_ref: bool = false;
+    var saw_property: bool = false;
+    for (diagnostics) |d| {
+        if (std.mem.eql(u8, d.code, "undefined_reference")) saw_ref = true;
+        if (std.mem.eql(u8, d.code, "undefined_property")) saw_property = true;
     }
-    defer std.fs.cwd().deleteFile(tmp) catch {};
-
-    const diagnostics = try engine.validateFile(allocator, schemas_dir, "method.yaml", tmp);
-    if (diagnostics.len == 0) return error.BadMethodNotRejected;
+    try std.testing.expect(saw_ref);
+    try std.testing.expect(saw_property);
 }
-
-var arena_state: std.heap.ArenaAllocator = undefined;
-const allocator = arena_state.allocator();

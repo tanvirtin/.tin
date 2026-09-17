@@ -12,15 +12,16 @@ pub const TokenTag = enum {
     rparen,
     lbracket,
     rbracket,
-    exclamation, // !
-    equal,       // ==
-    not_equal,   // !=
-    less,        // <
-    less_equal,  // <=
-    greater,     // >
-    greater_equal, // >=
-    and_op,      // &&
-    or_op,       // ||
+    exclamation,
+    equal,
+    not_equal,
+    less,
+    less_equal,
+    greater,
+    greater_equal,
+    and_op,
+    or_op,
+    invalid,
     eof,
 };
 
@@ -61,7 +62,7 @@ pub const Lexer = struct {
             },
             '=' => {
                 if (self.match('=')) return self.makeToken(.equal, self.source[start..self.pos]);
-                return self.makeToken(.eof, "error"); // GHA doesn't use single =
+                return self.makeToken(.invalid, self.source[start..self.pos]);
             },
             '<' => {
                 if (self.match('=')) return self.makeToken(.less_equal, self.source[start..self.pos]);
@@ -73,15 +74,15 @@ pub const Lexer = struct {
             },
             '&' => {
                 if (self.match('&')) return self.makeToken(.and_op, self.source[start..self.pos]);
-                return self.makeToken(.eof, "error");
+                return self.makeToken(.invalid, self.source[start..self.pos]);
             },
             '|' => {
                 if (self.match('|')) return self.makeToken(.or_op, self.source[start..self.pos]);
-                return self.makeToken(.eof, "error");
+                return self.makeToken(.invalid, self.source[start..self.pos]);
             },
             '0'...'9' => return self.numberLiteral(start),
             'a'...'z', 'A'...'Z', '_' => return self.identifier(start),
-            else => return self.makeToken(.eof, "error"),
+            else => return self.makeToken(.invalid, self.source[start..self.pos]),
         }
     }
 
@@ -101,7 +102,10 @@ pub const Lexer = struct {
         while (self.pos < self.source.len and self.source[self.pos] != '\'') {
             self.pos += 1;
         }
-        if (self.pos < self.source.len) self.pos += 1; // consume closing '
+        if (self.pos >= self.source.len) {
+            return self.makeToken(.invalid, self.source[start..self.pos]);
+        }
+        self.pos += 1;
         return self.makeToken(.string_literal, self.source[start..self.pos]);
     }
 

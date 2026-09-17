@@ -20,6 +20,7 @@ const Refinement = schema_mod.Refinement;
 const StringConstraints = schema_mod.StringConstraints;
 const FieldDependency = schema_mod.FieldDependency;
 const Span = @import("diagnostic.zig").Span;
+const diag = @import("diagnostic.zig");
 
 pub const CompileError = error{
     InvalidSchema,
@@ -28,15 +29,8 @@ pub const CompileError = error{
     OutOfMemory,
 };
 
-fn spanFromValue(value: yaml.Value) Span {
-    if (value.idx >= value.tree.nodes.items.len)
-        return Span{ .file_id = 0, .start = 0, .end = 0 };
-    const node = value.tree.nodes.items[value.idx];
-    return Span{ .file_id = 0, .start = node.start, .end = node.end };
-}
-
 fn spanFromNode(node: *const yaml.DocNode) Span {
-    return spanFromValue(node.value);
+    return diag.spanFromValue(node.value);
 }
 
 fn parsePrimitive(s: []const u8) CompileError!Primitive {
@@ -86,18 +80,6 @@ fn compileSchemaValue(allocator: std.mem.Allocator, value: yaml.Value, span: Spa
         };
     }
 
-    var decl_as: ?[]const u8 = null;
-    if (value.get("decl_as")) |da| {
-        const da_str = da.getString() orelse return error.InvalidSchema;
-        decl_as = try allocator.dupe(u8, da_str);
-    }
-
-    var push_scope: ?schema_mod.ReferenceKind = null;
-    if (value.get("push_scope")) |ps| {
-        const ps_str = ps.getString() orelse return error.InvalidSchema;
-        push_scope = try allocator.dupe(u8, ps_str);
-    }
-
     var contexts: ?schema_mod.ContextDecl = null;
     if (value.get("contexts")) |ctx_val| {
         var map = std.StringHashMap(*schema_mod.Schema).init(allocator);
@@ -113,13 +95,12 @@ fn compileSchemaValue(allocator: std.mem.Allocator, value: yaml.Value, span: Spa
                 const val = yaml.Value{ .tree = value.tree, .idx = val_idx, .arena = value.arena };
 
                 const s = try allocator.create(schema_mod.Schema);
-                s.* = try compileSchemaValue(allocator, val, spanFromValue(val));
+                s.* = try compileSchemaValue(allocator, val, diag.spanFromValue(val));
                 try map.put(try allocator.dupe(u8, key_str), s);
 
                 child = value.tree.nodes.items[val_idx].next_sibling;
             }
         } else if (node.tag == .sequence) {
-            // Legacy support: list of strings defaults to 'any' schema
             const items = ctx_val.getSequence() orelse return error.InvalidSchema;
             for (items) |item| {
                 const name = item.getString() orelse return error.InvalidSchema;
@@ -136,6 +117,16 @@ fn compileSchemaValue(allocator: std.mem.Allocator, value: yaml.Value, span: Spa
         contexts = .{ .map = map };
     }
 
+    var decl_as: ?[]const u8 = null;
+    if (value.get("decl_as")) |da| {
+        decl_as = try allocator.dupe(u8, da.getString() orelse return error.InvalidSchema);
+    }
+
+    var push_scope: ?schema_mod.ReferenceKind = null;
+    if (value.get("push_scope")) |ps| {
+        push_scope = try allocator.dupe(u8, ps.getString() orelse return error.InvalidSchema);
+    }
+
     return Schema{
         .span = span,
         .kind = kind,
@@ -150,7 +141,7 @@ fn compileSchemaValue(allocator: std.mem.Allocator, value: yaml.Value, span: Spa
 
 fn readSchema(allocator: std.mem.Allocator, value: yaml.Value) CompileError!*Schema {
     const schema = try allocator.create(Schema);
-    schema.* = try compileSchemaValue(allocator, value, spanFromValue(value));
+    schema.* = try compileSchemaValue(allocator, value, diag.spanFromValue(value));
     return schema;
 }
 
@@ -172,7 +163,7 @@ fn compileKind(allocator: std.mem.Allocator, value: yaml.Value) CompileError!Kin
         if (value.get("discriminated")) |v| return .{ .discriminated = try compileDiscriminated(allocator, v) };
         if (value.get("switch")) |v| return .{ .switch_on = try compileSwitch(allocator, v) };
         if (value.get("sublang")) |v| return .{ .sublang = try compileSublang(allocator, v) };
-        
+
         return error.InvalidSchema;
     };
     const type_str = type_val.getString() orelse return error.InvalidSchema;
@@ -194,7 +185,6 @@ fn compileKind(allocator: std.mem.Allocator, value: yaml.Value) CompileError!Kin
     if (std.mem.eql(u8, type_str, "ref")) return .{ .ref = try compileRef(allocator, value) };
     if (std.mem.eql(u8, type_str, "discriminated")) return .{ .discriminated = try compileDiscriminated(allocator, value) };
     if (std.mem.eql(u8, type_str, "switch")) return .{ .switch_on = try compileSwitch(allocator, value) };
-    if (std.mem.eql(u8, type_str, "path_ref")) return .{ .path_ref = try compilePathRef(allocator, value) };
     if (std.mem.eql(u8, type_str, "sublang")) return .{ .sublang = try compileSublang(allocator, value) };
 
     return error.UnknownType;
@@ -272,7 +262,7 @@ fn compileObject(allocator: std.mem.Allocator, value: yaml.Value) CompileError!*
 
             const field_schema = if (item.get("type")) |type_val| blk1: {
                 if (type_val.getString()) |s| {
-                    if (isPrimitive(s)) break :blk1 try readSchema(allocator, type_val);
+                    if (isPrimitive(s)) break :blk1 try readSchema(allocator, item);
                     break :blk1 try readSchema(allocator, item);
                 } else {
                     break :blk1 try readSchema(allocator, type_val);
@@ -463,39 +453,14 @@ fn compileSwitch(allocator: std.mem.Allocator, value: yaml.Value) CompileError!*
     return sw;
 }
 
-fn compilePathRef(allocator: std.mem.Allocator, value: yaml.Value) CompileError!PathRef {
-    const path_val = value.get("path") orelse return error.InvalidSchema;
-    const path = path_val.getString() orelse return error.InvalidSchema;
-    const path_dup = try allocator.dupe(u8, path);
-
-    const kind_val = value.get("kind") orelse return error.InvalidSchema;
-    const kind = kind_val.getString() orelse return error.InvalidSchema;
-    const kind_dup = try allocator.dupe(u8, kind);
-
-    const catalog_val = value.get("catalog");
-    const catalog_dup = if (catalog_val) |cv| try allocator.dupe(u8, cv.getString() orelse return error.InvalidSchema) else null;
-
-    return PathRef{ .path = path_dup, .kind = kind_dup, .catalog = catalog_dup };
-}
-
 fn compileSublang(allocator: std.mem.Allocator, value: yaml.Value) CompileError!SublangSchema {
     const grammar_val = value.get("grammar") orelse return error.InvalidSchema;
     const grammar = grammar_val.getString() orelse return error.InvalidSchema;
     const grammar_dup = try allocator.dupe(u8, grammar);
 
-    const contexts = if (value.get("contexts")) |cv| blk: {
-        const seq = cv.getSequence() orelse return error.InvalidSchema;
-        var result = try allocator.alloc([]const u8, seq.len);
-        for (seq, 0..) |item, i| {
-            const s = item.getString() orelse return error.InvalidSchema;
-            result[i] = try allocator.dupe(u8, s);
-        }
-        break :blk result;
-    } else null;
-
     const proxy = if (value.get("proxy")) |pv| try allocator.dupe(u8, pv.getString() orelse return error.InvalidSchema) else null;
 
-    return SublangSchema{ .grammar = grammar_dup, .contexts = contexts, .proxy = proxy };
+    return SublangSchema{ .grammar = grammar_dup, .proxy = proxy };
 }
 
 fn compileRefinements(allocator: std.mem.Allocator, value: yaml.Value) CompileError![]const Refinement {

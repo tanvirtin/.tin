@@ -145,7 +145,7 @@ pub const Parser = struct {
     }
 
     fn parseFlowSeq(self: *Parser) ParseError!void {
-        self.advance(); // flow_sequence_start
+        self.advance();
         var first = true;
         while (self.peek()) |t| {
             if (t == .flow_sequence_end) { self.advance(); return; }
@@ -165,7 +165,7 @@ pub const Parser = struct {
     }
 
     fn parseFlowMap(self: *Parser) ParseError!void {
-        self.advance(); // flow_mapping_start
+        self.advance();
         var first = true;
         while (self.peek()) |t| {
             if (t == .flow_mapping_end) { self.advance(); return; }

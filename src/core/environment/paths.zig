@@ -23,40 +23,8 @@ pub fn recipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 
     return std.fs.path.join(allocator, &.{ self.tin_dir, "recipes" });
 }
 
-pub fn workspacesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    if (std.process.getEnvVarOwned(allocator, "TIN_WORKSPACES_DIR")) |dir|
-        return dir
-    else |_|
-        return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "workspaces" });
-}
-
-pub fn workspaceFile(self: *const Paths, allocator: std.mem.Allocator, name: []const u8) ![]const u8 {
-    const dir = try self.workspacesDir(allocator);
-    return std.fmt.allocPrint(allocator, "{s}/{s}.yml", .{ dir, name });
-}
-
-pub fn seedMethodsDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.tin_dir, "methods" });
-}
-
-pub fn methodsDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "methods" });
-}
-
-pub fn envFile(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.tin_dir, ".env" });
-}
-
-pub fn piAgentDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.home_dir, ".pi", "agent" });
-}
-
-pub fn piAuthFile(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.home_dir, ".pi", "agent", "auth.json" });
-}
-
-pub fn piSettingsFile(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.home_dir, ".pi", "agent", "settings.json" });
+pub fn schemasDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    return std.fs.path.join(allocator, &.{ self.tin_dir, "src", "schemas" });
 }
 
 pub fn absolutePath(self: *const Paths, allocator: std.mem.Allocator, path: []const u8) ![]const u8 {

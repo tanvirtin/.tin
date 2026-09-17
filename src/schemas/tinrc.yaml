@@ -1,5 +1,28 @@
 type: object
 fields:
+  - name: agents
+    type: sequence
+    items:
+      type: object
+      fields:
+        - name: name
+          type: string
+        - name: url
+          type: string
+        - name: directory
+          type: string
+          required: false
+        - name: agent
+          type: string
+          required: false
+        - name: password_env
+          type: string
+          required: false
+        - name: username_env
+          type: string
+          required: false
+      additional: forbid
+    required: false
   - name: identity
     type: object
     fields:
@@ -28,6 +51,17 @@ fields:
     required: false
   - name: fonts
     type: string
+    required: false
+  - name: exports
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: object
+      fields:
+        - name: dir
+          type: string
+      additional: forbid
     required: false
   - name: recipes
     type: mapping

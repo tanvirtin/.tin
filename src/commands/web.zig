@@ -28,7 +28,6 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     }
 }
 
-/// Read a key from ~/.tin/.env. Shared by search and extract.
 fn readEnvKey(allocator: std.mem.Allocator, key: []const u8) ?[]const u8 {
     const home = std.posix.getenv("HOME") orelse return null;
     const env_path = std.fmt.allocPrint(allocator, "{s}/.tin/.env", .{home}) catch return null;
@@ -116,8 +115,6 @@ fn extract(allocator: std.mem.Allocator, args: []const []const u8) void {
     output.plain("{s}", .{res.stdout});
 }
 
-/// Raw HTTP GET — no API key, no processing. For URLs Tavily's extract
-/// endpoint can't reach (raw.githubusercontent.com, plain-text, APIs).
 fn fetch(allocator: std.mem.Allocator, args: []const []const u8) void {
     if (args.len == 0) {
         output.err("usage: tin web fetch <url>", .{});

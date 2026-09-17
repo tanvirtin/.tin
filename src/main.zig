@@ -25,17 +25,14 @@ test {
     _ = @import("lib/process.zig");
     _ = @import("lib/template.zig");
     _ = @import("yaml");
-    _ = @import("commands/status.zig");
     _ = @import("commands/help.zig");
     _ = @import("commands/link.zig");
     _ = @import("commands/unlink.zig");
     _ = @import("commands/fonts.zig");
     _ = @import("commands/recipe.zig");
     _ = @import("commands/artifact.zig");
-    _ = @import("commands/workspace.zig");
     _ = @import("commands/validate.zig");
     _ = @import("commands/schema.zig");
-    _ = @import("commands/env.zig");
     _ = @import("commands/install.zig");
     _ = @import("core/symlink.zig");
     _ = @import("core/environment.zig");
@@ -48,12 +45,6 @@ test {
     _ = @import("spec/compile.zig");
     _ = @import("spec/validate.zig");
     _ = @import("spec/engine.zig");
-    _ = @import("spec/github_workflow.test.zig");
     _ = @import("spec/dogfood.test.zig");
-    _ = @import("lib/toml.zig");
     _ = @import("lib/envfile.zig");
-    _ = @import("core/workspace/registry.zig");
-    _ = @import("core/workspace/scaffold.zig");
-    _ = @import("core/workspace/runtime.zig");
-    _ = @import("core/environment/pi_env.zig");
 }

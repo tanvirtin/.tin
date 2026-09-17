@@ -18,6 +18,8 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("yaml", yaml_mod);
     b.installArtifact(exe);
+    const install_tin_step = b.step("install-tin", "Install only Tin to the selected prefix");
+    install_tin_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
@@ -38,6 +40,12 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run tin");
     run_step.dependOn(&run_cmd.step);
+
+    const agent_tests = b.addSystemCommand(&.{"python3"});
+    agent_tests.addFileArg(b.path("tests/test_agent.py"));
+    agent_tests.addArtifactArg(exe);
+    const agent_test_step = b.step("test-agent", "Test agent HTTP contracts and isolated worktree/tmux groups");
+    agent_test_step.dependOn(&agent_tests.step);
 
     const bench_exe = b.addExecutable(.{
         .name = "bench",
@@ -80,12 +88,24 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    const expression_suite_exe = b.addExecutable(.{
+        .name = "expression_suite",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/expression_suite_main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    expression_suite_exe.root_module.addImport("yaml", yaml_mod);
+
     const suite_run = b.addRunArtifact(suite_exe);
     suite_run.addArtifactArg(exe);
     suite_run.addArtifactArg(test_yaml_exe);
     suite_run.addArtifactArg(bench_exe);
     suite_run.addArtifactArg(unit_test);
     suite_run.addArtifactArg(flow_test);
+    suite_run.addArtifactArg(expression_suite_exe);
+    suite_run.addFileArg(b.path("tests/expression_suite.yml"));
 
     const test_step = b.step("test", "Run unit, integration, YAML spec, and performance tests");
     test_step.dependOn(&suite_run.step);

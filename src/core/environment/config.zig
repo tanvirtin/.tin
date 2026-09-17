@@ -12,7 +12,7 @@ pub fn load(allocator: std.mem.Allocator, paths: Paths) ?Config {
 
     const file = std.fs.openFileAbsolute(config_path, .{}) catch return null;
     defer file.close();
-    
+
     const content = file.readToEndAlloc(allocator, 256 * 1024) catch return null;
     const doc = yaml.parse(allocator, content) catch null;
 

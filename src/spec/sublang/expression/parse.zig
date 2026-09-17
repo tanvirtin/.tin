@@ -7,10 +7,17 @@ const Token = lexer.Token;
 const TokenTag = lexer.TokenTag;
 const Lexer = lexer.Lexer;
 
+pub const MAX_TOKENS = 1024;
+pub const MAX_DEPTH = 128;
+
+pub const ParseError = error{ OutOfMemory, TooManyTokens, TooDeep, InvalidCall, UnexpectedToken };
+
 pub const Parser = struct {
     allocator: std.mem.Allocator,
     lexer: Lexer,
     current_token: Token,
+    depth: usize = 0,
+    token_count: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, source: []const u8) Parser {
         var p = Parser{
@@ -19,38 +26,44 @@ pub const Parser = struct {
             .current_token = undefined,
         };
         p.current_token = p.lexer.next();
+        p.token_count = 1;
         return p;
     }
 
-    fn advance(self: *Parser) void {
+    fn advance(self: *Parser) !void {
+        self.token_count += 1;
+        if (self.token_count > MAX_TOKENS) return error.TooManyTokens;
         self.current_token = self.lexer.next();
     }
 
-    fn match(self: *Parser, tag: TokenTag) bool {
+    fn match(self: *Parser, tag: TokenTag) !bool {
         if (self.current_token.tag == tag) {
-            self.advance();
+            try self.advance();
             return true;
         }
         return false;
     }
 
     fn expect(self: *Parser, tag: TokenTag) !void {
-        if (!self.match(tag)) return error.UnexpectedToken;
+        if (!try self.match(tag)) return error.UnexpectedToken;
     }
 
-    pub fn parse(self: *Parser) !Node {
+    pub fn parse(self: *Parser) ParseError!Node {
         const node = try self.parseExpression();
         try self.expect(.eof);
         return node;
     }
 
-    fn parseExpression(self: *Parser) anyerror!Node {
+    fn parseExpression(self: *Parser) ParseError!Node {
+        self.depth += 1;
+        defer self.depth -= 1;
+        if (self.depth > MAX_DEPTH) return error.TooDeep;
         return self.parseOr();
     }
 
-    fn parseOr(self: *Parser) anyerror!Node {
+    fn parseOr(self: *Parser) ParseError!Node {
         var left = try self.parseAnd();
-        while (self.match(.or_op)) {
+        while (try self.match(.or_op)) {
             const right = try self.parseAnd();
             const left_ptr = try self.allocator.create(Node);
             left_ptr.* = left;
@@ -61,9 +74,9 @@ pub const Parser = struct {
         return left;
     }
 
-    fn parseAnd(self: *Parser) anyerror!Node {
+    fn parseAnd(self: *Parser) ParseError!Node {
         var left = try self.parseEquality();
-        while (self.match(.and_op)) {
+        while (try self.match(.and_op)) {
             const right = try self.parseEquality();
             const left_ptr = try self.allocator.create(Node);
             left_ptr.* = left;
@@ -74,10 +87,10 @@ pub const Parser = struct {
         return left;
     }
 
-    fn parseEquality(self: *Parser) anyerror!Node {
+    fn parseEquality(self: *Parser) ParseError!Node {
         var left = try self.parseComparison();
         while (true) {
-            const op: ?ast.Node.BinaryOp = if (self.match(.equal)) .eq else if (self.match(.not_equal)) .neq else null;
+            const op: ?ast.Node.BinaryOp = if (try self.match(.equal)) .eq else if (try self.match(.not_equal)) .neq else null;
             if (op == null) break;
             const right = try self.parseComparison();
             const left_ptr = try self.allocator.create(Node);
@@ -89,10 +102,10 @@ pub const Parser = struct {
         return left;
     }
 
-    fn parseComparison(self: *Parser) anyerror!Node {
+    fn parseComparison(self: *Parser) ParseError!Node {
         var left = try self.parseUnary();
         while (true) {
-            const op: ?ast.Node.BinaryOp = if (self.match(.less)) .lt else if (self.match(.less_equal)) .lte else if (self.match(.greater)) .gt else if (self.match(.greater_equal)) .gte else null;
+            const op: ?ast.Node.BinaryOp = if (try self.match(.less)) .lt else if (try self.match(.less_equal)) .lte else if (try self.match(.greater)) .gt else if (try self.match(.greater_equal)) .gte else null;
             if (op == null) break;
             const right = try self.parseUnary();
             const left_ptr = try self.allocator.create(Node);
@@ -104,8 +117,11 @@ pub const Parser = struct {
         return left;
     }
 
-    fn parseUnary(self: *Parser) anyerror!Node {
-        if (self.match(.exclamation)) {
+    fn parseUnary(self: *Parser) ParseError!Node {
+        if (try self.match(.exclamation)) {
+            self.depth += 1;
+            defer self.depth -= 1;
+            if (self.depth > MAX_DEPTH) return error.TooDeep;
             const expr = try self.parseUnary();
             const expr_ptr = try self.allocator.create(Node);
             expr_ptr.* = expr;
@@ -114,10 +130,10 @@ pub const Parser = struct {
         return self.parsePrimary();
     }
 
-    fn parsePrimary(self: *Parser) anyerror!Node {
+    fn parsePrimary(self: *Parser) ParseError!Node {
         var node = try self.parseOperand();
         while (true) {
-            if (self.match(.dot)) {
+            if (try self.match(.dot)) {
                 const id = self.current_token;
                 try self.expect(.identifier);
                 const node_ptr = try self.allocator.create(Node);
@@ -125,7 +141,7 @@ pub const Parser = struct {
                 const index_node = try self.allocator.create(Node);
                 index_node.* = .{ .literal = .{ .string = try self.allocator.dupe(u8, id.value) } };
                 node = .{ .index = .{ .expr = node_ptr, .index = index_node } };
-            } else if (self.match(.lbracket)) {
+            } else if (try self.match(.lbracket)) {
                 const idx = try self.parseExpression();
                 try self.expect(.rbracket);
                 const node_ptr = try self.allocator.create(Node);
@@ -133,13 +149,13 @@ pub const Parser = struct {
                 const index_node = try self.allocator.create(Node);
                 index_node.* = idx;
                 node = .{ .index = .{ .expr = node_ptr, .index = index_node } };
-            } else if (self.match(.lparen)) {
+            } else if (try self.match(.lparen)) {
                 if (node != .variable) return error.InvalidCall;
                 var args = std.ArrayListUnmanaged(Node){};
                 if (self.current_token.tag != .rparen) {
                     while (true) {
                         try args.append(self.allocator, try self.parseExpression());
-                        if (!self.match(.comma)) break;
+                        if (!try self.match(.comma)) break;
                     }
                 }
                 try self.expect(.rparen);
@@ -152,33 +168,33 @@ pub const Parser = struct {
         return node;
     }
 
-    fn parseOperand(self: *Parser) anyerror!Node {
+    fn parseOperand(self: *Parser) ParseError!Node {
         const token = self.current_token;
         switch (token.tag) {
             .string_literal => {
-                self.advance();
+                try self.advance();
                 const s = token.value[1 .. token.value.len - 1];
                 return .{ .literal = .{ .string = try self.allocator.dupe(u8, s) } };
             },
-            .number_literal => {
-                self.advance();
-                const n = try std.fmt.parseFloat(f64, token.value);
+.number_literal => {
+                try self.advance();
+                const n = std.fmt.parseFloat(f64, token.value) catch return error.UnexpectedToken;
                 return .{ .literal = .{ .number = n } };
             },
             .boolean_literal => {
-                self.advance();
+                try self.advance();
                 return .{ .literal = .{ .boolean = std.mem.eql(u8, token.value, "true") } };
             },
             .null_literal => {
-                self.advance();
+                try self.advance();
                 return .{ .literal = .null_t };
             },
             .identifier => {
-                self.advance();
+                try self.advance();
                 return .{ .variable = .{ .name = try self.allocator.dupe(u8, token.value) } };
             },
             .lparen => {
-                self.advance();
+                try self.advance();
                 const node = try self.parseExpression();
                 try self.expect(.rparen);
                 return node;

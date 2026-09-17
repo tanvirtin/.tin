@@ -1,0 +1,20 @@
+jobs:
+  - id: build
+    name: Build
+    runs_on: ubuntu-latest
+    steps:
+      - id: checkout
+        run: git checkout
+      - needs: checkout
+        if: job.status == 'failed'
+        run: echo skip
+      - if: steps.checkout.status == 'success'
+        run: cargo build
+  - id: test
+    name: Test
+    needs: [build]
+    steps:
+      - id: run_tests
+        run: cargo test
+      - needs: run_tests
+        run: cargo publish

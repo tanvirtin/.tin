@@ -9,10 +9,6 @@ const Schema = @import("ir.zig").Schema;
 pub const ContextSet = struct {
     map: std.StringHashMap(*Schema),
 
-    pub fn contains(self: ContextSet, name: []const u8) bool {
-        return self.map.contains(name);
-    }
-
     pub fn get(self: ContextSet, name: []const u8) ?*Schema {
         return self.map.get(name);
     }

@@ -4,6 +4,7 @@ const output = @import("../lib/output.zig");
 const Recipe = @import("../core/recipe.zig");
 const Environment = @import("../core/environment.zig");
 const Engine = @import("../spec/engine.zig").Engine;
+const diag = @import("../spec/diagnostic.zig");
 
 pub const meta = .{
     .name = "recipe",
@@ -53,10 +54,8 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     output.success("recipe complete: {s}", .{recipe.name});
 }
 
-/// Validate a recipe file against schemas/recipe.yaml. Returns true when the
-/// recipe is invalid (caller should stop); false when it passed.
 fn validateRecipe(allocator: std.mem.Allocator, paths: anytype, name: []const u8) bool {
-    const schemas_dir = std.fs.path.join(allocator, &.{ paths.tin_dir, "src", "schemas" }) catch {
+    const schemas_dir = paths.schemasDir(allocator) catch {
         output.err("could not resolve schemas directory", .{});
         return true;
     };
@@ -87,9 +86,7 @@ fn validateRecipe(allocator: std.mem.Allocator, paths: anytype, name: []const u8
 
     if (diagnostics.len > 0) {
         output.err("recipe failed validation: {s}", .{name});
-        for (diagnostics) |d| {
-            output.plain("  [{s}] {s} at byte {d}", .{ d.code, d.message, d.span.start });
-        }
+        diag.printDiagnostics(diagnostics);
         return true;
     }
     return false;
