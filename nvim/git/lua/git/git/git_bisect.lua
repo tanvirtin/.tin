@@ -98,32 +98,10 @@ function git_bisect.reset(reponame, commit)
   return query:execute()
 end
 
-function git_bisect.visualize(reponame, opts)
-  if not reponame then return nil, { 'reponame is required' } end
-
-  opts = opts or {}
-  local query = GitQueryBuilder(reponame):raw_args('bisect', 'visualize')
-
-  if opts.args then
-    for _, arg in ipairs(opts.args) do
-      query:raw_arg(arg)
-    end
-  end
-
-  return query:execute()
-end
-
 function git_bisect.log(reponame)
   if not reponame then return nil, { 'reponame is required' } end
 
   return GitQueryBuilder(reponame):raw_args('bisect', 'log'):execute()
-end
-
-function git_bisect.replay(reponame, logfile)
-  if not reponame then return nil, { 'reponame is required' } end
-  if not logfile then return nil, { 'logfile is required' } end
-
-  return GitQueryBuilder(reponame):raw_args('bisect', 'replay', logfile):execute()
 end
 
 function git_bisect.run(reponame, command, args)
@@ -194,7 +172,6 @@ function git_bisect.status(reponame)
   return status, nil
 end
 
--- Mark current commit with custom term
 function git_bisect.terms(reponame, term, commit)
   if not reponame then return nil, { 'reponame is required' } end
   if not term then return nil, { 'term is required' } end

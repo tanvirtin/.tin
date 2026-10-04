@@ -57,7 +57,7 @@ end
 
 function SearchComponent:mount()
   if self._mounted then return end
-  local border_hl = self.props.border_hl or 'GitBorder'
+  local border_hl = self.props.border_hl or 'GitLineNrBorder'
   local winhl = 'Normal:GitBackground,FloatBorder:' .. border_hl
   local list_winhl = 'Normal:GitBackground,FloatBorder:' .. border_hl .. ',CursorLine:GitSelected'
 

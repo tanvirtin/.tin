@@ -195,7 +195,6 @@ function View:_mount_view(layout)
   local win_plot = bounds:to_win_plot({
     relative = 'editor',
     zindex = spec.zindex or 2,
-    focus = spec.focus or false,
   })
 
   view:apply_layout_win_plot(win_plot)
@@ -338,8 +337,6 @@ end
 function View:get_context()
   return self._context
 end
-
--- Keymap registration helpers (Command Pattern)
 
 function View:_register_keymap(component, mode, key, handler)
   local fn, cleanup = event.debounce_async(handler, self.DEBOUNCE_MS or 100)

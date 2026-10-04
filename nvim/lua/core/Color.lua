@@ -46,7 +46,7 @@ function Color:get_hex()
 end
 
 function Color:get()
-  if not self:_load() then return 'NONE' end
+  if not self:_load() then return nil end
 
   local r, g, b = self.r, self.g, self.b
   r, g, b = math.min(r, 255), math.min(g, 255), math.min(b, 255)

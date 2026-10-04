@@ -32,19 +32,43 @@ pub fn slugify(allocator: std.mem.Allocator, id: []const u8) []const u8 {
     return buf.toOwnedSlice(allocator) catch id;
 }
 
-pub fn cleanDir(allocator: std.mem.Allocator, path: []const u8) void {
-    var dir = std.fs.openDirAbsolute(path, .{ .iterate = true }) catch return;
+pub fn cleanDir(path: []const u8) !void {
+    var dir = std.fs.openDirAbsolute(path, .{ .iterate = true }) catch |e| switch (e) {
+        error.FileNotFound => return,
+        else => return e,
+    };
     defer dir.close();
 
     var iter = dir.iterate();
-    while (iter.next() catch null) |entry| {
-        if (entry.kind == .directory) {
-            const sub = std.fmt.allocPrint(allocator, "{s}/{s}", .{ path, entry.name }) catch continue;
-            defer allocator.free(sub);
-            cleanDir(allocator, sub);
-            dir.deleteDir(entry.name) catch {};
-        } else {
-            dir.deleteFile(entry.name) catch {};
-        }
+    while (try iter.next()) |entry| {
+        try dir.deleteTree(entry.name);
     }
+}
+
+test "cleanDir empties a directory and tolerates a missing one" {
+    const root = "/tmp/tin_test_clean_dir";
+    const nested = "/tmp/tin_test_clean_dir/nested";
+    std.fs.deleteTreeAbsolute(root) catch {};
+    try std.fs.makeDirAbsolute(root);
+    try std.fs.makeDirAbsolute(nested);
+    defer std.fs.deleteTreeAbsolute(root) catch {};
+
+    var buf: [128]u8 = undefined;
+    try std.fs.cwd().writeFile(.{
+        .sub_path = try std.fmt.bufPrint(&buf, "{s}/a.txt", .{root}),
+        .data = "x",
+    });
+    try std.fs.cwd().writeFile(.{
+        .sub_path = try std.fmt.bufPrint(&buf, "{s}/b.txt", .{nested}),
+        .data = "y",
+    });
+
+    try cleanDir(root);
+
+    var dir = try std.fs.openDirAbsolute(root, .{ .iterate = true });
+    defer dir.close();
+    var iter = dir.iterate();
+    try std.testing.expect((try iter.next()) == null);
+
+    try cleanDir("/tmp/tin_test_clean_dir_missing");
 }

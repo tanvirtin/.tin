@@ -42,12 +42,6 @@ pub fn info(comptime fmt: []const u8, args: anytype) void {
     writer.print(fmt ++ "\n", args) catch return;
 }
 
-pub fn note(comptime fmt: []const u8, args: anytype) void {
-    const writer = std.fs.File.stderr().deprecatedWriter();
-    printPrefix(writer, .blue);
-    writer.print(fmt ++ "\n", args) catch return;
-}
-
 pub fn warn(comptime fmt: []const u8, args: anytype) void {
     const writer = std.fs.File.stderr().deprecatedWriter();
     printPrefix(writer, .yellow);

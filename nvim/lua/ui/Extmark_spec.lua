@@ -1,7 +1,5 @@
 local Extmark = require('ui.Extmark')
 
-local eq = assert.are.same
-
 describe('Extmark:', function()
   describe('constructor', function()
     it('should create with buffer number and namespace', function()
@@ -50,7 +48,7 @@ describe('Extmark:', function()
       })
 
       assert.is_true(ok)
-      assert.are.equal(2, #result) -- two matches of 'hello'
+      assert.are.equal(2, #result)
 
       vim.api.nvim_buf_delete(buf, { force = true })
     end)
@@ -83,7 +81,7 @@ describe('Extmark:', function()
       })
 
       assert.is_true(ok)
-      assert.are.equal(2, #result) -- one match per line for lines 1 and 2
+      assert.are.equal(2, #result)
 
       vim.api.nvim_buf_delete(buf, { force = true })
     end)

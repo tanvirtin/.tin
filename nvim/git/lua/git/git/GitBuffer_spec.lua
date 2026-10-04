@@ -1,5 +1,3 @@
--- Stub out modules that the user's Neovim config may require in autocmds
--- but are not available in the test environment
 package.loaded['lint'] = { try_lint = function() end }
 
 local GitBuffer = require('git.git.GitBuffer')
@@ -9,8 +7,6 @@ local async = require('git.git.async_helpers')({ it = it, before_each = before_e
 local it = async.it
 local before_each = async.before_each
 local after_each = async.after_each
-
-local eq = assert.are.same
 
 describe('GitBuffer:', function()
   local repo
@@ -365,7 +361,7 @@ describe('GitBuffer:', function()
 
         local git_buf = GitBuffer(bufnr)
         git_buf:sync()
-        git_buf:diff() -- Generate hunks first
+        git_buf:diff()
 
         local result = git_buf:generate_status()
 
@@ -381,7 +377,6 @@ describe('GitBuffer:', function()
         local git_buf = GitBuffer(bufnr)
         git_buf:sync()
 
-        -- GitBuffer:get_hunks() returns git_file.state.hunks
         git_buf._git_file.state.hunks = { { type = 'add' } }
         local hunks = git_buf:get_hunks()
 
@@ -396,7 +391,6 @@ describe('GitBuffer:', function()
         local git_buf = GitBuffer(bufnr)
         git_buf:sync()
 
-        -- git_file.state.hunks defaults to nil, get_hunks() returns it directly
         git_buf._git_file.state.hunks = {}
         local hunks = git_buf:get_hunks()
 
@@ -557,13 +551,12 @@ describe('GitBuffer:', function()
         local git_buf = GitBuffer(bufnr)
         git_buf:sync()
 
-        -- Get staged hunks
         local git_hunks = require('git.git.git_hunks')
         local hunks, _ = git_hunks.list(repo, { staged = true, filename = 'test.txt' })
 
         if hunks and #hunks > 0 then
           local result, err = git_buf:unstage_hunk(hunks[1])
-          -- Either the operation succeeded or returned an error
+
           assert.is_true(result ~= nil or err ~= nil)
         end
       end)
@@ -652,7 +645,6 @@ describe('GitBuffer:', function()
         local _, err = git_buf:diff()
 
         assert.is_nil(err)
-        -- File hasn't changed, so no hunks
       end)
     end)
 
@@ -684,7 +676,6 @@ describe('GitBuffer:', function()
 
         local conflicts = git_buf:conflicts()
 
-        -- Note: Conflict detection requires actual git state
         assert.is_table(conflicts)
       end)
     end)
@@ -752,7 +743,6 @@ describe('GitBuffer:', function()
         }
         git_buf._signs_dirty = true
 
-        -- Render with viewport 3-6: only sign at row=5 is in range
         local result = git_buf:render_signs(3, 6)
 
         assert.equals(git_buf, result)
@@ -823,7 +813,6 @@ describe('GitBuffer blob cache lifecycle:', function()
     local git_buf = GitBuffer(bufnr)
     git_buf:sync()
 
-    -- Populate cache via diff
     git_buf:diff()
     assert.is_not_nil(git_buf._git_file._blob_cache['index'])
 
@@ -836,15 +825,12 @@ describe('GitBuffer blob cache lifecycle:', function()
     local bufnr = vim.fn.bufadd(test_file)
     vim.fn.bufload(bufnr)
     local git_buf = GitBuffer(bufnr)
-    -- Do NOT call sync(), so _git_file is nil
 
-    -- Should not error
     local result = git_buf:clear_blob_cache()
     assert.equals(git_buf, result)
   end)
 
   it('should return updated hunks after external stage and clear_blob_cache', function()
-    -- Modify the file
     test_repo.write_file(repo, 'test.txt', { 'modified 1', 'line 2', 'line 3' })
     local bufnr = vim.fn.bufadd(test_file)
     vim.fn.bufload(bufnr)
@@ -853,19 +839,15 @@ describe('GitBuffer blob cache lifecycle:', function()
     local git_buf = GitBuffer(bufnr)
     git_buf:sync()
 
-    -- First diff shows hunks
     local hunks1, err1 = git_buf:diff()
     assert.is_nil(err1)
     assert.is_table(hunks1)
     assert(#hunks1 > 0, 'should have hunks before staging')
 
-    -- Externally stage the file
     test_repo.stage(repo, 'test.txt')
 
-    -- Clear cache
     git_buf:clear_blob_cache()
 
-    -- Diff again should show zero hunks (buffer matches index)
     local hunks2, err2 = git_buf:diff()
     assert.is_nil(err2)
     assert.is_table(hunks2)
@@ -883,10 +865,10 @@ describe('GitBuffer blob cache lifecycle:', function()
     local hunks, _ = git_buf:diff()
     if hunks and #hunks > 0 then
       local count_before = #hunks
-      -- stage_hunk calls git_file:stage_hunk (nils cache) then diff() (re-fetches fresh index)
+
       local new_hunks, err = git_buf:stage_hunk(hunks[1])
       assert.is_nil(err)
-      -- After staging the hunk, re-diff should show fewer or zero hunks
+
       assert.is_table(new_hunks)
       assert(#new_hunks < count_before, 'hunks should decrease after staging')
     end

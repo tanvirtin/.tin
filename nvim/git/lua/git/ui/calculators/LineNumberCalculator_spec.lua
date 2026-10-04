@@ -4,8 +4,6 @@ local symbols_setting = settings.get('symbols')
 
 local LineNumberCalculator = require('git.ui.calculators.LineNumberCalculator')
 
-local eq = assert.are.same
-
 describe('LineNumberCalculator:', function()
   describe('_calculate_line_numbers', function()
     it('should produce numbered lines for normal lines', function()
@@ -30,10 +28,10 @@ describe('LineNumberCalculator:', function()
 
       assert.are.equal(3, #result)
       assert.are.equal('1 ', result[1][1])
-      -- Void line should use the void symbol repeated
+
       assert.truthy(result[2][1]:match(vim.pesc(void_symbol)))
       assert.are.equal('GitLineNr', result[2][2])
-      -- Line count should NOT increment for void
+
       assert.are.equal('2 ', result[3][1])
     end)
 
@@ -78,7 +76,7 @@ describe('LineNumberCalculator:', function()
       local result = LineNumberCalculator._calculate_line_numbers(lines, lnum_change_map)
 
       assert.are.equal('1 ', result[1][1])
-      -- void does not increment
+
       assert.are.equal('2 ', result[3][1])
       assert.are.equal('3 ', result[4][1])
     end)

@@ -1,5 +1,3 @@
--- Standard utility functions used throughout the app.
-
 local lazy = require('core.lazy')
 
 local utils = {

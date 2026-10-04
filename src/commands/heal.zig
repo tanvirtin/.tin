@@ -56,17 +56,25 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
         output.plain("  (no managed symlinks)", .{});
     }
     for (symlinks) |symlink| {
-        switch (symlink.status()) {
+        const status = symlink.status();
+        switch (status) {
             .linked => output.success("  [ok]  {s}", .{symlink.name}),
             .missing => output.plain("  [--]  {s}  (not linked)", .{symlink.name}),
-            .wrong_target => output.warn("  [!!]  {s}  (wrong target)", .{symlink.name}),
-            .not_a_symlink => output.warn("  [!!]  {s}  (exists but not a symlink)", .{symlink.name}),
+            .wrong_target => {
+                if (symlink.copy) {
+                    output.warn("  [!!]  {s}  (stale copy)", .{symlink.name});
+                } else {
+                    output.warn("  [!!]  {s}  (wrong target)", .{symlink.name});
+                }
+            },
+            .not_a_symlink => output.warn("  [!!]  {s}  (exists but is not managed by tin)", .{symlink.name}),
             .broken => output.err("  [xx]  {s}  (broken)", .{symlink.name}),
         }
     }
 
     for (symlinks) |symlink| {
-        switch (symlink.status()) {
+        const status = symlink.status();
+        switch (status) {
             .linked => {},
             .missing => {
                 symlink.link() catch {
@@ -78,7 +86,8 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
                 healed_any = true;
             },
             .wrong_target, .not_a_symlink, .broken => {
-                symlink.backup(allocator) catch {
+                const backed_up = symlink.backupBeforeRepair(status);
+                if (backed_up) symlink.backup(allocator) catch {
                     output.err("  failed to backup {s}", .{symlink.name});
                     still_broken += 1;
                     continue;
@@ -88,7 +97,11 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
                     still_broken += 1;
                     continue;
                 };
-                output.success("  repaired {s} (backup + relink)", .{symlink.name});
+                if (backed_up) {
+                    output.success("  repaired {s} (backup + relink)", .{symlink.name});
+                } else {
+                    output.success("  refreshed {s}", .{symlink.name});
+                }
                 healed_any = true;
             },
         }

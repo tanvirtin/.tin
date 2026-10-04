@@ -13,6 +13,7 @@ local BlameGutterComponent = lazy('git.ui.components.BlameGutterComponent')
 local GitCommit = lazy('git.git.GitCommit') -- luacheck: ignore
 local git_blame = lazy('git.git.git_blame')
 local BlameContentComponent = lazy('git.ui.components.BlameContentComponent')
+local build_file_diff_entries = require('git.cli.commands.build_file_diff_entries')
 
 local BlameView = View:extend()
 
@@ -333,45 +334,7 @@ function BlameView:_fetch_commit_diffs(commit_hash)
   local from_ref = parent_hash ~= '' and parent_hash or GitCommit.EMPTY_TREE_HASH
   local to_ref = commit.commit_hash or commit.hash
 
-  local funcs = {}
-  for _, file in ipairs(files) do
-    local filename = file.filename
-    local file_old_filename = file.old_filename
-
-    funcs[#funcs + 1] = function()
-      local diff, diff_err = repo:diff({
-        type = 'range',
-        filename = filename,
-        old_filename = file_old_filename,
-        from = from_ref,
-        to = to_ref,
-        layout_type = layout_type,
-      })
-
-      if diff_err then
-        console.debug.error(diff_err)
-        return nil
-      end
-      if not diff then return nil end
-
-      local from_filename = file_old_filename or filename
-      return {
-        filename = filename,
-        filetype = file.get_filetype and file:get_filetype() or 'text',
-        diff = diff,
-        status = file,
-        original_lines = repo:file_lines(from_filename, from_ref) or {},
-        current_lines = repo:file_lines(filename, to_ref) or {},
-      }
-    end
-  end
-
-  local results = event.all(funcs)
-
-  local entries = {}
-  for i = 1, #funcs do
-    if results[i] then entries[#entries + 1] = results[i] end
-  end
+  local entries = build_file_diff_entries(repo, files, from_ref, to_ref, layout_type)
 
   return { entries = entries, commit_hash = commit_hash, layout_type = layout_type }
 end

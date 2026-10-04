@@ -294,7 +294,7 @@ describe('StashView:', function()
       eq(commit, view._current_commit)
     end)
 
-    it('should increment _update_gen', function()
+    it('should invalidate the operation token on each update', function()
       local view = StashView()
       view._repo = {
         get_path = function()
@@ -304,11 +304,11 @@ describe('StashView:', function()
           return {}
         end,
       }
-      eq(0, view._update_gen)
+      eq(0, view._op_token.count)
       view:_update_patch(make_commit('stash@{0}'))
-      eq(1, view._update_gen)
+      eq(1, view._op_token.count)
       view:_update_patch(make_commit('stash@{1}'))
-      eq(2, view._update_gen)
+      eq(2, view._op_token.count)
     end)
 
     it('should cache entries by revision', function()
@@ -347,12 +347,12 @@ describe('StashView:', function()
       eq(1, call_count)
 
       view:_update_patch(make_commit('stash@{0}'))
-      eq(1, call_count) -- should not call diff again
+      eq(1, call_count)
     end)
 
     it('should not error when commit is nil', function()
       local view = StashView()
-      -- Should not error
+
       view:_update_patch(nil)
     end)
   end)
@@ -422,7 +422,7 @@ describe('StashView:', function()
       view._component_group = { unmount = function() end }
 
       view:destroy()
-      view:destroy() -- second call should not error
+      view:destroy()
     end)
 
     it('should set _destroyed to true', function()

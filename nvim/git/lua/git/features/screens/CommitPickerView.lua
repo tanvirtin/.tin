@@ -8,6 +8,7 @@ local scene_setting = lazy('git.settings.scene')
 local display_service = lazy('git.ui.display_service')
 local GitCommit = lazy('git.git.GitCommit')
 local SearchComponent = lazy('ui.components.SearchComponent')
+local build_file_diff_entries = require('git.cli.commands.build_file_diff_entries')
 
 local CommitPickerView = View:extend()
 
@@ -175,41 +176,7 @@ CommitPickerView._on_select = event.async(function(self, value)
   local from_ref = parent_hash ~= '' and parent_hash or GitCommit.EMPTY_TREE_HASH
   local to_ref = commit.commit_hash or commit.hash
 
-  local funcs = {}
-  for _, file in ipairs(files) do
-    local filename = file.filename
-    local file_old_filename = file.old_filename
-
-    table.insert(funcs, function()
-      local diff = repo:diff({
-        type = 'range',
-        filename = filename,
-        old_filename = file_old_filename,
-        from = from_ref,
-        to = to_ref,
-        layout_type = layout_type,
-      })
-
-      if not diff then return nil end
-
-      local from_filename = file_old_filename or filename
-      return {
-        filename = filename,
-        filetype = file.get_filetype and file:get_filetype() or 'text',
-        diff = diff,
-        status = file,
-        original_lines = repo:file_lines(from_filename, from_ref) or {},
-        current_lines = repo:file_lines(filename, to_ref) or {},
-      }
-    end)
-  end
-
-  local results = event.all(funcs)
-
-  local entries = {}
-  for i = 1, #funcs do
-    if results[i] then table.insert(entries, results[i]) end
-  end
+  local entries = build_file_diff_entries(repo, files, from_ref, to_ref, layout_type)
 
   if #entries == 0 then
     console.info('No diffs available for commit ' .. value)

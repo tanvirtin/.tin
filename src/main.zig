@@ -24,6 +24,7 @@ test {
     _ = @import("lib/fs.zig");
     _ = @import("lib/process.zig");
     _ = @import("lib/template.zig");
+    _ = @import("lib/utils.zig");
     _ = @import("yaml");
     _ = @import("commands/help.zig");
     _ = @import("commands/link.zig");

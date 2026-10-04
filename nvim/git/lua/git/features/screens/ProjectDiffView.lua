@@ -6,6 +6,7 @@ local event = lazy('core.event')
 local keymap = lazy('core.keymap')
 local console = lazy('core.console')
 local navigation = lazy('git.core.navigation')
+local operation_token = lazy('git.core.operation_token')
 local repository = lazy('git.git.repository')
 local scene_setting = lazy('git.settings.scene')
 local LayoutSpec = lazy('ui.layout.LayoutSpec')
@@ -30,7 +31,7 @@ function ProjectDiffView:constructor()
   instance._current_component = nil
   instance._diff_file_entries = {}
   instance._line_to_file_map = {}
-  instance._update_gen = 0
+  instance._op_token = operation_token.new()
   instance._loading_indicator = LoadingIndicator()
   return instance
 end
@@ -138,7 +139,6 @@ function ProjectDiffView:_build_diff_file_entries(repo, data)
 
   local all_entries = {}
 
-  -- Staged file diffs
   if staged_fn_idx then
     local file_diffs = fetch_results[staged_fn_idx]
     if file_diffs then
@@ -155,7 +155,6 @@ function ProjectDiffView:_build_diff_file_entries(repo, data)
     end
   end
 
-  -- Unstaged file diffs
   if unstaged_fn_idx then
     local file_diffs = fetch_results[unstaged_fn_idx]
     if file_diffs then
@@ -172,7 +171,6 @@ function ProjectDiffView:_build_diff_file_entries(repo, data)
     end
   end
 
-  -- Conflict diffs
   for i, entry in ipairs(conflict_entries) do
     local result = fetch_results[conflict_start_idx + i - 1]
     if result and result[1] then
@@ -311,8 +309,6 @@ function ProjectDiffView:setup_keymaps()
 end
 
 function ProjectDiffView:_mount_unified_view()
-  self._update_gen = self._update_gen + 1
-
   self._patch_component = PatchPreviewComponent({
     hunk_entries = {},
     focus = true,
@@ -329,24 +325,21 @@ function ProjectDiffView:_mount_unified_view()
 end
 
 function ProjectDiffView:_mount_split_view()
-  self._update_gen = self._update_gen + 1
+  local scroll_options = {
+    scrollbind = true,
+    cursorbind = true,
+  }
 
   self._previous_component = PatchPreviewComponent({
     hunk_entries = {},
     focus = false,
-    win_options = {
-      scrollbind = true,
-      cursorbind = true,
-    },
+    win_options = scroll_options,
   })
 
   self._current_component = PatchPreviewComponent({
     hunk_entries = {},
     focus = true,
-    win_options = {
-      scrollbind = true,
-      cursorbind = true,
-    },
+    win_options = scroll_options,
   })
 
   event.await()
@@ -383,6 +376,8 @@ function ProjectDiffView:_create_view(data)
 
   self._repo = repo
 
+  local ticket = operation_token.bump(self._op_token)
+
   if layout_type == self.LAYOUT_SPLIT then
     self:_mount_split_view()
   else
@@ -394,6 +389,8 @@ function ProjectDiffView:_create_view(data)
   local diff_file_entries = self:_build_diff_file_entries(repo, data)
 
   self._loading_indicator:stop()
+
+  if operation_token.stale(self._op_token, ticket) then return false end
 
   if #diff_file_entries == 0 then
     event.await()
@@ -411,7 +408,7 @@ function ProjectDiffView:destroy()
   if self:is_destroyed() then return end
 
   self._loading_indicator:stop()
-  self._update_gen = self._update_gen + 1
+  operation_token.bump(self._op_token)
 
   View.destroy(self)
 end

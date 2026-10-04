@@ -17,8 +17,6 @@ return {
         },
       })
 
-      -- Fix Neovim 0.12 crash: #set-lang-from-info-string! in markdown
-      -- injection query triggers 'attempt to call method range (a nil value)'.
       vim.treesitter.query.set(
         'markdown',
         'injections',

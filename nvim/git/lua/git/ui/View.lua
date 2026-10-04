@@ -44,8 +44,6 @@ end
 
 function GitView:on_git_change() end
 
--- Hunk navigation template methods (override in subclasses)
-
 function GitView:get_navigatable_component()
   if self._layout_type == 'split' then return self._current_component end
   if self._patch_component then return self._patch_component end
@@ -120,8 +118,6 @@ function GitView:hunk_down()
   local index, count = self:get_current_mark_index()
   if index then statusline.set_hunk({ index = index, count = count }) end
 end
-
--- Diff component factory method
 
 function GitView:_create_diff_component(opts, layout_type)
   local DiffComponent = require('git.ui.components.DiffComponent')

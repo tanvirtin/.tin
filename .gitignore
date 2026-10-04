@@ -53,8 +53,6 @@ auth.json
 *.secret
 *.token
 
-# agent prompts & personality — never commit, they're personalization
-/assets/pi/
 /artifacts/
 /sn/
 

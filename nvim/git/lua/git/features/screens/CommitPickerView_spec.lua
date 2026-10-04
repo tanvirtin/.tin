@@ -1,6 +1,5 @@
 local eq = assert.are.same
 
--- Clear lazy cache and module cache to ensure fresh mocks
 package.loaded['core.lazy'] = nil
 package.loaded['git.features.screens.CommitPickerView'] = nil
 package.loaded['ui.components.SearchComponent'] = nil
@@ -13,7 +12,6 @@ package.loaded['git.git.GitTree'] = nil
 package.loaded['git.settings.scene'] = nil
 package.loaded['git.ui.display_service'] = nil
 
--- Stub modules before requiring CommitPickerView
 local display_service_show_diff_data = nil
 package.loaded['git.ui.display_service'] = {
   show_diff = function(data)
@@ -140,12 +138,15 @@ package.loaded['ui.Layout'] = {
 
 local CommitPickerView = require('git.features.screens.CommitPickerView')
 
--- Mock _render on the View prototype so CommitPickerView instances capture the call
 local original_render = CommitPickerView._render
 CommitPickerView._render = function(self, config)
   view_render_called = true
   view_render_config = config
 end
+
+teardown(function()
+  CommitPickerView._render = original_render
+end)
 
 local function make_commit(opts)
   opts = opts or {}
@@ -367,9 +368,7 @@ describe('CommitPickerView:', function()
         {
           filename = 'file.lua',
           old_filename = nil,
-          get_filetype = function()
-            return 'lua'
-          end,
+          filetype = 'lua',
         },
       }
 
@@ -386,6 +385,7 @@ describe('CommitPickerView:', function()
       eq(1, #display_service_show_diff_data.entries)
       eq(1, #display_service_show_diff_data.entries[1].entries)
       eq('file.lua', display_service_show_diff_data.entries[1].entries[1].filename)
+      eq('lua', display_service_show_diff_data.entries[1].entries[1].filetype)
     end)
 
     it('should handle nil value gracefully', function()
@@ -476,7 +476,6 @@ describe('CommitPickerView:', function()
       view:destroy()
       assert.is_true(view._destroyed)
 
-      -- Second call should be a no-op
       assert.has_no.errors(function()
         view:destroy()
       end)

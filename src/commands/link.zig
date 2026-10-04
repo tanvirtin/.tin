@@ -31,7 +31,8 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
     output.info("linking config files...", .{});
 
     for (symlinks) |symlink| {
-        switch (symlink.status()) {
+        const status = symlink.status();
+        switch (status) {
             .linked => {
                 output.success("skip {s} (already linked)", .{symlink.name});
             },
@@ -43,7 +44,8 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
                 output.success("link {s}", .{symlink.name});
             },
             .wrong_target, .not_a_symlink => {
-                symlink.backup(allocator) catch {
+                const backed_up = symlink.backupBeforeRepair(status);
+                if (backed_up) symlink.backup(allocator) catch {
                     output.err("failed to backup {s}", .{symlink.name});
                     continue;
                 };
@@ -51,10 +53,13 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) void {
                     output.err("failed to link {s}", .{symlink.name});
                     continue;
                 };
-                output.success("link {s} (backed up existing)", .{symlink.name});
+                if (backed_up) {
+                    output.success("link {s} (backed up existing)", .{symlink.name});
+                } else {
+                    output.success("refresh {s}", .{symlink.name});
+                }
             },
             .broken => {
-                symlink.unlink() catch {};
                 symlink.link() catch {
                     output.err("failed to link {s}", .{symlink.name});
                     continue;

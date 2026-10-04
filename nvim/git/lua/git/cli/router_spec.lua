@@ -1,6 +1,5 @@
 local last_error = nil
 
--- Stub console before requiring router so it never touches the async runtime.
 package.loaded['core.console'] = {
   error = function(msg)
     last_error = msg
@@ -38,7 +37,7 @@ describe('router:', function()
 
         before_each(function()
           captured_args = nil
-          -- Inject a mock handler module into package.loaded so require() returns it.
+
           package.loaded['git.cli.commands.' .. cmd] = {
             execute = function(args)
               captured_args = args
@@ -47,7 +46,6 @@ describe('router:', function()
         end)
 
         after_each(function()
-          -- Clean up mock so it does not leak between tests.
           package.loaded['git.cli.commands.' .. cmd] = nil
         end)
 
@@ -72,7 +70,6 @@ describe('router:', function()
     end
 
     it('should error when the handler module fails to load', function()
-      -- Temporarily replace package.loaded entry with a broken module (no execute).
       package.loaded['git.cli.commands.diff'] = { not_execute = true }
 
       router.execute({ 'diff' })
@@ -91,7 +88,6 @@ describe('router:', function()
     end)
 
     it('should include the underlying error when require fails', function()
-      -- Force require to fail by injecting a loader that throws
       package.loaded['git.cli.commands.diff'] = nil
       local saved = package.preload['git.cli.commands.diff']
       package.preload['git.cli.commands.diff'] = function()

@@ -85,18 +85,42 @@ describe('LoadingIndicator:', function()
   end)
 
   describe('render', function()
-    it('should do nothing when element is nil', function()
+    it('should not error when element is nil', function()
       local indicator = LoadingIndicator()
-      indicator:render(nil)
+      assert.has_no.errors(function()
+        indicator:render(nil)
+      end)
     end)
 
-    it('should do nothing when element is invalid', function()
+    it('should not touch an invalid element', function()
       local indicator = LoadingIndicator()
-      indicator:render({
+      local calls = {}
+      local mock_element = {
         is_valid = function()
           return false
         end,
-      })
+        clear_extmark_highlights = function()
+          calls[#calls + 1] = 'clear_extmark_highlights'
+        end,
+        get_height = function()
+          calls[#calls + 1] = 'get_height'
+          return 10
+        end,
+        get_width = function()
+          calls[#calls + 1] = 'get_width'
+          return 40
+        end,
+        set_lines = function()
+          calls[#calls + 1] = 'set_lines'
+        end,
+        place_extmark_highlight = function()
+          calls[#calls + 1] = 'place_extmark_highlight'
+        end,
+      }
+
+      indicator:render(mock_element)
+
+      eq({}, calls)
     end)
 
     it('should set lines on valid element', function()
@@ -147,13 +171,11 @@ describe('LoadingIndicator:', function()
 
       indicator:render(mock_element)
 
-      -- height=11, vertical_pad = floor((11-1)/2) = 5
-      -- 5 empty lines + 1 content line = 6 lines
       eq(6, #set_lines_data)
       for i = 1, 5 do
         eq('', set_lines_data[i])
       end
-      -- Last line should contain content (not empty)
+
       assert.is_true(#set_lines_data[6] > 0)
     end)
 
@@ -179,9 +201,8 @@ describe('LoadingIndicator:', function()
 
       indicator:render(mock_element)
 
-      -- height=1, vertical_pad = 0, so only 1 line
       eq(1, #set_lines_data)
-      -- Content line should have leading spaces for centering
+
       local line = set_lines_data[1]
       local leading_spaces = line:match('^(%s*)')
       assert.is_true(#leading_spaces > 0)
@@ -211,8 +232,8 @@ describe('LoadingIndicator:', function()
 
       assert.is_not_nil(highlight_data)
       eq('GitComment', highlight_data.hl)
-      -- row should be the vertical padding
-      eq(2, highlight_data.row) -- floor((5-1)/2) = 2
+
+      eq(2, highlight_data.row)
       assert.is_not_nil(highlight_data.col_range)
       eq(0, highlight_data.col_range.from)
     end)

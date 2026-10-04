@@ -22,22 +22,7 @@ symlinks:
     - source: assets/ghostty/config
       target: ~/.config/ghostty/config
 
-  ai:
-    - source: assets/agent/AGENTS.md
-      target: ~/.config/opencode/AGENTS.md
-
-    - source: assets/opencode/agents/tin-coordinator.md
-      target: ~/.config/opencode/agents/tin-coordinator.md
-
-exports:
-  opencode:
-    dir: ~/.config/opencode/skills
-
 fonts: assets/fonts
-
-agents:
-  - name: local
-    url: http://127.0.0.1:4096
 
 recipes:
   shell:

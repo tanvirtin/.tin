@@ -56,6 +56,12 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8) !Sn {
     };
 }
 
+pub fn deinit(self: *Sn) void {
+    self.catalog.deinit();
+    self.engine.deinit();
+    self.allocator.free(self.sn_dir);
+}
+
 pub fn validate(self: *Sn) !void {
     var all_pending_refs = std.ArrayListUnmanaged(validate_mod.PendingReference){};
     defer all_pending_refs.deinit(self.allocator);

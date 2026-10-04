@@ -98,12 +98,6 @@ function TreeComponent:get_parent_folder(segmented_folders, current_index)
   return self._depth_tree:get_parent_folder(segmented_folders, current_index)
 end
 
-function TreeComponent:transform_entries_to_tree(entries)
-  self._depth_tree:from_entries(entries)
-  self._depth_tree:sort()
-  return self._depth_tree:value()
-end
-
 function TreeComponent:sort_tree(tree)
   self._depth_tree:set_tree(tree)
   self._depth_tree:sort()
@@ -146,15 +140,6 @@ function TreeComponent:set_list(list)
   self:_build_processed_list()
   if self._mounted then self:render() end
   return self
-end
-
-function TreeComponent:toggle_list_item(item)
-  if item.items then item.open = not item.open end
-  return self
-end
-
-function TreeComponent:is_fold(item)
-  return item and item.items and #item.items > 0
 end
 
 function TreeComponent:get_list_item(lnum)
@@ -257,7 +242,6 @@ function TreeComponent:generate_lines()
   local depth_0_item_counts = {}
   local foldable_list_shadow = {}
 
-  -- Clear shadow list
   self.state.shadow_list = {}
 
   local function track_closed_folder_item_count(list, depth)

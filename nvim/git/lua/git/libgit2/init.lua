@@ -151,6 +151,9 @@ function libgit2.register_module(path)
   libgit2.initialized = true
   event.on('VimLeavePre', libgit2.shutdown)
 
+  require('git.libgit2.git_conflict')
+  require('git.libgit2.git_repo')
+
   return true
 end
 

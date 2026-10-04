@@ -1,6 +1,7 @@
 local lazy = require('core.lazy')
 
 local event = lazy('core.event')
+local shutdown = lazy('core.shutdown')
 local Object = lazy('core.Object')
 local console = lazy('core.console')
 local git_buffer_store = lazy('git.git.git_buffer_store')
@@ -10,6 +11,7 @@ local LiveGutter = Object:extend()
 
 function LiveGutter:constructor()
   local fetch_debounced_fn, fetch_debounced_cleanup = event.debounce_async(function(self_ref, buffer)
+    if shutdown.is_exiting() then return end
     self_ref:fetch(buffer)
   end, live_gutter_setting:get('debounce_ms'))
 

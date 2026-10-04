@@ -1,7 +1,5 @@
 local init = {}
 
-init.leader = ','
-
 init.colorscheme = 'monokai'
 
 init.lsp_servers = {

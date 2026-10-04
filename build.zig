@@ -41,12 +41,6 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run tin");
     run_step.dependOn(&run_cmd.step);
 
-    const agent_tests = b.addSystemCommand(&.{"python3"});
-    agent_tests.addFileArg(b.path("tests/test_agent.py"));
-    agent_tests.addArtifactArg(exe);
-    const agent_test_step = b.step("test-agent", "Test agent HTTP contracts and isolated worktree/tmux groups");
-    agent_test_step.dependOn(&agent_tests.step);
-
     const bench_exe = b.addExecutable(.{
         .name = "bench",
         .root_module = b.createModule(.{

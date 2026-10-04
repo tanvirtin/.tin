@@ -61,18 +61,25 @@ local function run_git(args, opts)
 end
 
 gitcli.task = function(args, opts)
-  return vim.async.run(function()
-    return run_git(args, opts)
-  end):detach()
+  return vim.async
+    .run(function()
+      return run_git(args, opts)
+    end)
+    :detach()
 end
 
-gitcli.run_async = function(args, opts)
-  return gitcli.task(args, opts)
+local function wait_failure(args, reason)
+  local cmd = 'git ' .. table.concat(args, ' ')
+  return { string.format('git command did not complete (%s): %s', tostring(reason), cmd) }
 end
 
 function gitcli.run(args, opts)
   opts = opts or {}
-  return gitcli.task(args, opts):wait(opts.timeout)
+
+  local ok, result, err, code = gitcli.task(args, opts):pwait(opts.timeout)
+  if not ok then return nil, wait_failure(args, result), nil end
+
+  return result, err, code
 end
 
 return gitcli

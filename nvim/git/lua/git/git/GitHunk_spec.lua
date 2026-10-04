@@ -1,7 +1,5 @@
 local GitHunk = require('git.git.GitHunk')
 
-local eq = assert.are.same
-
 describe('GitHunk:', function()
   describe('constructor', function()
     it('should create a new add-type hunk', function()
@@ -69,7 +67,6 @@ describe('GitHunk:', function()
     end)
 
     it('should accept header as array', function()
-      -- Header can be provided as {previous, current} arrays
       local hunk = GitHunk({ { 10, 5 }, { 10, 7 } })
 
       assert.is_not_nil(hunk, 'Hunk should be created from array')

@@ -54,6 +54,7 @@ pub fn getRecipeGroup(allocator: std.mem.Allocator, config: Config, group: []con
 const SymlinkEntry = struct {
     source: []const u8,
     target: []const u8,
+    copy: bool = false,
 };
 
 pub fn getManagedSymlinks(allocator: std.mem.Allocator, config: Config, paths: Paths) ![]const Symlink {
@@ -85,6 +86,7 @@ pub fn getManagedSymlinks(allocator: std.mem.Allocator, config: Config, paths: P
                 .source = source,
                 .target = target,
                 .name = try allocator.dupe(u8, std.fs.path.basename(entry.source)),
+                .copy = entry.copy,
             });
         }
 

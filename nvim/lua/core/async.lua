@@ -38,9 +38,7 @@ async.wrap = function(func, argc)
   assert(type(argc) == 'number', 'type error :: expected number, got ' .. type(argc))
 
   return function(...)
-    if select('#', ...) == argc then
-      return func(...)
-    end
+    if select('#', ...) == argc then return func(...) end
 
     return vim.async.await(argc, func, ...)
   end

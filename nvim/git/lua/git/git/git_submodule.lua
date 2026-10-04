@@ -4,6 +4,16 @@ local GitQueryBuilder = lazy('git.git.GitQueryBuilder')
 
 local git_submodule = {}
 
+local function add_paths(query, paths)
+  if type(paths) == 'string' then
+    query:raw_arg(paths)
+  elseif type(paths) == 'table' then
+    for _, path in ipairs(paths) do
+      query:raw_arg(path)
+    end
+  end
+end
+
 function git_submodule.add(reponame, url, path, opts)
   if not reponame then return nil, { 'reponame is required' } end
   if not url then return nil, { 'url is required' } end
@@ -53,7 +63,6 @@ function git_submodule.list(reponame, opts)
   local result, err = query:execute()
   if err then return nil, err end
 
-  -- Parse output: " commit-hash path (tag/branch)" or "+commit-hash path (tag/branch)"
   local submodules = {}
   for _, line in ipairs(result) do
     local status_char = line:sub(1, 1)
@@ -91,15 +100,7 @@ function git_submodule.init(reponame, paths)
 
   local query = GitQueryBuilder(reponame):raw_args('submodule', 'init')
 
-  if paths then
-    if type(paths) == 'string' then
-      query:raw_arg(paths)
-    elseif type(paths) == 'table' then
-      for _, path in ipairs(paths) do
-        query:raw_arg(path)
-      end
-    end
-  end
+  if paths then add_paths(query, paths) end
 
   return query:execute()
 end
@@ -114,15 +115,7 @@ function git_submodule.deinit(reponame, paths, opts)
 
   if opts.all then query:raw_arg('--all') end
 
-  if paths then
-    if type(paths) == 'string' then
-      query:raw_arg(paths)
-    elseif type(paths) == 'table' then
-      for _, path in ipairs(paths) do
-        query:raw_arg(path)
-      end
-    end
-  end
+  if paths then add_paths(query, paths) end
 
   return query:execute()
 end
@@ -157,15 +150,7 @@ function git_submodule.update(reponame, paths, opts)
     query:raw_arg(tostring(opts.jobs or opts.j))
   end
 
-  if paths then
-    if type(paths) == 'string' then
-      query:raw_arg(paths)
-    elseif type(paths) == 'table' then
-      for _, path in ipairs(paths) do
-        query:raw_arg(path)
-      end
-    end
-  end
+  if paths then add_paths(query, paths) end
 
   return query:execute({ config = { 'protocol.file.allow=always' } })
 end
@@ -178,15 +163,7 @@ function git_submodule.sync(reponame, paths, opts)
 
   if opts.recursive then query:raw_arg('--recursive') end
 
-  if paths then
-    if type(paths) == 'string' then
-      query:raw_arg(paths)
-    elseif type(paths) == 'table' then
-      for _, path in ipairs(paths) do
-        query:raw_arg(path)
-      end
-    end
-  end
+  if paths then add_paths(query, paths) end
 
   return query:execute()
 end

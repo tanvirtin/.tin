@@ -78,7 +78,4 @@ fi
 info "Running tin install..."
 "$BIN_DIR/tin" install
 
-info "Exporting skills..."
-"$BIN_DIR/tin" artifact export opencode 2>/dev/null || info "No skills to export"
-
 success "Done"

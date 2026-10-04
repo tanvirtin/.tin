@@ -1,6 +1,7 @@
 local lazy = require('core.lazy')
 
 local event = lazy('core.event')
+local shutdown = lazy('core.shutdown')
 local Object = lazy('core.Object')
 local console = lazy('core.console')
 local navigation = lazy('git.core.navigation')
@@ -11,6 +12,7 @@ local LiveBlame = Object:extend()
 
 function LiveBlame:constructor()
   local debounced_blame, debounced_blame_cleanup = event.debounce_async(function(buffer)
+    if shutdown.is_exiting() then return end
     if not live_blame_setting:get('enabled') then return end
 
     buffer = buffer or git_buffer_store.current()

@@ -6,6 +6,7 @@ local event = lazy('core.event')
 local keymap = lazy('core.keymap')
 local console = lazy('core.console')
 local navigation = lazy('git.core.navigation')
+local operation_token = lazy('git.core.operation_token')
 local repository = lazy('git.git.repository')
 local hunks_setting = lazy('git.settings.hunks')
 local LayoutSpec = lazy('ui.layout.LayoutSpec')
@@ -33,7 +34,7 @@ function StatusDiffView:constructor()
   instance._commit_view = nil
   instance._refreshing = false
   instance._skip_on_move = false
-  instance._diff_gen = 0
+  instance._op_token = operation_token.new()
   return instance
 end
 
@@ -282,11 +283,10 @@ function StatusDiffView:move_to(query_fn)
 end
 
 function StatusDiffView:_refresh_diff(hunk_index)
-  self._diff_gen = self._diff_gen + 1
-  local gen = self._diff_gen
+  local ticket = operation_token.bump(self._op_token)
 
   event.await()
-  if self._diff_gen ~= gen then return false end
+  if operation_token.stale(self._op_token, ticket) then return false end
 
   local entry = self:get_current_entry()
   if not self:_is_valid_entry(entry) then return false end
@@ -304,7 +304,7 @@ function StatusDiffView:_refresh_diff(hunk_index)
   end
   if not diff_data then return false end
 
-  if self._diff_gen ~= gen then return false end
+  if operation_token.stale(self._op_token, ticket) then return false end
 
   self._diff_component:set_props({
     diff = diff_data,
@@ -620,8 +620,7 @@ function StatusDiffView:_handle_file_selection_change(item)
     return
   end
 
-  self._diff_gen = self._diff_gen + 1
-  local gen = self._diff_gen
+  local ticket = operation_token.bump(self._op_token)
 
   local entry = item.entry or item
 
@@ -648,7 +647,7 @@ function StatusDiffView:_handle_file_selection_change(item)
     return
   end
 
-  if self._diff_gen ~= gen then return end
+  if operation_token.stale(self._op_token, ticket) then return end
 
   if not diff_data then
     self._diff_component:set_props({
@@ -792,7 +791,6 @@ function StatusDiffView:setup_keymaps()
 
   self:_setup_quit_keymap()
 
-  -- Hunk-level operations on diff component
   local stage_hunk_key = keymap.get_key(diff_keymaps.stage_hunk)
   if stage_hunk_key then
     self:_register_keymap(self._diff_component, 'n', stage_hunk_key, function()
@@ -814,7 +812,6 @@ function StatusDiffView:setup_keymaps()
     end)
   end
 
-  -- File-level operations on diff component
   local stage_file_key = keymap.get_key(diff_keymaps.stage)
   if stage_file_key then
     self:_register_keymap(self._diff_component, 'n', stage_file_key, function()
@@ -973,7 +970,7 @@ function StatusDiffView:_create_view(data)
   self._tree_component = TreeComponent({
     list = file_groups,
     title = '',
-    width = 50,
+    width = self.TREE_WIDTH,
     focus = true,
     keymaps = tree_keymaps,
     keymap_handlers = {
@@ -1059,7 +1056,6 @@ function StatusDiffView:on_git_change()
   end
 
   if filename then
-    -- Try exact match (same section) first, then any section
     local found_type = nil
     self._tree_component:each_entry(function(status, et)
       if status.filename == filename then

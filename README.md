@@ -72,6 +72,20 @@ symlinks:
 
 Add a new symlink — just add an entry. Remove one — delete the entry. Run `tin link` to apply.
 
+Add `copy: true` to install a real file instead of a symlink:
+
+```yaml
+    - source: assets/plugin/tool.ts
+      target: ~/.config/plugin/tool.ts
+      copy: true
+```
+
+Copies are refreshed in place when the source changes, and `tin unlink` deletes
+them. Use this for files whose consumer resolves relative imports or otherwise
+depends on the file's real location: a consumer that resolves from the real
+path can't find packages installed next to the config directory if the file is
+a symlink back into the repo.
+
 ### fonts
 
 Path to a directory of `.ttf` files to install to the system font directory.
@@ -221,29 +235,6 @@ tin help                            Show runtime command reference and index
 
 `web` is a namespace: web access belongs under `tin web`.
 
-### Agent control
-
-Tin connects OpenCode conversations to Neovim. A Git worktree can have its own
-tmux window, with Neovim and an OpenCode coordinator side by side.
-
-```sh
-tin agent open "$PWD"            # current worktree's editor + conversation (boots the server in the background if needed)
-tin agent open --new "$PWD"      # force a fresh coordinator instead of resuming the previous Control: session
-tin agent worktree feature/auth   # separate editing task
-tin help agent
-```
-
-In Neovim, `<leader>os` asks OpenCode about the current line or a visual range
-through a composer; `<leader>oX` clears its draft; `<leader>o<Space>` toggles the paired OpenCode
-pane: Neovim full-window with the pane hidden, or the 73/27 split restored, so
-the chat behaves as if it were part of Neovim. Each worktree window is one
-strict pair: a Neovim
-instance can only communicate with the OpenCode pane beside it, and a moved
-pane invalidates the pair immediately. Messages are delivered by session ID
-through the OpenCode API, never by typing into a tmux pane.
-See [the agent-control guide](nvim/AGENT_CONTROL.md) for setup, keybindings,
-remote connections, and lifecycle details.
-
 ### Tmux config
 
 tmux is installed via the `tmux` recipe (`tin recipe tmux`, which also clones
@@ -262,7 +253,7 @@ After changing `assets/.tmux.conf`, re-apply with:
 
 ### Self-documenting CLI
 
-Tin is runtime-discoverable. Agents should load only the compact contract, then query the live CLI as needed:
+Tin is runtime-discoverable. Query the live CLI as needed:
 
 ```bash
 tin --help
@@ -346,27 +337,23 @@ symlinks:
 </details>
 
 <details>
-<summary>Skills for agent runtimes</summary>
+<summary>Skills</summary>
 
-## Skills for agent runtimes — config, not orchestration
+## Skills — config, not orchestration
 
-OpenCode is an agent runtime that consumes tin: the CLI is its source of
-truth, and tin exports its YAML artifacts to the runtime's native skill
-directory. Tin does not launch or manage agents. The shared compact agent
-contract lives in `assets/agent/AGENTS.md` and is linked into the runtime.
-Everything the agent knows and can do is defined in Tin's YAML artifacts,
-exported to the runtime's native skill directory.
+Tin does not launch or manage anything. It publishes YAML artifacts that a
+runtime consumes: the CLI is the source of truth, and `tin artifact export`
+writes its YAML artifacts to a skill directory in the format the runtime
+expects.
 
 Any agent that reads the [Agent Skills](https://agentskills.io/specification)
-standard gets the same ecosystem. Use `tin artifact export opencode` to refresh
-the skill directory. The runtime uses the same self-documenting
+standard gets the same ecosystem. The runtime uses the same self-documenting
 Tin CLI for deeper context.
 
 ```
 artifacts/
   skills/       ← workflows, procedures, composed skills
   rules/        ← reusable rule sets included by skills
-assets/agent/   ← shared runtime contract
 ```
 
 ### Commands
@@ -376,7 +363,7 @@ tin artifact list                              List all skills
 tin artifact --path=skills/develop/plan --format=md    Export as SKILL.md
 tin artifact --path=skills/develop/plan --format=json  Export as JSON
 tin artifact validate                          Check all references are valid
-tin artifact export opencode                   Export skills for an agent runtime
+tin artifact export                            Export skills for a runtime
 ```
 
 ### Adding a skill
@@ -461,15 +448,13 @@ system: |
 
 The `{{ clarity }}` placeholder is replaced with the rule's `content` at export time.
 
-### Exporting for agent runtimes
+### Exporting for a runtime
 
 ```bash
 tin artifact export all
 ```
 
-Exports skills as `SKILL.md` files (the [agentskills.io](https://agentskills.io) standard) for agent runtimes. Use `tin artifact export opencode` to refresh the skill directory.
-
-`install.sh` runs this automatically after `tin install`.
+Exports skills as `SKILL.md` files (the [agentskills.io](https://agentskills.io) standard) for the target runtime. Point the export at the skill directory your runtime reads; the `exports:` map in `tinrc.yml` records it.
 
 ### Current skills
 

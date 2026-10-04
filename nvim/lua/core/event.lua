@@ -1,7 +1,10 @@
 local lazy = require('core.lazy')
 
 local async = lazy('core.async')
+local shutdown = lazy('core.shutdown')
 local utils_math = lazy('core.utils.math')
+
+local event = {}
 
 local _augroup_created = false
 
@@ -9,6 +12,16 @@ local function ensure_augroup()
   if _augroup_created then return end
   _augroup_created = true
   vim.api.nvim_create_augroup('gitGroup', { clear = false })
+end
+
+local function augroup_disposer(group_name)
+  local cleaned_up = false
+
+  return function()
+    if cleaned_up then return end
+    cleaned_up = true
+    pcall(vim.api.nvim_del_augroup_by_name, group_name)
+  end
 end
 
 local function safe_async_void(func)
@@ -19,6 +32,7 @@ local function safe_async_void(func)
     local argc = select('#', ...)
 
     local function error_handler(err)
+      if shutdown.is_exiting() then return err end
       local error_trace = debug.traceback('', 2)
       local msg = string.format(
         '[Git] Async Error: %s\n\n--- Error Location ---\n%s\n--- Call Site ---\n%s',
@@ -42,12 +56,10 @@ local function safe_async_void(func)
   end
 end
 
-local event = {
-  group = 'gitGroup',
-  async = safe_async_void,
-  promisify = async.wrap,
-  await = async.wrap(vim.schedule, 1),
-}
+event.group = 'gitGroup'
+event.async = safe_async_void
+event.promisify = async.wrap
+event.await = async.wrap(vim.schedule, 1)
 
 function event.all(funcs, opts)
   opts = opts or {}
@@ -93,12 +105,7 @@ function event.disposable_on(event_names, callback)
     callback = callback,
   })
 
-  local cleaned_up = false
-  return function()
-    if cleaned_up then return end
-    cleaned_up = true
-    pcall(vim.api.nvim_del_augroup_by_name, group_name)
-  end
+  return augroup_disposer(group_name)
 end
 
 function event.defer(fn, ms)
@@ -121,12 +128,7 @@ function event.custom_on(event_name, callback)
     callback = event.async(callback),
   })
 
-  local cleaned_up = false
-  return function()
-    if cleaned_up then return end
-    cleaned_up = true
-    pcall(vim.api.nvim_del_augroup_by_name, group_name)
-  end
+  return augroup_disposer(group_name)
 end
 
 function event.emit(event_name, data)

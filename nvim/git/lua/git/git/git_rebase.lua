@@ -68,18 +68,6 @@ function git_rebase.quit(reponame)
   return GitQueryBuilder(reponame):raw_args('rebase', '--quit'):execute()
 end
 
-function git_rebase.edit_todo(reponame)
-  if not reponame then return nil, { 'reponame is required' } end
-
-  return GitQueryBuilder(reponame):raw_args('rebase', '--edit-todo'):execute()
-end
-
-function git_rebase.show_current_patch(reponame)
-  if not reponame then return nil, { 'reponame is required' } end
-
-  return GitQueryBuilder(reponame):raw_args('rebase', '--show-current-patch'):execute()
-end
-
 function git_rebase.in_progress(reponame)
   if not reponame or reponame == '' then return false end
 

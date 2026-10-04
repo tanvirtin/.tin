@@ -1,8 +1,6 @@
 local event = require('core.event')
 local display_service = require('git.ui.display_service')
 
-local eq = assert.are.same
-
 describe('display_service:', function()
   before_each(function()
     display_service.reset()
@@ -23,8 +21,6 @@ describe('display_service:', function()
       display_service.register_events()
       display_service.register_events()
 
-      -- If handlers were double-registered, emitting gitDirChanged would
-      -- call destroy twice on active_view, which could error. Verify no error.
       local ok = pcall(event.emit, 'gitDirChanged', {})
       assert.is_true(ok)
       assert.is_nil(display_service.get_active_view())
@@ -41,7 +37,6 @@ describe('display_service:', function()
       display_service.register_events()
       display_service.reset()
 
-      -- Should be able to register again without error
       assert.has_no.errors(function()
         display_service.register_events()
       end)
@@ -80,8 +75,6 @@ describe('display_service:', function()
     end)
 
     it('should not clear _events_registered (unlike reset)', function()
-      -- After gitDirChanged the handler should still be listening.
-      -- We verify by emitting a second gitDirChanged and confirming no error.
       display_service.register_events()
 
       local ok = pcall(function()

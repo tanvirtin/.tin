@@ -21,7 +21,6 @@ function GitTree:constructor(repository, commit)
     _commit_data = nil,
     _parent_tree = nil,
     _files = nil,
-    _stats = nil,
     _author = nil,
     _timestamp = nil,
     _message = nil,
@@ -151,60 +150,6 @@ function GitTree:diff(other_tree, opts)
   })
 end
 
-function GitTree:file_diff(filename)
-  if not filename then return nil, { 'filename is required' } end
-
-  local parent_tree, err = self:parent()
-  if err then
-    local current_hash, hash_err = self:hash()
-    if hash_err then return nil, hash_err end
-
-    return git_hunks.list(self._repo_path, {
-      current = current_hash,
-      parent = '',
-      filename = filename,
-    })
-  end
-
-  return self:diff(parent_tree, { filename = filename })
-end
-
-function GitTree:diff_working_tree(filename)
-  local current_hash, err = self:hash()
-  if err then return nil, err end
-
-  return git_hunks.list(self._repo_path, {
-    parent = current_hash,
-    filename = filename,
-  })
-end
-
-function GitTree:stats()
-  if self._stats then return self._stats, nil end
-
-  local files, err = self:files()
-  if err then return nil, err end
-
-  local stats = {
-    files_changed = #files,
-    insertions = 0,
-    deletions = 0,
-  }
-
-  for _, file in ipairs(files) do
-    local hunks, hunk_err = self:file_diff(file.filename)
-    if hunks and not hunk_err then
-      for _, hunk in ipairs(hunks) do
-        stats.insertions = stats.insertions + hunk.stat.added
-        stats.deletions = stats.deletions + hunk.stat.removed
-      end
-    end
-  end
-
-  self._stats = stats
-  return stats, nil
-end
-
 function GitTree:is_initial()
   local parent_hash, _ = self:parent_hash()
   return not parent_hash or parent_hash == ''
@@ -223,7 +168,6 @@ function GitTree:reset()
   self._commit_data = nil
   self._parent_tree = nil
   self._files = nil
-  self._stats = nil
   self._author = nil
   self._timestamp = nil
   self._message = nil

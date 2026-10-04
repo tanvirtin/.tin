@@ -2,6 +2,7 @@ local lazy = require('core.lazy')
 
 local View = lazy('git.ui.View')
 local event = lazy('core.event')
+local operation_token = lazy('git.core.operation_token')
 local keymap = lazy('core.keymap')
 local console = lazy('core.console')
 local git_stash = lazy('git.git.git_stash')
@@ -29,7 +30,7 @@ function StashView:constructor()
   instance._current_component = nil
   instance._current_commit = nil
   instance._patch_cache = {}
-  instance._update_gen = 0
+  instance._op_token = operation_token.new()
   return instance
 end
 
@@ -108,8 +109,7 @@ end
 function StashView:_update_patch(commit)
   if not commit then return end
   self._current_commit = commit
-  self._update_gen = self._update_gen + 1
-  local gen = self._update_gen
+  local ticket = operation_token.bump(self._op_token)
 
   local revision = commit.context and commit.context.revision
 
@@ -120,7 +120,7 @@ function StashView:_update_patch(commit)
 
   local entries = self:_build_diff_file_entries_for_commit(commit)
 
-  if self._update_gen ~= gen then return end
+  if operation_token.stale(self._op_token, ticket) then return end
 
   if revision then self._patch_cache[revision] = entries end
 

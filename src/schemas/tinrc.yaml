@@ -1,28 +1,5 @@
 type: object
 fields:
-  - name: agents
-    type: sequence
-    items:
-      type: object
-      fields:
-        - name: name
-          type: string
-        - name: url
-          type: string
-        - name: directory
-          type: string
-          required: false
-        - name: agent
-          type: string
-          required: false
-        - name: password_env
-          type: string
-          required: false
-        - name: username_env
-          type: string
-          required: false
-      additional: forbid
-    required: false
   - name: identity
     type: object
     fields:
@@ -47,6 +24,9 @@ fields:
             type: string
           - name: target
             type: string
+          - name: copy
+            type: boolean
+            required: false
         additional: forbid
     required: false
   - name: fonts

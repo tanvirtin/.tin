@@ -17,7 +17,6 @@ const cases = [_]SchemaCases{
         "recipes/git.yml",
         "recipes/neovim.yml",
         "recipes/nvm.yml",
-        "recipes/opencode.yml",
         "recipes/rbenv.yml",
         "recipes/ripgrep.yml",
         "recipes/rust.yml",

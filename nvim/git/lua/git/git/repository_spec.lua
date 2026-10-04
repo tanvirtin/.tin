@@ -5,10 +5,8 @@ describe('repository:', function()
   local original_git_repository
 
   before_each(function()
-    -- Save original and clear cached modules
     original_git_repository = package.loaded['git.git.GitRepository']
 
-    -- Create a mock GitRepository
     local mock_repo_instance = {
       reset = function() end,
     }
@@ -19,13 +17,11 @@ describe('repository:', function()
       end,
     }
 
-    -- Clear and re-require repository to pick up the mock
     package.loaded['git.git.repository'] = nil
     repository = require('git.git.repository')
   end)
 
   after_each(function()
-    -- Restore original module
     package.loaded['git.git.GitRepository'] = original_git_repository
     package.loaded['git.git.repository'] = nil
   end)
@@ -77,7 +73,6 @@ describe('repository:', function()
         return { reset = function() end }, nil
       end
 
-      -- Re-require to pick up the new mock
       package.loaded['git.git.repository'] = nil
       repository = require('git.git.repository')
 
@@ -156,17 +151,15 @@ describe('repository:', function()
     end)
 
     it('should do nothing when no instance is cached', function()
-      -- Should not error
       repository.invalidate()
 
       assert.is_false(repository.is_loaded())
     end)
 
     it('should allow current() to create a new instance after invalidate', function()
-      local repo1 = repository.current()
+      repository.current()
       repository.invalidate()
 
-      -- Create new mock to ensure different instance
       local new_mock = { reset = function() end }
       package.loaded['git.git.GitRepository'].discover = function()
         return new_mock, nil

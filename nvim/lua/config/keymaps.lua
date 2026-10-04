@@ -97,13 +97,3 @@ map('v', '<leader>sy', '<Esc><Cmd>lua require("core.selection").yank()<CR>')
 map('v', '<leader>sa', '<Esc><Cmd>lua require("core.selection").add()<CR>')
 map('n', '<leader>sf', '<Cmd>lua require("core.selection").flush()<CR>')
 map('n', '<leader>sc', '<Cmd>lua require("core.selection").clear()<CR>')
-
-map(
-  'x',
-  '<leader>os',
-  ':<C-u>lua require("core.opencode").send({ visual = true })<CR>',
-  { desc = 'Ask OpenCode about range' }
-)
-map('n', '<leader>os', '<Cmd>lua require("core.opencode").send()<CR>', { desc = 'Ask OpenCode about line' })
-map('n', '<leader>oX', '<Cmd>lua require("core.opencode").clear()<CR>', { desc = 'Clear OpenCode draft' })
-map('n', '<leader>o<Space>', '<Cmd>lua require("core.opencode.chat").toggle()<CR>', { desc = 'Toggle OpenCode chat pane' })

@@ -57,7 +57,6 @@ describe('git_repo:', function()
     it('should discover from cwd when filepath is nil', function()
       local reponame, err = git_repo.discover(nil)
 
-      -- Should succeed if run from within a git repo, otherwise error
       if reponame then
         assert(not err, 'Should not error when repo found')
         assert(type(reponame) == 'string', 'Should return string path')
@@ -348,7 +347,6 @@ describe('git_repo:', function()
 
       assert(not err)
 
-      -- Untracked file should be removed
       local exists = vim.fn.filereadable(repo .. '/untracked.txt')
       eq(exists, 0)
     end)
@@ -393,7 +391,6 @@ describe('git_repo:', function()
 
       assert(not err)
 
-      -- Untracked file should be removed
       local exists = vim.fn.filereadable(repo .. '/untracked.txt')
       eq(exists, 0)
     end)
@@ -405,7 +402,6 @@ describe('git_repo:', function()
 
       assert(not err)
 
-      -- Untracked directory should be removed
       local exists = vim.fn.isdirectory(repo .. '/temp')
       eq(exists, 0)
     end)
@@ -418,7 +414,6 @@ describe('git_repo:', function()
 
       assert(not err)
 
-      -- untracked1.txt should be removed
       local exists1 = vim.fn.filereadable(repo .. '/untracked1.txt')
       eq(exists1, 0)
     end)
@@ -428,7 +423,6 @@ describe('git_repo:', function()
 
       git_repo.clean(repo, nil)
 
-      -- Tracked file should still exist
       local exists = vim.fn.filereadable(repo .. '/file1.txt')
       eq(exists, 1)
     end)
@@ -439,7 +433,6 @@ describe('git_repo:', function()
 
       git_repo.clean(repo, nil)
 
-      -- Staged file should still exist
       local exists = vim.fn.filereadable(repo .. '/staged.txt')
       eq(exists, 1)
     end)
@@ -468,7 +461,6 @@ describe('git_repo:', function()
 
       git_repo.clean(repo, nil)
 
-      -- All untracked should be removed
       eq(vim.fn.filereadable(repo .. '/temp1.txt'), 0)
       eq(vim.fn.filereadable(repo .. '/temp2.txt'), 0)
     end)
@@ -476,12 +468,10 @@ describe('git_repo:', function()
     it('should verify file tracked status', function()
       test_repo.write_file(repo .. '/new.txt', { 'new file' })
 
-      -- Not in HEAD yet (untracked)
       local has_before, err1 = git_repo.has(repo, 'new.txt', 'HEAD')
       assert(not err1)
       eq(has_before, false)
 
-      -- file1.txt should exist (tracked)
       local has_tracked, err2 = git_repo.has(repo, 'file1.txt', 'HEAD')
       assert(not err2)
       eq(has_tracked, true)

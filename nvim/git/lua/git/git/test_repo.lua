@@ -142,10 +142,4 @@ function M.cleanup(repo)
   return M.active_driver.cleanup(repo)
 end
 
-function M.preserve(repo)
-  local path = M.get_path(repo)
-  print('[DEBUG] Test repository preserved at: ' .. path)
-  print('[DEBUG] To inspect: cd ' .. path .. ' && git status')
-end
-
 return M

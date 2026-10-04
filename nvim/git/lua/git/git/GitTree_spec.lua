@@ -48,11 +48,10 @@ describe('GitTree:', function()
   describe('reset', function()
     it('should clear all cached fields', function()
       local tree = GitTree(make_repo('/repo'), 'HEAD')
-      -- Manually set cached fields to non-nil values
+
       tree._commit_data = { some = 'data' }
       tree._parent_tree = { some = 'tree' }
       tree._files = { 'file1' }
-      tree._stats = { files_changed = 1 }
       tree._author = { name = 'Alice' }
       tree._timestamp = 12345
       tree._message = 'hello'
@@ -62,7 +61,6 @@ describe('GitTree:', function()
       assert.is_nil(tree._commit_data)
       assert.is_nil(tree._parent_tree)
       assert.is_nil(tree._files)
-      assert.is_nil(tree._stats)
       assert.is_nil(tree._author)
       assert.is_nil(tree._timestamp)
       assert.is_nil(tree._message)
@@ -124,7 +122,6 @@ describe('GitTree:', function()
         assert(not err2, 'Second commit() call failed: ' .. tostring(err2))
         assert.is_not_nil(data2)
 
-        -- Both calls should return the exact same table reference (cached)
         assert.are.equal(data1, data2)
       end)
 
@@ -142,10 +139,8 @@ describe('GitTree:', function()
         assert(not err2, 'Second commit() call failed: ' .. tostring(err2))
         assert.is_not_nil(data2)
 
-        -- After reset, a new object should be fetched (different table reference)
-        -- Note: GitCommit defines __eq by hash, so use rawequal to check table identity
         assert.is_false(rawequal(data1, data2))
-        -- But the data should be equivalent
+
         eq(data1.commit_hash, data2.commit_hash)
       end)
     end)
@@ -172,7 +167,6 @@ describe('GitTree:', function()
         local author2, err2 = tree:author()
         assert(not err2, 'Second author() call failed: ' .. tostring(err2))
 
-        -- Both calls should return the exact same table reference (cached)
         assert.are.equal(author1, author2)
       end)
     end)

@@ -1,7 +1,5 @@
 local TreeComponent = require('ui.components.TreeComponent')
 
-local eq = assert.are.same
-
 describe('TreeComponent:', function()
   local component
 

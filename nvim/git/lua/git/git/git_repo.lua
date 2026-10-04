@@ -5,19 +5,19 @@ local GitQueryBuilder = lazy('git.git.GitQueryBuilder')
 
 local git_repo = {}
 
--- Cache: directory path -> repo root. Stable within a session; only stale if
--- user runs `git init` in a new location (rare, restart neovim to clear).
 local discover_cache = {}
 
-function git_repo.config(reponame)
+local CONFIG_TIMEOUT_MS = 2000
+
+function git_repo.config(reponame, opts)
   if not reponame then return nil, { 'reponame is required' } end
-  return GitQueryBuilder(reponame):raw_args('config', '--list'):execute()
+  opts = vim.tbl_extend('keep', opts or {}, { timeout = CONFIG_TIMEOUT_MS })
+  return GitQueryBuilder(reponame):raw_args('config', '--list'):execute(opts)
 end
 
 function git_repo.discover(filepath)
   local search_dir
 
-  -- If filepath is a file, get its directory
   if filepath then
     local stat = vim.loop.fs_stat(filepath)
     if stat and stat.type ~= 'directory' then
@@ -26,7 +26,6 @@ function git_repo.discover(filepath)
       search_dir = vim.fn.fnamemodify(filepath, ':p')
     end
   else
-    -- Use current directory if filepath is nil
     search_dir = vim.loop.cwd()
   end
 
@@ -77,7 +76,7 @@ function git_repo.has(reponame, filename, commit)
   if not filename then return nil, { 'filename is required' } end
 
   commit = commit or 'HEAD'
-  -- Normalize 'index' to ':' for git reference
+
   if commit == 'index' then commit = ':' end
 
   local result, err =
@@ -106,7 +105,6 @@ end
 function git_repo.reset(reponame, filename)
   if not reponame then return nil, { 'reponame is required' } end
 
-  -- checkout may fail for untracked files, but clean should still run
   GitQueryBuilder(reponame):raw_args('--no-pager', 'checkout', '-q', '--', filename or '.'):execute()
 
   return GitQueryBuilder(reponame):raw_args('--no-pager', 'clean', '-fd', '--', filename or '.'):execute()

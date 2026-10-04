@@ -18,7 +18,6 @@ const Topic = struct {
 
 const artifact_children = [_][]const u8{ "list", "validate", "export" };
 const topics = [_]Topic{
-    .{ .name = "agent", .description = "Supervise local and remote OpenCode agents", .children = &@import("agent.zig").children, .usage = "tin agent <action> [args] [--server name] [--directory path]" },
     .{ .name = "artifact", .description = "Validate and export skills and rules", .children = &artifact_children, .usage = "tin artifact <list|validate|export> [...]" },
 };
 
@@ -67,10 +66,6 @@ fn printIndex() void {
 
 fn printTopic(allocator: std.mem.Allocator, args: []const []const u8) void {
     const name = args[0];
-    if (std.mem.eql(u8, name, "agent")) {
-        @import("agent.zig").help();
-        return;
-    }
     if (std.mem.eql(u8, name, "schema") and args.len > 1) {
         printSchema(allocator, args[1]);
         return;
@@ -96,9 +91,15 @@ fn printDetail(topic: []const u8, detail: []const u8) void {
 }
 
 fn printSchema(allocator: std.mem.Allocator, filename: []const u8) void {
-    const paths = Paths.init(allocator) catch { output.err("could not resolve environment paths", .{}); return; };
+    const paths = Paths.init(allocator) catch {
+        output.err("could not resolve environment paths", .{});
+        return;
+    };
     const path = std.fmt.allocPrint(allocator, "{s}/src/schemas/{s}", .{ paths.tin_dir, filename }) catch return;
     defer allocator.free(path);
-    const content = fs.readFileAlloc(allocator, path) catch { output.err("schema not found: {s}", .{filename}); return; };
+    const content = fs.readFileAlloc(allocator, path) catch {
+        output.err("schema not found: {s}", .{filename});
+        return;
+    };
     output.plain("{s}", .{content});
 }

@@ -2,6 +2,7 @@ local lazy = require('core.lazy')
 local settings = require('core.settings')
 
 local event = lazy('core.event')
+local operation_token = lazy('git.core.operation_token')
 local symbols_setting = settings.get('symbols')
 local DiffAnnotator = lazy('git.ui.annotators.DiffAnnotator')
 local DiffStyleAnnotator = lazy('git.ui.annotators.DiffStyleAnnotator')
@@ -14,7 +15,7 @@ local PatchPreviewComponent = DiffViewportComponent:extend()
 function PatchPreviewComponent:constructor(props)
   local instance = DiffViewportComponent.constructor(self, props)
   instance._syntax_mapping_annotator = SyntaxMappingAnnotator()
-  instance._render_gen = 0
+  instance._op_token = operation_token.new()
   return instance
 end
 
@@ -66,7 +67,7 @@ end
 
 function PatchPreviewComponent:render()
   self:mark_viewport_dirty()
-  self._render_gen = self._render_gen + 1
+  operation_token.bump(self._op_token)
 
   self:with_element(function(el)
     el:clear_extmark_highlights()
@@ -108,12 +109,12 @@ function PatchPreviewComponent:render()
 
   self.state._syntax_hl_map = {}
   local sections = file_sections
-  local gen = self._render_gen
+  local ticket = self._op_token.count
   event.async(function()
     event.await()
-    if not self._mounted or self._render_gen ~= gen then return end
+    if not self._mounted or operation_token.stale(self._op_token, ticket) then return end
     local syntax_highlights = self:_compute_syntax_highlights_from_full_files(sections)
-    if not self._mounted or self._render_gen ~= gen then return end
+    if not self._mounted or operation_token.stale(self._op_token, ticket) then return end
     self.state._syntax_hl_map = self:_build_highlight_map(syntax_highlights)
     self:mark_viewport_dirty()
   end)()
@@ -240,10 +241,6 @@ function PatchPreviewComponent:render_viewport(top, bot)
   end)
 
   if rendered then self:commit_viewport(top, bot) end
-end
-
-function PatchPreviewComponent:get_line_metadata(lnum)
-  return self.state.line_metadata[lnum]
 end
 
 function PatchPreviewComponent:get_all_line_metadata()

@@ -1,7 +1,26 @@
 local event = require('core.event')
 local Buffer = require('core.Buffer')
+local shutdown = require('core.shutdown')
 
 local eq = assert.are.same
+
+local function count_augroup_deletions(fn)
+  local original = vim.api.nvim_del_augroup_by_name
+  local calls = 0
+
+  vim.api.nvim_del_augroup_by_name = function(name)
+    calls = calls + 1
+    return original(name)
+  end
+
+  local ok, err = pcall(fn)
+
+  vim.api.nvim_del_augroup_by_name = original
+
+  assert.is_true(ok, tostring(err))
+
+  return calls
+end
 
 describe('event:', function()
   describe('on', function()
@@ -76,11 +95,9 @@ describe('event:', function()
       debounced()
       assert.are.equal(1, call_count)
 
-      -- Second call within cooldown should NOT execute immediately
       debounced()
       assert.are.equal(1, call_count)
 
-      -- Wait for debounce timer + schedule to fire
       vim.wait(200, function()
         return call_count >= 2
       end, 10)
@@ -109,14 +126,11 @@ describe('event:', function()
       debounced()
       assert.are.equal(1, call_count)
 
-      -- Second call schedules a deferred execution
       debounced()
       assert.are.equal(1, call_count)
 
-      -- Cleanup before timer fires
       cleanup()
 
-      -- Wait past the debounce period — deferred call should NOT fire
       vim.wait(150, function()
         return false
       end, 10)
@@ -227,7 +241,6 @@ describe('event:', function()
 
       cleanup()
 
-      -- Emitting again should not increment since autocmd was removed
       pcall(event.emit, 'TestCleanupEvent', {})
       assert.are.equal(1, call_count)
     end)
@@ -240,6 +253,18 @@ describe('event:', function()
       assert.has_no.errors(function()
         cleanup()
       end)
+    end)
+
+    it('should delete the augroup only once', function()
+      local calls = count_augroup_deletions(function()
+        local cleanup = event.custom_on('TestOnceCleanup', function() end)
+
+        cleanup()
+        cleanup()
+        cleanup()
+      end)
+
+      eq(1, calls)
     end)
   end)
 
@@ -255,7 +280,6 @@ describe('event:', function()
 
       cleanup()
 
-      -- After cleanup, the autocmd should be removed
       vim.api.nvim_exec_autocmds('BufRead', { modeline = false })
       assert.are.equal(1, call_count)
     end)
@@ -268,6 +292,18 @@ describe('event:', function()
       assert.has_no.errors(function()
         cleanup()
       end)
+    end)
+
+    it('should delete the augroup only once', function()
+      local calls = count_augroup_deletions(function()
+        local cleanup = event.disposable_on('BufRead', function() end)
+
+        cleanup()
+        cleanup()
+        cleanup()
+      end)
+
+      eq(1, calls)
     end)
   end)
 
@@ -318,6 +354,43 @@ describe('event:', function()
       end)
       vim.api.nvim_exec_autocmds('DirChanged', { pattern = 'tab', modeline = false })
       eq(count, 0)
+    end)
+  end)
+
+  describe('async error reporting', function()
+    local original_schedule
+
+    before_each(function()
+      original_schedule = vim.schedule
+      shutdown.reset()
+    end)
+
+    after_each(function()
+      vim.schedule = original_schedule
+      shutdown.reset()
+    end)
+
+    it('schedules the report while running', function()
+      local scheduled = 0
+      vim.schedule = function()
+        scheduled = scheduled + 1
+      end
+      event.async(function()
+        error('boom')
+      end)()
+      eq(1, scheduled)
+    end)
+
+    it('drops the report while exiting so :qa is never blocked', function()
+      local scheduled = 0
+      vim.schedule = function()
+        scheduled = scheduled + 1
+      end
+      shutdown.mark()
+      event.async(function()
+        error('boom-exit')
+      end)()
+      eq(0, scheduled)
     end)
   end)
 end)

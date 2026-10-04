@@ -28,8 +28,8 @@ function GitFile:constructor(filepath)
   }
 end
 
-function GitFile:config()
-  return git_repo.config(self.reponame)
+function GitFile:config(opts)
+  return git_repo.config(self.reponame, opts)
 end
 
 function GitFile:get_filename()
@@ -120,12 +120,6 @@ end
 
 function GitFile:log(opts)
   local result, err = git_log.get(self.reponame, opts.rev)
-  if err then return nil, err end
-  return result, nil
-end
-
-function GitFile:logs()
-  local result, err = git_log.list(self.reponame, { filename = self.filename })
   if err then return nil, err end
   return result, nil
 end

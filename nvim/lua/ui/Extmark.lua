@@ -4,7 +4,6 @@ local settings = require('core.settings')
 local Object = lazy('core.Object')
 local signs_setting = settings.get('signs')
 
--- Cache sign settings at module level — these never change after setup
 local _sign_priority
 local _sign_definitions
 

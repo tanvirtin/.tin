@@ -1,31 +1,7 @@
---- selection.lua
---- Captures visual selections and formats them as file:line-range DSL strings.
---- DSL format:
----   Line-wise:  src/main.zig:10-25      (or :10 for single line)
----   Char/Block: src/main.zig:10:5-25:12  (with column precision)
----   Multi-range same file: src/main.zig:10-25,30-40
----   Multi-file: space-separated
-
----@class Selection
----@field file string Relative path from project root
----@field start_line number 1-indexed
----@field end_line number 1-indexed
----@field start_col number|nil 1-indexed, present for char/block mode
----@field end_col number|nil 1-indexed, present for char/block mode
-
 local M = {}
 
----@type Selection[]
 local _selections = {}
 
---- Construct a Selection from raw values.
---- Normalizes so start <= end.
----@param file string Relative file path
----@param start_line number
----@param end_line number
----@param start_col number|nil
----@param end_col number|nil
----@return Selection
 function M.new(file, start_line, end_line, start_col, end_col)
   local lines_reversed = start_line > end_line
 
@@ -50,10 +26,6 @@ function M.new(file, start_line, end_line, start_col, end_col)
   }
 end
 
---- Make an absolute path relative to a root directory.
----@param absolute_path string
----@param root string
----@return string
 function M.relative_path(absolute_path, root)
   if root:sub(-1) ~= '/' then root = root .. '/' end
 
@@ -62,11 +34,6 @@ function M.relative_path(absolute_path, root)
   return absolute_path:sub(#root + 1)
 end
 
---- Format a single Selection as a DSL string.
---- No columns: "file:10-25" or "file:10"
---- With columns: "file:10:5-25:12" or "file:10:5"
----@param selection Selection
----@return string
 function M.format(selection)
   local has_cols = selection.start_col ~= nil
 
@@ -84,11 +51,6 @@ function M.format(selection)
   return selection.file .. ':' .. start_pos .. '-' .. end_pos
 end
 
---- Format multiple Selections, grouping ranges by file.
---- Same file ranges joined with comma: "file:10-25,30-40"
---- Different files separated by newline.
----@param selections Selection[]
----@return string
 function M.format_many(selections)
   if #selections == 0 then return '' end
 
@@ -102,7 +64,7 @@ function M.format_many(selections)
     end
     local ranges = ranges_by_file[s.file]
     local formatted = M.format(s)
-    local range_part = formatted:sub(#s.file + 2) -- strip "file:" prefix
+    local range_part = formatted:sub(#s.file + 2)
     ranges[#ranges + 1] = range_part
   end
 
@@ -114,10 +76,6 @@ function M.format_many(selections)
   return table.concat(lines, ' ')
 end
 
---- Capture the current visual selection from Neovim state.
---- Reads visual marks '</'>, buffer name, visual mode.
---- Resolves path relative to cwd.
----@return Selection
 function M.capture()
   local start_mark = vim.fn.getpos('\'<')
   local end_mark = vim.fn.getpos('\'>')
@@ -141,7 +99,6 @@ function M.capture()
   return M.new(file, start_line, end_line, start_col, end_col)
 end
 
---- Capture current visual selection, format it, copy to system clipboard.
 function M.yank()
   local s = M.capture()
   local text = M.format(s)
@@ -149,7 +106,6 @@ function M.yank()
   vim.notify(text, vim.log.levels.INFO)
 end
 
---- Capture current visual selection and append to accumulator.
 function M.add()
   local s = M.capture()
   _selections[#_selections + 1] = s
@@ -157,7 +113,6 @@ function M.add()
   vim.notify('selection ' .. count .. ': ' .. M.format(s), vim.log.levels.INFO)
 end
 
---- Format all accumulated selections, copy to system clipboard, clear accumulator.
 function M.flush()
   if #_selections == 0 then
     vim.notify('no selections to flush', vim.log.levels.WARN)
@@ -171,13 +126,10 @@ function M.flush()
   vim.notify(count .. ' selection(s) copied', vim.log.levels.INFO)
 end
 
---- Clear accumulated selections without copying.
 function M.clear()
   _selections = {}
 end
 
---- Return a copy of accumulated selections (for inspection/testing).
----@return Selection[]
 function M.peek()
   local copy = {}
   for i, s in ipairs(_selections) do

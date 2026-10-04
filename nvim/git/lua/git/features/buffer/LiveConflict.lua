@@ -1,6 +1,7 @@
 local lazy = require('core.lazy')
 
 local event = lazy('core.event')
+local shutdown = lazy('core.shutdown')
 local Object = lazy('core.Object')
 local git_buffer_store = lazy('git.git.git_buffer_store')
 
@@ -8,6 +9,7 @@ local LiveConflict = Object:extend()
 
 function LiveConflict:constructor()
   local debounced_conflicts, debounced_conflicts_cleanup = event.debounce_async(function(buffer)
+    if shutdown.is_exiting() then return end
     if not buffer:is_valid() then return end
     if not buffer:acquire() then return end
     buffer:conflicts()

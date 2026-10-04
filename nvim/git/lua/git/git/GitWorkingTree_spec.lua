@@ -1,7 +1,5 @@
 local GitWorkingTree = require('git.git.GitWorkingTree')
 
-local eq = assert.are.same
-
 describe('GitWorkingTree:', function()
   local function make_repo(path)
     return {
@@ -86,7 +84,7 @@ describe('GitWorkingTree:', function()
 
     it('should handle exact root path', function()
       local tree = GitWorkingTree(make_repo('/my/repo'))
-      -- /my/repo/ with nothing after stripping root + separator
+
       assert.are.equal('', tree:relative_path('/my/repo/'))
     end)
 
@@ -257,7 +255,7 @@ describe('GitWorkingTree:', function()
 
     it('should handle relative paths by joining with root', function()
       local tree = GitWorkingTree(make_repo('/my/repo'))
-      -- relative path gets joined with root, so /my/repo/src/file.lua starts with /my/repo
+
       assert.is_true(tree:contains('src/file.lua'))
     end)
 

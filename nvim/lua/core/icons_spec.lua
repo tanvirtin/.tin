@@ -1,5 +1,3 @@
-local eq = assert.are.same
-
 describe('icons:', function()
   local icons
 

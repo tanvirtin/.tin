@@ -48,7 +48,7 @@ return Config({
       override = false,
     }
   end,
-  GitBorder = function()
+  GitLineNrBorder = function()
     return {
       bg = Color({ name = 'LineNr', attribute = 'bg' }):darken(5):get(),
       fg = Color({ name = 'LineNr', attribute = 'fg' }):darken(5):get(),

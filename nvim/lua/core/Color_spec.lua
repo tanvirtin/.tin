@@ -1,7 +1,5 @@
 local Color = require('core.Color')
 
-local eq = assert.are.same
-
 describe('Color:', function()
   describe('constructor', function()
     it('should initialize Color object with spec', function()
@@ -70,6 +68,20 @@ describe('Color:', function()
       local color = Color(spec)
 
       assert.is_equal(color:get(), '#ff0000')
+    end)
+
+    it('should return nil when the attribute is missing', function()
+      vim.api.nvim_set_hl(0, 'ColorSpecProbe', { foreground = 16711680 })
+      local color = Color({ name = 'ColorSpecProbe', attribute = 'bg' })
+
+      assert.is_nil(color:get())
+    end)
+
+    it('should not report a missing attribute as the NONE color', function()
+      vim.api.nvim_set_hl(0, 'ColorSpecProbe2', { foreground = 16711680 })
+      local color = Color({ name = 'ColorSpecProbe2', attribute = 'bg' })
+
+      assert.are_not.equal('NONE', color:get())
     end)
   end)
 

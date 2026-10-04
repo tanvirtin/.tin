@@ -5,13 +5,24 @@ local eq = assert.are.same
 describe('Spawn:', function()
   describe('constructor', function()
     it('should construct Spawn with specifications', function()
-      Spawn({
+      local on_exit = function() end
+
+      local spawn = Spawn({
         command = 'ls',
         args = { '-l' },
         on_stderr = function() end,
         on_stdout = function() end,
-        on_exit = function() end,
+        on_exit = on_exit,
       })
+
+      eq({ len = 0, index = 1, chunks = {} }, spawn.stdout_buffer)
+      eq({ len = 0, index = 1, chunks = {} }, spawn.stderr_buffer)
+      eq(nil, spawn.handle)
+      eq(nil, spawn.stdin)
+      eq(nil, spawn.pid)
+      eq('ls', spawn['$spec'].command)
+      eq({ '-l' }, spawn['$spec'].args)
+      eq(on_exit, spawn['$spec'].on_exit)
     end)
   end)
 

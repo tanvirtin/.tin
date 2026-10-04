@@ -34,6 +34,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
         output.err("artifact directory not found — run from a .tin project", .{});
         return;
     };
+    defer engine.deinit();
 
     if (args.len == 0) {
         showHelp(allocator, &environment);
@@ -62,12 +63,12 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
 }
 
 fn showHelp(allocator: std.mem.Allocator, env: *const Environment) void {
-    output.info("archive — Browse, validate, and export skills and rules", .{});
+    output.info("artifact — Browse, validate, and export skills and rules", .{});
     output.plain("", .{});
-    output.plain("  tin archive list [skills]                    List definitions", .{});
-    output.plain("  tin archive validate                         Validate all references", .{});
-    output.plain("  tin archive --path=<path> --format=<fmt>     Export a definition", .{});
-    output.plain("  tin archive export [target]                  Export skills to a configured target (default: all)", .{});
+    output.plain("  tin artifact list [skills]                    List definitions", .{});
+    output.plain("  tin artifact validate                         Validate all references", .{});
+    output.plain("  tin artifact --path=<path> --format=<fmt>     Export a definition", .{});
+    output.plain("  tin artifact export [target]                  Export skills to a configured target (default: all)", .{});
     output.plain("", .{});
     output.plain("  Paths:   skills/search/ripgrep", .{});
     const targets = Environment.RecipeManager.getExportTargets(allocator, env.config, env.paths) catch &.{};
@@ -175,7 +176,10 @@ const formatters = [_]SkillFormatter{
 
 fn findAndRenderSkill(allocator: std.mem.Allocator, engine: *const Artifact, id: []const u8, format_name: []const u8) bool {
     const skills = engine.discoverSkills(allocator) catch return false;
-    const rules = engine.discoverRules(allocator) catch &.{};
+    const rules = engine.discoverRules(allocator) catch {
+        output.err("failed to discover rules", .{});
+        return false;
+    };
 
     var selected_formatter: ?SkillFormatter = null;
     for (formatters) |f| {
@@ -291,7 +295,10 @@ fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, env: *con
         output.err("failed to discover skills", .{});
         return;
     };
-    const rules = engine.discoverRules(allocator) catch &.{};
+    const rules = engine.discoverRules(allocator) catch {
+        output.err("failed to discover rules", .{});
+        return;
+    };
 
     if (args.len == 0 or std.mem.eql(u8, args[0], "all")) {
         for (targets) |target| {
@@ -313,12 +320,11 @@ fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, env: *con
     output.err("unknown target: {s} (available: {s})", .{ args[0], buf.items });
 }
 
-fn writeExportFile(path: []const u8, content: []const u8) bool {
-    fs.ensureParentDirExists(path) catch {};
-    const file = std.fs.createFileAbsolute(path, .{}) catch return false;
+fn writeExportFile(path: []const u8, content: []const u8) !void {
+    try fs.ensureParentDirExists(path);
+    const file = try std.fs.createFileAbsolute(path, .{});
     defer file.close();
-    file.writeAll(content) catch return false;
-    return true;
+    try file.writeAll(content);
 }
 
 fn renderSkillToMd(allocator: std.mem.Allocator, skill: Artifact.Skill) []const u8 {
@@ -353,15 +359,29 @@ fn renderSkillToMd(allocator: std.mem.Allocator, skill: Artifact.Skill) []const 
 
 fn exportSkills(allocator: std.mem.Allocator, base_dir: []const u8, skills: []const Artifact.Skill, rules: []const Artifact.Rule) void {
     const base = base_dir;
-    utils.cleanDir(allocator, base);
+    utils.cleanDir(base) catch |e| {
+        output.err("failed to clear {s}: {s}", .{ base, @errorName(e) });
+        return;
+    };
     var count: usize = 0;
+    var failed: usize = 0;
 
     for (skills) |skill| {
         const resolved_skill = resolveSkill(allocator, skill, rules);
         const slug = utils.slugify(allocator, resolved_skill.id);
         const path = std.fmt.allocPrint(allocator, "{s}/{s}/SKILL.md", .{ base, slug }) catch continue;
         const content = renderSkillToMd(allocator, resolved_skill);
-        if (writeExportFile(path, content)) count += 1;
+        writeExportFile(path, content) catch |e| {
+            failed += 1;
+            output.err("failed to write {s}: {s}", .{ path, @errorName(e) });
+            continue;
+        };
+        count += 1;
+    }
+
+    if (failed > 0) {
+        output.err("exported {d} of {d} definitions to {s}/ ({d} failed)", .{ count, skills.len, base, failed });
+        return;
     }
 
     output.success("exported {d} definitions to {s}/", .{ count, base });

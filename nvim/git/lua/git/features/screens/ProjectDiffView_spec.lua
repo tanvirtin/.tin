@@ -479,7 +479,7 @@ describe('ProjectDiffView:', function()
       view._destroyed = false
 
       view:destroy()
-      view:destroy() -- second call should not error
+      view:destroy()
       assert.is_true(view._destroyed)
     end)
 
@@ -494,15 +494,57 @@ describe('ProjectDiffView:', function()
       assert.is_true(view._destroyed)
     end)
 
-    it('should increment _update_gen to invalidate background enrichment', function()
+    it('should invalidate the operation token on destroy', function()
       local view = ProjectDiffView()
       view._component_group = { unmount = function() end }
       view._context = { restore_window_options = function() end }
       view._destroyed = false
 
-      local gen_before = view._update_gen
+      local before = view._op_token.count
       view:destroy()
-      assert.is_true(view._update_gen > gen_before)
+      assert.is_true(view._op_token.count > before)
+    end)
+
+    it('should discard diff results when the view is invalidated mid-build', function()
+      local save_package, restore_packages = require('core.package_mock').create()
+      save_package('git.git.repository')
+      save_package('git.settings.scene')
+      package.loaded['git.git.repository'] = {
+        current = function()
+          return { diff = function() end }, nil
+        end,
+      }
+      package.loaded['git.settings.scene'] = {
+        get = function()
+          return ProjectDiffView.LAYOUT_UNIFIED
+        end,
+      }
+
+      local refreshed = false
+      local view = ProjectDiffView()
+      view._component_group = { unmount = function() end }
+      view._context = { restore_window_options = function() end }
+      view._destroyed = false
+      view._loading_indicator = { start = function() end, stop = function() end }
+      view._get_all_diff_components = function()
+        return {}
+      end
+      view._mount_unified_view = function() end
+
+      view._build_diff_file_entries = function()
+        view:destroy()
+        return { { type = 'unstaged' } }
+      end
+      view._refresh_diff = function()
+        refreshed = true
+      end
+
+      local ok = view:_create_view({})
+
+      restore_packages()
+
+      assert.is_false(ok)
+      assert.is_false(refreshed)
     end)
 
     it('should call each debounce cleanup function', function()
@@ -524,7 +566,7 @@ describe('ProjectDiffView:', function()
       view:destroy()
       eq(1, cleanup1_calls)
       eq(1, cleanup2_calls)
-      -- Second call is a no-op (idempotent)
+
       view:destroy()
       eq(1, cleanup1_calls)
       eq(1, cleanup2_calls)
@@ -577,7 +619,7 @@ describe('ProjectDiffView:', function()
         local view = ProjectDiffView()
         view._patch_component = nil
         view._layout_type = nil
-        view:hunk_down() -- should not error
+        view:hunk_down()
       end)
 
       it('should return early if active component is invalid', function()
@@ -587,7 +629,7 @@ describe('ProjectDiffView:', function()
             return false
           end,
         }
-        view:hunk_down() -- should not error
+        view:hunk_down()
       end)
 
       it('should delegate to patch_component for unified layout', function()
@@ -690,7 +732,7 @@ describe('ProjectDiffView:', function()
         local view = ProjectDiffView()
         view._patch_component = nil
         view._layout_type = nil
-        view:hunk_up() -- should not error
+        view:hunk_up()
       end)
 
       it('should return early if active component is invalid', function()
@@ -700,7 +742,7 @@ describe('ProjectDiffView:', function()
             return false
           end,
         }
-        view:hunk_up() -- should not error
+        view:hunk_up()
       end)
 
       it('should delegate to patch_component for unified layout', function()
@@ -944,7 +986,7 @@ describe('ProjectDiffView:', function()
       local diff_file_entries = {
         make_real_diff_entry('a.lua', 'lua', { hunk }, { 'ctx', 'new', 'added' }),
       }
-      -- Use the real diff from generate_unified
+
       diff_file_entries[1].diff = diff
 
       local lines, _, _, marks = PatchLineBuilder.build(diff_file_entries)

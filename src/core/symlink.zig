@@ -7,6 +7,8 @@ source: []const u8,
 target: []const u8,
 name: []const u8,
 
+copy: bool = false,
+
 pub const Status = enum {
     linked,
     missing,
@@ -16,6 +18,8 @@ pub const Status = enum {
 };
 
 pub fn status(self: *const Symlink) Status {
+    if (self.copy) return self.copyStatus();
+
     var buf: [std.fs.max_path_bytes]u8 = undefined;
     const link_target = std.fs.readLinkAbsolute(self.target, &buf) catch |e| switch (e) {
         error.FileNotFound => return .missing,
@@ -30,7 +34,28 @@ pub fn status(self: *const Symlink) Status {
     return .wrong_target;
 }
 
+fn copyStatus(self: *const Symlink) Status {
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
+    if (std.fs.readLinkAbsolute(self.target, &buf)) |_| {
+        return .wrong_target;
+    } else |e| switch (e) {
+        error.FileNotFound => return .missing,
+        error.NotLink => {},
+        else => return .broken,
+    }
+
+    const equal = fs.filesEqual(self.source, self.target) catch |e| switch (e) {
+        error.NotAFile => return .not_a_symlink,
+        error.FileNotFound => return .broken,
+        else => return .broken,
+    };
+
+    return if (equal) .linked else .wrong_target;
+}
+
 pub fn link(self: *const Symlink) !void {
+    if (self.copy) return self.copyInto();
+
     try fs.ensureParentDirExists(self.target);
     std.fs.symLinkAbsolute(self.source, self.target, .{}) catch |e| switch (e) {
         error.PathAlreadyExists => {
@@ -39,6 +64,17 @@ pub fn link(self: *const Symlink) !void {
         },
         else => return e,
     };
+}
+
+fn copyInto(self: *const Symlink) !void {
+    try self.unlink();
+    try fs.copyFile(self.source, self.target);
+}
+
+pub fn backupBeforeRepair(self: *const Symlink, current: Status) bool {
+    if (current == .broken) return false;
+    if (current == .not_a_symlink) return true;
+    return !self.copy;
 }
 
 pub fn unlink(self: *const Symlink) !void {
@@ -130,4 +166,49 @@ test "status returns not_a_symlink for regular file" {
     const s = Symlink{ .source = "/x", .target = target, .name = "test" };
     try std.testing.expectEqual(Status.not_a_symlink, s.status());
     std.fs.deleteFileAbsolute(target) catch {};
+}
+
+test "copy link installs a real file and status tracks drift" {
+    const source = "/tmp/tin_test_copy_link_source";
+    const target = "/tmp/tin_test_copy_link_target";
+    try fs.writeFile(source, "version one");
+    std.fs.deleteFileAbsolute(target) catch {};
+
+    const s = Symlink{ .source = source, .target = target, .name = "test", .copy = true };
+    try std.testing.expectEqual(Status.missing, s.status());
+    try s.link();
+    try std.testing.expectEqual(Status.linked, s.status());
+    try std.testing.expect(!isSymlink(target));
+
+    try fs.writeFile(source, "version two");
+    try std.testing.expectEqual(Status.wrong_target, s.status());
+    try s.link();
+    try std.testing.expectEqual(Status.linked, s.status());
+
+    try s.unlink();
+    try std.testing.expectEqual(Status.missing, s.status());
+    std.fs.deleteFileAbsolute(source) catch {};
+}
+
+test "copy link replaces a stale symlink" {
+    const source = "/tmp/tin_test_copy_replace_source";
+    const target = "/tmp/tin_test_copy_replace_target";
+    try fs.writeFile(source, "payload");
+    std.fs.deleteFileAbsolute(target) catch {};
+    try std.fs.symLinkAbsolute(source, target, .{});
+
+    const s = Symlink{ .source = source, .target = target, .name = "test", .copy = true };
+    try std.testing.expectEqual(Status.wrong_target, s.status());
+    try s.link();
+    try std.testing.expectEqual(Status.linked, s.status());
+    try std.testing.expect(!isSymlink(target));
+
+    try s.unlink();
+    std.fs.deleteFileAbsolute(source) catch {};
+}
+
+fn isSymlink(path: []const u8) bool {
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
+    _ = std.fs.readLinkAbsolute(path, &buf) catch return false;
+    return true;
 }

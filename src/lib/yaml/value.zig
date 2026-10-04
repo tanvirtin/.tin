@@ -128,8 +128,3 @@ pub const Value = struct {
         return slice;
     }
 };
-
-pub const Entry = struct {
-    key: []const u8,
-    value: Value,
-};

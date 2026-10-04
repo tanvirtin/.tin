@@ -13,7 +13,7 @@ function GitWorkingTree:constructor(repository)
   if not repository then error('GitWorkingTree requires a repository') end
 
   local root_path = repository:get_path()
-  -- Strip trailing slashes to prevent double-slash in path concatenation
+
   if root_path and #root_path > 1 then root_path = root_path:gsub('/+$', '') end
 
   local tree = {
@@ -72,13 +72,6 @@ function GitWorkingTree:hunks(filename, commit)
   return git_hunks.live(self._root_path, original_lines, current_lines)
 end
 
-function GitWorkingTree:all_hunks(filename)
-  return git_hunks.list(self._root_path, {
-    staged = false,
-    filename = filename,
-  })
-end
-
 function GitWorkingTree:live_hunks(filename, current_lines)
   if not filename then return nil, { 'filename is required' } end
   if not current_lines then return nil, { 'current_lines is required' } end
@@ -96,29 +89,6 @@ function GitWorkingTree:live_hunks(filename, current_lines)
   if err then return nil, err end
 
   return git_hunks.live(self._root_path, original_lines, current_lines)
-end
-
-function GitWorkingTree:compare(filename, commit)
-  if not filename then return nil, { 'filename is required' } end
-
-  if not commit then return nil, { 'commit is required' } end
-
-  local original_lines, err = git_show.lines(self._root_path, filename, commit)
-
-  if err then return nil, err end
-
-  local current_lines, read_err = self:read(filename)
-  if read_err then return nil, read_err end
-
-  local hunks, hunk_err = git_hunks.live(self._root_path, original_lines, current_lines)
-
-  if hunk_err then return nil, hunk_err end
-
-  return {
-    original = original_lines,
-    current = current_lines,
-    hunks = hunks,
-  }, nil
 end
 
 function GitWorkingTree:reset(filename)
@@ -145,7 +115,7 @@ function GitWorkingTree:relative_path(absolute_path)
   if not absolute_path then return nil end
 
   local relative = fs.make_relative(self._root_path, absolute_path)
-  -- make_relative returns absolute_path unchanged if it doesn't match
+
   if relative == absolute_path then return nil end
   return relative
 end

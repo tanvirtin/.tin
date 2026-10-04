@@ -94,10 +94,6 @@ function GitRef:local_branches()
   return self:branches({ remote = false })
 end
 
-function GitRef:remote_branches()
-  return self:branches({ remote = true })
-end
-
 function GitRef:tags()
   if not self._tags then
     local result, err =

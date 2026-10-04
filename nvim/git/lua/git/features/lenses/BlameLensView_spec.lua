@@ -16,6 +16,7 @@ describe('BlameLensView:', function()
         move_to_hunk_called_with = nil,
         set_lnum_called_with = nil,
         get_relative_mark_index_return = nil,
+        get_relative_mark_index_called_with = nil,
         move_to_hunk = function(self, hunk, pos)
           self.move_to_hunk_called_with = { hunk = hunk, pos = pos }
         end,
@@ -23,6 +24,7 @@ describe('BlameLensView:', function()
           self.set_lnum_called_with = lnum
         end,
         get_relative_mark_index = function(self, lnum)
+          self.get_relative_mark_index_called_with = lnum
           return self.get_relative_mark_index_return
         end,
       }
@@ -40,36 +42,60 @@ describe('BlameLensView:', function()
       assert.is_nil(result)
     end)
 
-    it('should not error when no lnum_changes', function()
+    it('should keep lnum unchanged when no lnum_changes', function()
       local diff = {}
       view:set_relative_lnum(5, diff)
+      eq(5, mock_diff_component.get_relative_mark_index_called_with)
     end)
 
-    it('should handle void type changes before current line', function()
+    it('should offset lnum for void changes before current line', function()
       local diff = {
         lnum_changes = {
           { lnum = 3, type = 'void', buftype = 'current' },
         },
       }
       view:set_relative_lnum(5, diff)
+      eq(6, mock_diff_component.get_relative_mark_index_called_with)
     end)
 
-    it('should handle remove type changes before current line', function()
+    it('should offset lnum for remove changes before current line', function()
       local diff = {
         lnum_changes = {
           { lnum = 3, type = 'remove', buftype = 'current' },
         },
       }
       view:set_relative_lnum(5, diff)
+      eq(6, mock_diff_component.get_relative_mark_index_called_with)
     end)
 
-    it('should handle add type changes', function()
+    it('should not offset lnum for add changes before current line', function()
       local diff = {
         lnum_changes = {
           { lnum = 3, type = 'add', buftype = 'current' },
         },
       }
       view:set_relative_lnum(5, diff)
+      eq(5, mock_diff_component.get_relative_mark_index_called_with)
+    end)
+
+    it('should not offset lnum for void changes in another buffer', function()
+      local diff = {
+        lnum_changes = {
+          { lnum = 3, type = 'void', buftype = 'other' },
+        },
+      }
+      view:set_relative_lnum(5, diff)
+      eq(5, mock_diff_component.get_relative_mark_index_called_with)
+    end)
+
+    it('should not offset lnum for void changes after current line', function()
+      local diff = {
+        lnum_changes = {
+          { lnum = 7, type = 'void', buftype = 'current' },
+        },
+      }
+      view:set_relative_lnum(5, diff)
+      eq(5, mock_diff_component.get_relative_mark_index_called_with)
     end)
 
     it('should call move_to_hunk when get_relative_mark_index returns a value', function()

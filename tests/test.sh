@@ -42,6 +42,11 @@ symlinks:
     - source: assets/.zshrc
       target: ~/.zshrc
 
+  copy:
+    - source: assets/env.example
+      target: ~/.config/tin/env.example
+      copy: true
+
 install:
   - link
   - fonts
@@ -249,6 +254,43 @@ else
 fi
 
 rm -rf "$LINK_TEST_DIR"
+
+
+COPY_SOURCE="$TIN_DIR/assets/env.example"
+COPY_TARGET="$HOME/.config/tin/env.example"
+
+if [ -f "$COPY_TARGET" ] && [ ! -L "$COPY_TARGET" ]; then
+    pass "tin link installs a copy as a real file"
+else
+    fail "tin link installs a copy as a real file"
+fi
+
+if cmp -s "$COPY_SOURCE" "$COPY_TARGET"; then
+    pass "copy matches its source"
+else
+    fail "copy matches its source"
+fi
+
+echo "drifted" > "$COPY_TARGET"
+if $TIN heal 2>&1 | grep -q "refreshed"; then
+    pass "tin heal refreshes a stale copy"
+else
+    fail "tin heal refreshes a stale copy"
+fi
+
+if cmp -s "$COPY_SOURCE" "$COPY_TARGET" && [ ! -L "$COPY_TARGET" ]; then
+    pass "refreshed copy matches its source"
+else
+    fail "refreshed copy matches its source"
+fi
+
+if $TIN unlink >/dev/null 2>&1 && [ ! -e "$COPY_TARGET" ]; then
+    pass "tin unlink removes a copy"
+else
+    fail "tin unlink removes a copy"
+fi
+
+$TIN link >/dev/null 2>&1
 
 
 HEAL_TEST_DIR=$(mktemp -d)

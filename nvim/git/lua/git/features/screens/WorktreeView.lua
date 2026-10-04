@@ -5,7 +5,6 @@ local fs = lazy('core.fs')
 local console = lazy('core.console')
 local git_repo = lazy('git.git.git_repo')
 local repository = lazy('git.git.repository')
-local git_worktree = lazy('git.git.git_worktree')
 local SearchComponent = lazy('ui.components.SearchComponent')
 
 local WorktreeView = View:extend()
@@ -58,27 +57,6 @@ function WorktreeView:_switch_to_worktree(worktree)
   console.info('Switched to worktree: ' .. worktree.path)
 end
 
-function WorktreeView:_refresh_worktree_list()
-  local repo = self._repo
-  if not repo then return end
-
-  local worktrees, err = git_worktree.list(repo:get_path())
-
-  if err then
-    console.debug.error(string.format('[WorktreeView] list failed: %s', err[1] or tostring(err)))
-    return
-  end
-
-  if not worktrees or #worktrees == 0 then
-    self:destroy()
-    return
-  end
-
-  local items = self:_build_items(worktrees)
-
-  if self._search_component and self._search_component:is_valid() then self._search_component:set_items(items) end
-end
-
 function WorktreeView:_on_no_match(query)
   if not query or query == '' then return end
 
@@ -96,14 +74,6 @@ function WorktreeView:_on_no_match(query)
   end
 
   console.info('Worktree created: ' .. query)
-end
-
-function WorktreeView:_get_current_worktree()
-  if self._search_component and self._search_component:is_valid() then
-    local item = self._search_component:get_selected_item()
-    if item and item.value and item.value.data then return item.value.data end
-  end
-  return nil
 end
 
 function WorktreeView:create(data)

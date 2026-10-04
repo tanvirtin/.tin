@@ -37,6 +37,7 @@ local test_settings = {
         "it",
         "before_each",
         "after_each",
+        "teardown",
         "assert",
         "spy",
         "stub",

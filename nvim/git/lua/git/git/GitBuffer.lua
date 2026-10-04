@@ -120,9 +120,9 @@ function GitBuffer:clear_extmarks(top, bot)
   return self
 end
 
-function GitBuffer:config()
+function GitBuffer:config(opts)
   if self.state.config then return self.state.config end
-  local config, err = self._git_file:config()
+  local config, err = self._git_file:config(opts)
   if config then self:set_state({ config = config }) end
   return config, err
 end
@@ -335,8 +335,6 @@ function GitBuffer:render_signs(top, bot)
   top = top or 0
   bot = bot or -1
 
-  -- When sign data has changed, do a full clear so stale signs outside
-  -- the current viewport are removed, then reset the flag.
   if self._signs_dirty then
     self:clear_signs()
     self._signs_dirty = false
@@ -344,7 +342,6 @@ function GitBuffer:render_signs(top, bot)
     self:clear_signs(top, bot)
   end
 
-  -- Only place extmarks for signs visible in the current viewport.
   local signs = self.state.signs or {}
   for _, sign in ipairs(signs) do
     local row = sign.row
