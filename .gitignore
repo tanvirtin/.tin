@@ -40,7 +40,6 @@ check_parse
 *.tmp
 secret_*
 /bin/
-artifacts/memory/
 
 # secrets
 *\.secret
@@ -52,9 +51,6 @@ auth\.json
 auth.json
 *.secret
 *.token
-
-/artifacts/
-/sn/
 
 # runtime state
 serve.log

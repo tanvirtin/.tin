@@ -27,6 +27,13 @@ pub fn schemasDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 
     return std.fs.path.join(allocator, &.{ self.tin_dir, "src", "schemas" });
 }
 
+pub fn artifactsDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    const dir = std.process.getEnvVarOwned(allocator, "TIN_ARTIFACTS") catch
+        return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "artifacts" });
+
+    return dir;
+}
+
 pub fn absolutePath(self: *const Paths, allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
     const resolved = if (std.mem.startsWith(u8, path, "~/"))
         try std.fs.path.join(allocator, &.{ self.home_dir, path[2..] })

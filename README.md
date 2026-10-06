@@ -23,13 +23,16 @@ tin install
 `tinrc.yml` is personal and not committed — start from [`tinrc.example.yml`](tinrc.example.yml):
 
 ```
-tinrc.yml         ← personal config — copy from tinrc.example.yml
-tinrc.example.yml ← template
-assets/           ← dotfiles (incl. .tmux.conf), terminal configs, fonts
-recipes/          ← how to install and configure each tool
-nvim/             ← neovim config
-tin (binary)      ← runs it all
+~/.tin/            ← this repo: the runtime. Core logic, nothing personal.
+~/.config/tin/
+  artifacts/       ← your skills, rules, dialects (your own git repo)
+  agents/          ← per-agent state
 ```
+
+The repo is runtime only. Your artifacts — the skills and rules `tin artifact
+export` publishes — live outside it at `~/.config/tin/artifacts`, so they're
+yours to version, share, or keep private. Set `TIN_ARTIFACTS` to point tin
+somewhere else; the default is `~/.config/tin/artifacts`.
 
 <details>
 <summary>tinrc.yml configuration</summary>
@@ -351,9 +354,10 @@ standard gets the same ecosystem. The runtime uses the same self-documenting
 Tin CLI for deeper context.
 
 ```
-artifacts/
+~/.config/tin/artifacts/
   skills/       ← workflows, procedures, composed skills
   rules/        ← reusable rule sets included by skills
+  dialects/     ← per-runtime MCP dialects
 ```
 
 ### Commands
@@ -368,9 +372,9 @@ tin artifact export                            Export skills for a runtime
 
 ### Adding a skill
 
-Create a YAML file in `artifacts/skills/`. The path becomes the ID.
+Create a YAML file in `~/.config/tin/artifacts/skills/`. The path becomes the ID.
 
-`artifacts/skills/develop/plan.yml` → skill ID: `develop/plan` → slash command: `/develop-plan`
+`skills/develop/plan.yml` → skill ID: `develop/plan` → slash command: `/develop-plan`
 
 A workflow skill (the AI follows a procedure):
 
@@ -421,9 +425,9 @@ Key fields:
 
 ### Adding a rule
 
-Create a YAML file in `artifacts/rules/`. Rules are reusable content blocks that get injected into skills via `{{ rule_id }}`.
+Create a YAML file in `~/.config/tin/artifacts/rules/`. Rules are reusable content blocks that get injected into skills via `{{ rule_id }}`.
 
-`artifacts/rules/clarity.yml` → rule ID: `clarity`
+`rules/clarity.yml` → rule ID: `clarity`
 
 ```yaml
 description: Writing clarity rules
@@ -456,15 +460,7 @@ tin artifact export all
 
 Exports skills as `SKILL.md` files (the [agentskills.io](https://agentskills.io) standard) for the target runtime. Point the export at the skill directory your runtime reads; the `exports:` map in `tinrc.yml` records it.
 
-### Current skills
-
-| Skill | What it does |
-|-------|-------------|
-| `/explore-feature` | Trace a feature end-to-end in an unfamiliar codebase |
-| `/memory-remember` | Record durable project and environment facts |
-| `/meta-judge` | Score a skill against 8 quality dimensions |
-| `/quality-humanize` | Remove AI writing patterns from text |
-| `/review-pr` | Understand a PR you have no context on |
+Which skills exist is up to you — `tin artifact list` reports what your artifacts directory holds.
 
 ### Validation
 

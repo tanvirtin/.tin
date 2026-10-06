@@ -27,10 +27,13 @@ mcp_schema: Schema,
 dialect_schema: Schema,
 catalog: Catalog,
 
-pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8) !Sn {
-    const sn_dir = try std.fmt.allocPrint(allocator, "{s}/artifacts", .{tin_dir});
+pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []const u8) !Sn {
+    const sn_dir = try allocator.dupe(u8, artifacts_dir);
 
-    var dir = std.fs.openDirAbsolute(sn_dir, .{}) catch return Error.DirectoryNotFound;
+    var dir = std.fs.openDirAbsolute(sn_dir, .{}) catch {
+        allocator.free(sn_dir);
+        return Error.DirectoryNotFound;
+    };
     dir.close();
 
     const schemas_dir = try std.fmt.allocPrint(allocator, "{s}/src/schemas", .{tin_dir});

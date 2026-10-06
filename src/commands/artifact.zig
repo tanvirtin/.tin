@@ -30,8 +30,14 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     };
     const paths = environment.paths;
 
-    var engine = Artifact.init(allocator, paths.tin_dir) catch {
-        output.err("artifact directory not found — run from a .tin project", .{});
+    const artifacts_dir = paths.artifactsDir(allocator) catch {
+        output.err("could not resolve artifacts directory", .{});
+        return;
+    };
+    defer allocator.free(artifacts_dir);
+
+    var engine = Artifact.init(allocator, paths.tin_dir, artifacts_dir) catch {
+        output.err("artifact directory not found at {s}", .{artifacts_dir});
         return;
     };
     defer engine.deinit();

@@ -26,6 +26,7 @@ case "$ARCH" in
 esac
 
 ARTIFACT="tin-${PLATFORM}-${ARCH}"
+ARTIFACTS_DIR="${TIN_ARTIFACTS:-$HOME/.config/tin/artifacts}"
 
 if [ ! -d "$TIN_DIR" ]; then
     info "Cloning .tin..."
@@ -66,6 +67,14 @@ fi
 if ! "$BIN_DIR/tin" help >/dev/null 2>&1; then
     err "tin binary failed to run"
     exit 1
+fi
+
+if [ ! -d "$ARTIFACTS_DIR" ]; then
+    info "No artifacts at $ARTIFACTS_DIR"
+    info "Artifacts (skills, rules, dialects) live outside this repo."
+    info "Clone or create yours there; tin reads it via TIN_ARTIFACTS."
+else
+    info "Using artifacts at $ARTIFACTS_DIR"
 fi
 
 if ! echo "$PATH" | grep -q "$BIN_DIR"; then
