@@ -180,11 +180,14 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
         },
         .recipe => |recipe_name| {
             const rendered = template.render(allocator, recipe_name, vars) catch recipe_name;
-            const recipes_dir = try paths.recipesDir(allocator);
-            defer allocator.free(recipes_dir);
-            const sub_path = try std.fmt.allocPrint(allocator, "{s}/{s}.yml", .{ recipes_dir, rendered });
-            defer allocator.free(sub_path);
-            const content = try fs.readFileAlloc(allocator, sub_path);
+            var search = try paths.recipeSearch(allocator);
+            defer search.deinit(allocator);
+            const found = (try search.resolve(allocator, rendered)) orelse {
+                output.err("recipe not found: {s}", .{rendered});
+                return error.RecipeNotFound;
+            };
+            defer allocator.free(found.path);
+            const content = try fs.readFileAlloc(allocator, found.path);
             defer allocator.free(content);
             const sub = try parse(allocator, content);
             try sub.execute(allocator);

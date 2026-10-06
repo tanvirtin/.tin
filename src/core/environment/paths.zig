@@ -19,8 +19,56 @@ pub fn init(allocator: std.mem.Allocator) !Paths {
     };
 }
 
+pub const RecipeLayer = struct {
+    dir: []const u8,
+    origin: []const u8,
+};
+
+pub const RecipeSearch = struct {
+    layers: [2]RecipeLayer,
+    count: usize,
+
+    pub fn deinit(self: RecipeSearch, allocator: std.mem.Allocator) void {
+        for (self.layers[0..self.count]) |layer| allocator.free(layer.dir);
+    }
+
+    pub fn resolve(self: RecipeSearch, allocator: std.mem.Allocator, name: []const u8) !?struct { path: []const u8, origin: []const u8 } {
+        for (self.layers[0..self.count]) |layer| {
+            const candidate = try std.fmt.allocPrint(allocator, "{s}/{s}.yml", .{ layer.dir, name });
+            if (fs.pathExists(candidate)) {
+                return .{ .path = candidate, .origin = layer.origin };
+            }
+            allocator.free(candidate);
+        }
+        return null;
+    }
+};
+
 pub fn recipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
     return std.fs.path.join(allocator, &.{ self.tin_dir, "recipes" });
+}
+
+pub fn personalRecipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    const dir = std.process.getEnvVarOwned(allocator, "TIN_RECIPES") catch
+        return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "recipes" });
+
+    return dir;
+}
+
+pub fn recipeSearch(self: *const Paths, allocator: std.mem.Allocator) !RecipeSearch {
+    const personal = try self.personalRecipesDir(allocator);
+    errdefer allocator.free(personal);
+
+    const repo = try self.recipesDir(allocator);
+    errdefer allocator.free(repo);
+
+    return .{
+        .layers = .{
+            .{ .dir = personal, .origin = "config" },
+            .{ .dir = repo, .origin = "repo" },
+        },
+        .count = 2,
+    };
 }
 
 pub fn schemasDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {

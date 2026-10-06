@@ -17,29 +17,34 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
         return;
     };
 
-    const recipes_dir = env.recipesDir(allocator) catch {
-        output.err("could not resolve recipes directory", .{});
+    var search = env.paths.recipeSearch(allocator) catch {
+        output.err("could not resolve recipes directories", .{});
         return;
     };
+    defer search.deinit(allocator);
 
     if (args.len == 0) {
-        listRecipes(allocator, recipes_dir);
+        listRecipes(allocator, search);
         return;
     }
 
     const name = args[0];
-    const path = std.fmt.allocPrint(allocator, "{s}/{s}.yml", .{ recipes_dir, name }) catch {
+    const found = search.resolve(allocator, name) catch {
         output.err("allocation failed", .{});
         return;
-    };
-
-    const content = fs.readFileAlloc(allocator, path) catch {
+    } orelse {
         output.err("recipe not found: {s}", .{name});
         output.plain("Run 'tin recipe' to see available recipes.", .{});
         return;
     };
+    defer allocator.free(found.path);
 
-    if (validateRecipe(allocator, &env.paths, name)) return;
+    const content = fs.readFileAlloc(allocator, found.path) catch {
+        output.err("could not read recipe: {s}", .{name});
+        return;
+    };
+
+    if (validateRecipe(allocator, &env.paths, found.path)) return;
 
     const recipe = Recipe.parse(allocator, content) catch {
         output.err("failed to parse recipe: {s}", .{name});
@@ -54,24 +59,12 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) void {
     output.success("recipe complete: {s}", .{recipe.name});
 }
 
-fn validateRecipe(allocator: std.mem.Allocator, paths: anytype, name: []const u8) bool {
+fn validateRecipe(allocator: std.mem.Allocator, paths: anytype, recipe_path: []const u8) bool {
     const schemas_dir = paths.schemasDir(allocator) catch {
         output.err("could not resolve schemas directory", .{});
         return true;
     };
     defer allocator.free(schemas_dir);
-
-    const recipes_dir = paths.recipesDir(allocator) catch {
-        output.err("could not resolve recipes directory", .{});
-        return true;
-    };
-    defer allocator.free(recipes_dir);
-
-    const recipe_path = std.fmt.allocPrint(allocator, "{s}/{s}.yml", .{ recipes_dir, name }) catch {
-        output.err("allocation failed", .{});
-        return true;
-    };
-    defer allocator.free(recipe_path);
 
     var engine = Engine.initWithSchemasDir(allocator, schemas_dir) catch {
         output.err("could not initialize schema engine", .{});
@@ -85,38 +78,57 @@ fn validateRecipe(allocator: std.mem.Allocator, paths: anytype, name: []const u8
     };
 
     if (diagnostics.len > 0) {
-        output.err("recipe failed validation: {s}", .{name});
+        output.err("recipe failed validation: {s}", .{recipe_path});
         diag.printDiagnostics(diagnostics);
         return true;
     }
     return false;
 }
 
-fn listRecipes(allocator: std.mem.Allocator, recipes_dir: []const u8) void {
-    var dir = std.fs.openDirAbsolute(recipes_dir, .{ .iterate = true }) catch {
-        output.info("no recipes directory found", .{});
-        return;
-    };
-    defer dir.close();
-
+fn listRecipes(allocator: std.mem.Allocator, search: anytype) void {
     output.info("available recipes:", .{});
 
-    var found: usize = 0;
-    var iter = dir.iterate();
-    while (iter.next() catch null) |entry| {
-        if (entry.kind != .file) continue;
-        if (!std.mem.endsWith(u8, entry.name, ".yml")) continue;
-
-        const path = std.fmt.allocPrint(allocator, "{s}/{s}", .{ recipes_dir, entry.name }) catch continue;
-        const content = fs.readFileAlloc(allocator, path) catch continue;
-        const recipe = Recipe.parse(allocator, content) catch continue;
-
-        const desc = recipe.description orelse "";
-        output.plain("  {s:<12} {s}", .{ recipe.name, desc });
-        found += 1;
+    var total: usize = 0;
+    var seen = std.StringHashMap(void).init(allocator);
+    defer {
+        var it = seen.keyIterator();
+        while (it.next()) |k| allocator.free(k.*);
+        seen.deinit();
     }
 
-    if (found == 0) {
+    for (search.layers[0..search.count]) |layer| {
+        var dir = std.fs.openDirAbsolute(layer.dir, .{ .iterate = true }) catch continue;
+        defer dir.close();
+
+        var iter = dir.iterate();
+        while (iter.next() catch null) |entry| {
+            if (entry.kind != .file) continue;
+            if (!std.mem.endsWith(u8, entry.name, ".yml")) continue;
+
+            const name = allocator.dupe(u8, std.mem.trimEnd(u8, entry.name, ".yml")) catch continue;
+            if (seen.contains(name)) {
+                allocator.free(name);
+                continue;
+            }
+
+            const path = std.fmt.allocPrint(allocator, "{s}/{s}", .{ layer.dir, entry.name }) catch {
+                allocator.free(name);
+                continue;
+            };
+            const content = fs.readFileAlloc(allocator, path) catch {
+                allocator.free(path);
+                allocator.free(name);
+                continue;
+            };
+            const recipe = Recipe.parse(allocator, content) catch continue;
+
+            seen.put(name, {}) catch continue;
+            output.plain("  {s:<12} [{s}] {s}", .{ recipe.name, layer.origin, recipe.description orelse "" });
+            total += 1;
+        }
+    }
+
+    if (total == 0) {
         output.plain("  (none)", .{});
     }
 }

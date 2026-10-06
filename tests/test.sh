@@ -125,6 +125,51 @@ else
 fi
 
 
+mkdir -p "$HOME/.config/tin/recipes"
+cat > "$HOME/.config/tin/recipes/layer-personal.yml" << 'EOF'
+name: layer-personal
+description: Only in the personal config layer
+
+steps:
+  - name: Personal step
+    run: echo personal
+EOF
+
+cat > "$HOME/.config/tin/recipes/mkdir-test.yml" << 'EOF'
+name: mkdir-test
+description: Personal override of a repo recipe
+
+steps:
+  - mkdir: $MKDIR_TEST_DIR
+EOF
+
+if $TIN recipe layer-personal 2>&1 | grep -q "recipe complete"; then
+    pass "personal-layer recipe executes"
+else
+    fail "personal-layer recipe executes"
+fi
+
+LAYER_LIST=$($TIN recipe 2>&1)
+if echo "$LAYER_LIST" | grep -q "layer-personal.*\[config\]"; then
+    pass "personal-layer recipe listed as [config]"
+else
+    fail "personal-layer recipe listed as [config]"
+fi
+
+if echo "$LAYER_LIST" | grep -q "git.*\[repo\]"; then
+    pass "repo recipe listed as [repo]"
+else
+    fail "repo recipe listed as [repo]"
+fi
+
+MKDIR_TEST_DIR=$(mktemp -d)/tin_mkdir_test
+if $TIN recipe mkdir-test 2>&1 | grep -q "Personal override"; then
+    pass "personal layer shadows repo recipe"
+else
+    fail "personal layer shadows repo recipe"
+fi
+rm -rf "$HOME/.config/tin/recipes"
+
 MKDIR_TEST_DIR=$(mktemp -d)/tin_mkdir_test
 cat > /tmp/tin_test_recipe.yml << 'EOF'
 name: mkdir-test

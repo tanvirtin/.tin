@@ -136,6 +136,15 @@ install:
 
 YAML files in `recipes/`. Each defines a name and a list of steps.
 
+Recipes resolve from two layers, personal first:
+
+1. `~/.config/tin/recipes/` — yours, outside this repo (`TIN_RECIPES` overrides the path)
+2. `{tin_dir}/recipes/` — the shared defaults this repo ships
+
+First match wins, so a personal recipe shadows the repo's one of the same
+name. `tin recipe` lists both layers and tags each entry `[config]` or
+`[repo]`.
+
 ```yaml
 name: git
 description: Configure git
@@ -314,6 +323,18 @@ recipes:
 ```
 
 Done. `tin install` picks it up.
+
+### Adding a tool only you use
+
+Machine-specific or work tooling belongs in `~/.config/tin/recipes/`, where
+`git pull` can't reach it. Same file format, same groups in `tinrc.yml`:
+
+```bash
+mkdir -p ~/.config/tin/recipes
+$EDITOR ~/.config/tin/recipes/work-vpn.yml
+```
+
+Naming it after a shipped recipe replaces that recipe on your machine only.
 
 
 </details>
