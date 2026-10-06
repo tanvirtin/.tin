@@ -1,0 +1,75 @@
+type: switch
+on: type
+cases:
+  - value: stdio
+    schema:
+      type: object
+      fields:
+        - name: type
+          type: enum
+          values: [stdio]
+        - name: command
+          type: string
+        - name: args
+          type: sequence
+          items:
+            type: string
+          required: false
+        - name: cwd
+          type: string
+          required: false
+        - name: env
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: string
+          required: false
+        - name: secrets
+          type: sequence
+          items:
+            type: string
+          required: false
+        - name: description
+          type: string
+          required: false
+        - name: x
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: any
+          required: false
+      additional: forbid
+  - value: http
+    schema:
+      type: object
+      fields:
+        - name: type
+          type: enum
+          values: [http]
+        - name: url
+          type: string
+        - name: headers
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: string
+          required: false
+        - name: secrets
+          type: sequence
+          items:
+            type: string
+          required: false
+        - name: description
+          type: string
+          required: false
+        - name: x
+          type: mapping
+          keys:
+            type: string
+          values:
+            type: any
+          required: false
+      additional: forbid

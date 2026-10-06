@@ -6,15 +6,19 @@ return {
     build = ':TSUpdate',
     lazy = false,
     config = function()
-      require('nvim-treesitter.configs').setup({
-        ensure_installed = config.treesitter_languages,
-        highlight = {
-          enable = true,
-          additional_vim_regex_highlighting = false,
-        },
-        indent = {
-          enable = true,
-        },
+      require('nvim-treesitter').setup({
+        install_dir = vim.fn.stdpath('data') .. '/site',
+      })
+      require('nvim-treesitter').install(config.treesitter_languages)
+
+      vim.api.nvim_create_autocmd('FileType', {
+        callback = function()
+          local lang = vim.treesitter.language.get_lang(vim.bo.filetype)
+          if lang and vim.treesitter.language.add(lang) then
+            vim.treesitter.start()
+            vim.bo.indentexpr = 'v:lua.require\'nvim-treesitter\'.indentexpr()'
+          end
+        end,
       })
 
       vim.treesitter.query.set(

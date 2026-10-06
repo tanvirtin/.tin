@@ -43,6 +43,19 @@ fields:
           type: string
       additional: forbid
     required: false
+  - name: runtimes
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: object
+      fields:
+        - name: mcp
+          type: string
+        - name: dialect
+          type: string
+      additional: forbid
+    required: false
   - name: recipes
     type: mapping
     keys:

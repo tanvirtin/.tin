@@ -24,6 +24,31 @@ symlinks:
 
 fonts: assets/fonts
 
+exports:
+  opencode:
+    dir: ~/.config/opencode/skills
+
+runtimes:
+  cursor:
+    mcp: ~/.cursor/mcp.json
+    dialect: cursor
+
+  claude:
+    mcp: ~/.claude.json
+    dialect: claude
+
+  vscode:
+    mcp: .vscode/mcp.json
+    dialect: vscode
+
+  codex:
+    mcp: ~/.codex/config.toml
+    dialect: codex
+
+  zed:
+    mcp: ~/.config/zed/settings.json
+    dialect: zed
+
 recipes:
   shell:
     - zsh

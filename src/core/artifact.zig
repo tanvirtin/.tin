@@ -23,6 +23,8 @@ sn_dir: []const u8,
 engine: Engine,
 skill_schema: Schema,
 rule_schema: Schema,
+mcp_schema: Schema,
+dialect_schema: Schema,
 catalog: Catalog,
 
 pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8) !Sn {
@@ -46,12 +48,24 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8) !Sn {
     const rule_schema_content = try fs.readFileAlloc(allocator, rule_schema_path);
     const rule_schema = try engine.loadSchema(rule_schema_content);
 
+    const mcp_schema_path = try std.fmt.allocPrint(allocator, "{s}/mcp.yaml", .{schemas_dir});
+    defer allocator.free(mcp_schema_path);
+    const mcp_schema_content = try fs.readFileAlloc(allocator, mcp_schema_path);
+    const mcp_schema = try engine.loadSchema(mcp_schema_content);
+
+    const dialect_schema_path = try std.fmt.allocPrint(allocator, "{s}/dialect.yaml", .{schemas_dir});
+    defer allocator.free(dialect_schema_path);
+    const dialect_schema_content = try fs.readFileAlloc(allocator, dialect_schema_path);
+    const dialect_schema = try engine.loadSchema(dialect_schema_content);
+
     return .{
         .allocator = allocator,
         .sn_dir = sn_dir,
         .engine = engine,
         .skill_schema = skill_schema,
         .rule_schema = rule_schema,
+        .mcp_schema = mcp_schema,
+        .dialect_schema = dialect_schema,
         .catalog = Catalog.init(allocator),
     };
 }
@@ -76,6 +90,8 @@ pub fn validate(self: *Sn) !void {
 
     try self.processArtifacts("rules", &self.rule_schema, "rule_id", &all_pending_refs, &all_diagnostics);
     try self.processArtifacts("skills", &self.skill_schema, "skill_id", &all_pending_refs, &all_diagnostics);
+    try self.processArtifacts("dialects", &self.dialect_schema, "dialect_id", &all_pending_refs, &all_diagnostics);
+    try self.processArtifacts("mcp", &self.mcp_schema, "mcp_id", &all_pending_refs, &all_diagnostics);
 
     for (all_pending_refs.items) |pr| {
         if (pr.catalog_kind) |ck| {

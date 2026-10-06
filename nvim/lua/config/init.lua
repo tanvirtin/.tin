@@ -25,6 +25,7 @@ init.mason_tools = {
   'goimports',
   'golangci-lint',
   'stylelint',
+  'tree-sitter-cli',
 }
 
 init.treesitter_languages = {
