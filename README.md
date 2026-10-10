@@ -20,7 +20,7 @@ tin install
 
 `tin` is a CLI that reads `tinrc.yml` and executes recipes. Everything about your environment — identity, symlinks, fonts, tools — is defined in YAML. The Zig binary is the engine; the YAML is the configuration.
 
-`tinrc.yml` is personal and not committed — start from [`tinrc.example.yml`](tinrc.example.yml):
+`tinrc.yml` is personal and not committed — start from [`tinrc.example.yml`](environment/tinrc.example.yml):
 
 ```
 ~/.tin/            ← this repo: the runtime. Core logic, nothing personal.
@@ -57,18 +57,18 @@ Config files to symlink from the repo to their expected locations. Grouped by ca
 ```yaml
 symlinks:
   shell:
-    - source: config/.zshrc
+    - source: environment/config/.zshrc
       target: ~/.zshrc
 
-    - source: config/.tmux.conf
+    - source: environment/config/.tmux.conf
       target: ~/.tmux.conf
 
   editor:
-    - source: config/zed/settings.json
+    - source: environment/config/zed/settings.json
       target: ~/.config/zed/settings.json
 
   terminal:
-    - source: config/ghostty/config
+    - source: environment/config/ghostty/config
       target: ~/.config/ghostty/config
 ```
 
@@ -77,7 +77,7 @@ Add a new symlink — just add an entry. Remove one — delete the entry. Run `t
 Add `copy: true` to install a real file instead of a symlink:
 
 ```yaml
-    - source: config/plugin/tool.ts
+    - source: environment/config/plugin/tool.ts
       target: ~/.config/plugin/tool.ts
       copy: true
 ```
@@ -93,12 +93,12 @@ a symlink back into the repo.
 Path to a directory of `.ttf` files to install to the system font directory.
 
 ```yaml
-fonts: config/fonts
+fonts: environment/config/fonts
 ```
 
 ### recipes
 
-Named groups of recipes. Each name maps to a file in `recipes/`.
+Named groups of recipes. Each name maps to a file in `environment/recipes/`.
 
 ```yaml
 recipes:
@@ -132,12 +132,12 @@ install:
 
 ## Recipes
 
-YAML files in `recipes/`. Each defines a name and a list of steps.
+YAML files in `environment/recipes/`. Each defines a name and a list of steps.
 
 Recipes resolve from two layers, personal first:
 
 1. `~/.config/tin/recipes/` — yours, outside this repo (`TIN_RECIPES` overrides the path)
-2. `{tin_dir}/recipes/` — the shared defaults this repo ships
+2. `{tin_dir}/environment/recipes/` — the shared defaults this repo ships
 
 First match wins, so a personal recipe shadows the repo's one of the same
 name. `tin recipe` lists both layers and tags each entry `[config]` or
@@ -245,7 +245,7 @@ tin help                            Show runtime command reference and index
 ### Tmux config
 
 tmux is installed via the `tmux` recipe (`tin recipe tmux`, which also clones
-tpm) and configured with a plain committed file at `config/.tmux.conf` — symlinked
+tpm) and configured with a plain committed file at `environment/config/.tmux.conf` — symlinked
 to `~/.tmux.conf` via `tin link`/`tinrc.yml` (see `symlinks: shell`). There is
 no `tin tmux` command: the config is a checked-in tmux script, edited directly.
 
@@ -254,7 +254,7 @@ The current file uses a monokai status bar and the `tmux-sessionx` plugin
 out) and prefixed with a `●` marker so it's easy to spot and avoid picking,
 tree/window mode, git branches, and fzf colors.
 
-After changing `config/.tmux.conf`, re-apply with:
+After changing `environment/config/.tmux.conf`, re-apply with:
 `tmux source-file ~/.tmux.conf`. The sessionx plugin must also re-run its
 `sessionx.tmux` (as bash) to rebuild its `@sessionx-_built-*` args.
 
@@ -281,7 +281,7 @@ config faults; judgment-heavy fixes are left to the agent.
 
 ## Adding a new tool
 
-1. Create `recipes/toolname.yml`:
+1. Create `environment/recipes/toolname.yml`:
 
 ```yaml
 name: toolname
@@ -323,14 +323,14 @@ Naming it after a shipped recipe replaces that recipe on your machine only.
 
 ## Adding a new config file
 
-1. Put the config in `config/` (e.g., `config/starship.toml`)
+1. Put the config in `environment/config/` (e.g., `environment/config/starship.toml`)
 
 2. Add a symlink entry in `tinrc.yml`:
 
 ```yaml
 symlinks:
   shell:
-    - source: config/starship.toml
+    - source: environment/config/starship.toml
       target: ~/.config/starship.toml
 ```
 
@@ -477,11 +477,20 @@ Checks:
 
 </details>
 
+## Repo layout
+
+```
+engine/        the tin CLI: build.zig, src/, tests/, bench/
+environment/   what tin applies: recipes/, config/ (dotfiles), tinrc.example.yml
+install.sh     bootstrap script
+```
+
 ## Building from source
 
 Requires [Zig 0.15.2](https://ziglang.org/download/).
 
 ```bash
+cd engine
 zig build
 ./zig-out/bin/tin help
 ```
@@ -489,6 +498,7 @@ zig build
 ## Running tests
 
 ```bash
+cd engine
 zig build test                  # unit tests
 bash tests/test.sh              # integration tests
 ```

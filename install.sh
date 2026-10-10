@@ -58,9 +58,9 @@ if [ "$DOWNLOADED" = false ]; then
         err "Zig not found. Install Zig to build from source."
         exit 1
     fi
-    cd "$TIN_DIR" && zig build -Doptimize=ReleaseSafe
+    cd "$TIN_DIR/engine" && zig build -Doptimize=ReleaseSafe
     mkdir -p "$BIN_DIR"
-    cp zig-out/bin/tin "$BIN_DIR/tin"
+    cp "$TIN_DIR/engine/zig-out/bin/tin" "$BIN_DIR/tin"
     success "Built from source"
 fi
 

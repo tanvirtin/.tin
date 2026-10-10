@@ -54,8 +54,8 @@ auth.json
 # runtime state
 serve.log
 serve.pid
-tests/__pycache__/
+__pycache__/
 /tin
 
-# personal machine config — see tinrc.example.yml
+# personal machine config — see environment/tinrc.example.yml
 /tinrc.yml

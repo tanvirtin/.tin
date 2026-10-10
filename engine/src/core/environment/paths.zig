@@ -45,7 +45,7 @@ pub const RecipeSearch = struct {
 };
 
 pub fn recipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.tin_dir, "recipes" });
+    return std.fs.path.join(allocator, &.{ self.tin_dir, "environment", "recipes" });
 }
 
 pub fn personalRecipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
@@ -72,7 +72,7 @@ pub fn recipeSearch(self: *const Paths, allocator: std.mem.Allocator) !RecipeSea
 }
 
 pub fn schemasDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    return std.fs.path.join(allocator, &.{ self.tin_dir, "src", "schemas" });
+    return std.fs.path.join(allocator, &.{ self.tin_dir, "engine", "src", "schemas" });
 }
 
 pub fn artifactsDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {

@@ -40,11 +40,12 @@ jobs:
           version: 0.15.2
 
       - name: Build
+        working-directory: engine
         run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSafe
 
       - name: Package
         run: |
-          cp zig-out/bin/tin ${{ matrix.artifact }}
+          cp engine/zig-out/bin/tin ${{ matrix.artifact }}
           chmod +x ${{ matrix.artifact }}
           tar czf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
 

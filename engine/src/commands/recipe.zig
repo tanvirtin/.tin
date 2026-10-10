@@ -8,7 +8,7 @@ const diag = @import("../spec/diagnostic.zig");
 
 pub const meta = .{
     .name = "recipe",
-    .description = "Run a named recipe (scans recipes/ directory)",
+    .description = "Run a named recipe (scans environment/recipes/ directory)",
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {

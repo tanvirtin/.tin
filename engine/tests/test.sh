@@ -29,11 +29,10 @@ export TEST_ROOT=$(mktemp -d)
 export HOME="$TEST_ROOT"
 export TIN_DIR="$TEST_ROOT/.tin"
 
-mkdir -p "$TIN_DIR"
-cp -r recipes "$TIN_DIR/"
-cp -r config "$TIN_DIR/"
-mkdir -p "$TIN_DIR/src"
-cp -r src/schemas "$TIN_DIR/src/"
+mkdir -p "$TIN_DIR/environment" "$TIN_DIR/engine/src"
+cp -r ../environment/recipes "$TIN_DIR/environment/"
+cp -r ../environment/config "$TIN_DIR/environment/"
+cp -r src/schemas "$TIN_DIR/engine/src/"
 cat > "$TIN_DIR/tinrc.yml" << 'EOF'
 identity:
   name: Your Name
@@ -41,11 +40,11 @@ identity:
 
 symlinks:
   shell:
-    - source: config/.zshrc
+    - source: environment/config/.zshrc
       target: ~/.zshrc
 
   copy:
-    - source: config/.tmux.conf
+    - source: environment/config/.tmux.conf
       target: ~/.config/tin/test-copy.conf
       copy: true
 
@@ -170,7 +169,7 @@ rm -rf "$HOME/.config/tin/recipes"
 
 # === recipe steps ===
 MKDIR_TEST_DIR=$(mktemp -d)/tin_mkdir_test
-cat > "$TIN_DIR/recipes/mkdir-test.yml" << EOF
+cat > "$TIN_DIR/environment/recipes/mkdir-test.yml" << EOF
 name: mkdir-test
 steps:
   - mkdir: $MKDIR_TEST_DIR
@@ -185,12 +184,12 @@ if $TIN recipe mkdir-test 2>&1 | grep -q "recipe complete"; then
 else
     fail "mkdir step (recipe failed)"
 fi
-rm -f "$TIN_DIR/recipes/mkdir-test.yml"
+rm -f "$TIN_DIR/environment/recipes/mkdir-test.yml"
 rm -rf "$MKDIR_TEST_DIR"
 
 
 OS_NAME=$(uname -s)
-cat > "$TIN_DIR/recipes/condition-test.yml" << EOF
+cat > "$TIN_DIR/environment/recipes/condition-test.yml" << EOF
 name: condition-test
 steps:
   - name: OS match
@@ -212,10 +211,10 @@ if echo "$COND_OUTPUT" | grep -q "TIN_COND_UNEXPECTED"; then
 else
     pass "condition: os == (skipped)"
 fi
-rm -f "$TIN_DIR/recipes/condition-test.yml"
+rm -f "$TIN_DIR/environment/recipes/condition-test.yml"
 
 
-cat > "$TIN_DIR/recipes/exists-test.yml" << 'EOF'
+cat > "$TIN_DIR/environment/recipes/exists-test.yml" << 'EOF'
 name: exists-test
 steps:
   - name: Root exists
@@ -245,10 +244,10 @@ if echo "$EXISTS_OUTPUT" | grep -q "Not exists check"; then
 else
     fail "condition: not exists"
 fi
-rm -f "$TIN_DIR/recipes/exists-test.yml"
+rm -f "$TIN_DIR/environment/recipes/exists-test.yml"
 
 
-cat > "$TIN_DIR/recipes/template-test.yml" << 'EOF'
+cat > "$TIN_DIR/environment/recipes/template-test.yml" << 'EOF'
 name: template-test
 steps:
   - name: Render identity
@@ -261,7 +260,7 @@ if echo "$TMPL_OUTPUT" | grep -q "recipe complete"; then
 else
     fail "template rendering"
 fi
-rm -f "$TIN_DIR/recipes/template-test.yml"
+rm -f "$TIN_DIR/environment/recipes/template-test.yml"
 
 
 # === symlinks (link/unlink) ===
@@ -299,7 +298,7 @@ rm -rf "$LINK_TEST_DIR"
 
 
 # === copies (copy: true) ===
-COPY_SOURCE="$TIN_DIR/config/.tmux.conf"
+COPY_SOURCE="$TIN_DIR/environment/config/.tmux.conf"
 COPY_TARGET="$HOME/.config/tin/test-copy.conf"
 
 if [ -f "$COPY_TARGET" ] && [ ! -L "$COPY_TARGET" ]; then
@@ -350,7 +349,7 @@ fi
 
 rm -rf "$HEAL_TEST_DIR"
 
-zshrc_source="$TIN_DIR/config/.zshrc"
+zshrc_source="$TIN_DIR/environment/config/.zshrc"
 ln -sf "/wrong/target" "$HOME/.zshrc"
 $TIN heal >/dev/null 2>&1
 if [ "$(readlink "$HOME/.zshrc")" = "$zshrc_source" ]; then
@@ -369,7 +368,7 @@ mkdir -p "$CLONE_REPO"
 git -C "$CLONE_REPO" init -q
 git -C "$CLONE_REPO" commit --allow-empty -m "init" -q
 
-cat > "$TIN_DIR/recipes/clone-test.yml" << EOF
+cat > "$TIN_DIR/environment/recipes/clone-test.yml" << EOF
 name: clone-test
 steps:
   - clone: $CLONE_REPO
@@ -392,7 +391,7 @@ else
     fail "clone step skips existing"
 fi
 
-rm -f "$TIN_DIR/recipes/clone-test.yml"
+rm -f "$TIN_DIR/environment/recipes/clone-test.yml"
 rm -rf "$CLONE_TEST_DIR"
 
 

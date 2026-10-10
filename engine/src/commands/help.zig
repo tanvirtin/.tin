@@ -96,7 +96,7 @@ fn printSchema(allocator: std.mem.Allocator, filename: []const u8) void {
         output.err("could not resolve environment paths", .{});
         return;
     };
-    const path = std.fmt.allocPrint(allocator, "{s}/src/schemas/{s}", .{ paths.tin_dir, filename }) catch return;
+    const path = std.fmt.allocPrint(allocator, "{s}/engine/src/schemas/{s}", .{ paths.tin_dir, filename }) catch return;
     defer allocator.free(path);
     const content = fs.readFileAlloc(allocator, path) catch {
         output.err("schema not found: {s}", .{filename});

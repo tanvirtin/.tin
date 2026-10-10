@@ -36,7 +36,7 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []
     };
     dir.close();
 
-    const schemas_dir = try std.fmt.allocPrint(allocator, "{s}/src/schemas", .{tin_dir});
+    const schemas_dir = try std.fmt.allocPrint(allocator, "{s}/engine/src/schemas", .{tin_dir});
     defer allocator.free(schemas_dir);
 
     var engine = try Engine.initWithSchemasDir(allocator, schemas_dir);

@@ -8,7 +8,7 @@ identity:
 
 symlinks:
   shell:
-    - source: config/.zshrc
+    - source: environment/config/.zshrc
       target: ~/.zshrc
 
 recipes:

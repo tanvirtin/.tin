@@ -97,7 +97,7 @@ pub fn getManagedSymlinks(allocator: std.mem.Allocator, config: Config, paths: P
 }
 
 pub fn getFontSourceDir(allocator: std.mem.Allocator, config: Config, paths: Paths) ![]const u8 {
-    const default_path = try std.fs.path.join(allocator, &.{ paths.tin_dir, "config", "fonts" });
+    const default_path = try std.fs.path.join(allocator, &.{ paths.tin_dir, "environment", "config", "fonts" });
     const fonts_val = config.getMapping("fonts") orelse return default_path;
     const fonts_path = fonts_val.getString() orelse return default_path;
     return paths.absolutePath(allocator, fonts_path);
@@ -203,7 +203,7 @@ test "getRecipeGroup returns empty for unknown group" {
     try std.testing.expectEqual(@as(usize, 0), names.len);
 }
 
-test "getFontSourceDir defaults to config/fonts under tin_dir" {
+test "getFontSourceDir defaults to environment/config/fonts under tin_dir" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const a = arena.allocator();
@@ -211,7 +211,7 @@ test "getFontSourceDir defaults to config/fonts under tin_dir" {
     const config = Config{ .doc = doc };
     const paths = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
     const dir = try getFontSourceDir(a, config, paths);
-    try std.testing.expectEqualStrings("/tin/config/fonts", dir);
+    try std.testing.expectEqualStrings("/tin/environment/config/fonts", dir);
 }
 
 test "getExportTargets extracts configured export targets" {

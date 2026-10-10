@@ -4,7 +4,7 @@ const Engine = @import("engine.zig").Engine;
 const validate_mod = @import("validate.zig");
 
 const schemas_dir = "src/schemas";
-const recipes_dir = "recipes";
+const recipes_dir = "../environment/recipes";
 
 fn collectFiles(
     allocator: std.mem.Allocator,
@@ -96,7 +96,7 @@ test "shipped data files validate against their schemas" {
         try validateOk(allocator, &engine, "recipe.yaml", path);
     }
 
-    try validateOk(allocator, &engine, "tinrc.yaml", "tinrc.example.yml");
+    try validateOk(allocator, &engine, "tinrc.yaml", "../environment/tinrc.example.yml");
     try validateOk(allocator, &engine, "build_plan.yaml", "src/spec/fixtures/build_plan_ok.yml");
 }
 

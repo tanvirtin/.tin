@@ -29,19 +29,19 @@ jobs:
           git config --global user.email "ci@test"
 
       - name: Build
-        working-directory: .tin
+        working-directory: .tin/engine
         run: zig build
 
       - name: Unit tests
-        working-directory: .tin
+        working-directory: .tin/engine
         run: zig build test
 
       - name: Integration tests
-        working-directory: .tin
+        working-directory: .tin/engine
         run: bash tests/test.sh
 
       - name: YAML spec test suite
-        working-directory: .tin
+        working-directory: .tin/engine
         run: bash tests/test_yaml_suite.sh ./zig-out/bin/test_yaml_one /tmp/yaml-test-data
 
   cross-compile:
@@ -56,7 +56,7 @@ jobs:
           version: 0.15.2
 
       - name: Cross-compile release targets not covered by native runners
-        working-directory: .tin
+        working-directory: .tin/engine
         run: |
           zig build -Dtarget=x86_64-linux-gnu -Doptimize=ReleaseSafe
           zig build -Dtarget=aarch64-linux-gnu -Doptimize=ReleaseSafe
