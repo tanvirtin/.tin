@@ -7,11 +7,18 @@
     "context": "Editor",
     "bindings": {
       "ctrl-j": "editor::GoToHunk",
-      "ctrl-k": "editor::GoToPreviousHunk"
+      "ctrl-k": "editor::GoToPreviousHunk",
+      "cmd->": "agent::AddSelectionToThread"
     }
   },
   {
     "context": "Editor && vim_mode == insert",
     "bindings": {}
+  },
+  {
+    "context": "Terminal",
+    "bindings": {
+      "cmd->": "agent::AddSelectionToThread"
+    }
   }
 ]
