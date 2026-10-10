@@ -1,0 +1,63 @@
+const std = @import("std");
+const output = @import("lib/output.zig");
+
+const help = @import("commands/help.zig");
+const link = @import("commands/link.zig");
+const heal = @import("commands/heal.zig");
+const fonts = @import("commands/fonts.zig");
+const unlink = @import("commands/unlink.zig");
+const recipe = @import("commands/recipe.zig");
+const schema = @import("commands/schema.zig");
+const artifact = @import("commands/artifact.zig");
+const validate = @import("commands/validate.zig");
+
+const install = @import("commands/install.zig");
+
+const Entry = struct {
+    name: []const u8,
+    description: []const u8,
+    execute: *const fn (std.mem.Allocator, []const []const u8) u8,
+};
+
+fn entry(comptime module: type) Entry {
+    return .{
+        .name = module.meta.name,
+        .description = module.meta.description,
+        .execute = module.execute,
+    };
+}
+
+pub const command_entries = [_]Entry{
+    entry(artifact),
+    entry(help),
+    entry(link),
+    entry(heal),
+    entry(fonts),
+    entry(unlink),
+    entry(recipe),
+    entry(validate),
+    entry(schema),
+    entry(install),
+};
+
+pub fn dispatch(allocator: std.mem.Allocator, args: []const []const u8) u8 {
+    if (args.len == 0) {
+        return help.execute(allocator, args);
+    }
+
+    const command = args[0];
+    if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
+        return help.execute(allocator, &.{});
+    }
+    const command_args = args[1..];
+
+    inline for (command_entries) |e| {
+        if (std.mem.eql(u8, command, e.name)) {
+            return e.execute(allocator, command_args);
+        }
+    }
+
+    output.err("unknown command: {s}", .{command});
+    output.plain("Run 'tin help' for usage.", .{});
+    return 1;
+}

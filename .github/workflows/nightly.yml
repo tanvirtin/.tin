@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-15, macos-15-intel]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: .tin
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Set up environment
+        run: |
+          ln -sf $GITHUB_WORKSPACE/.tin $HOME/.tin
+          git config --global user.name "CI"
+          git config --global user.email "ci@test"
+
+      - name: Build
+        working-directory: .tin
+        run: zig build
+
+      - name: Unit tests
+        working-directory: .tin
+        run: zig build test
+
+      - name: Integration tests
+        working-directory: .tin
+        run: bash tests/test.sh
+
+      - name: YAML spec test suite
+        working-directory: .tin
+        run: bash tests/test_yaml_suite.sh ./zig-out/bin/test_yaml_one /tmp/yaml-test-data
+
+  cross-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: .tin
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Cross-compile release targets not covered by native runners
+        working-directory: .tin
+        run: |
+          zig build -Dtarget=x86_64-linux-gnu -Doptimize=ReleaseSafe
+          zig build -Dtarget=aarch64-linux-gnu -Doptimize=ReleaseSafe
+          zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSafe

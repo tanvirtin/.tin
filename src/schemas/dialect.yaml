@@ -1,0 +1,47 @@
+type: object
+fields:
+  - name: container
+    type: string
+  - name: format
+    type: enum
+    values: [json, toml]
+  - name: transport
+    type: enum
+    values: [explicit, inferred]
+  - name: command_style
+    type: enum
+    values: [scalar, object]
+  - name: command_path_key
+    type: string
+    required: false
+  - name: command_args_key
+    type: string
+    required: false
+  - name: inject
+    type: mapping
+    keys:
+      type: string
+    values:
+      type: any
+    required: false
+  - name: secret
+    type: object
+    fields:
+      - name: style
+        type: enum
+        values: [env_ref, var_ref, input_ref, env_var_name]
+      - name: key
+        type: string
+        required: false
+      - name: input_key
+        type: string
+        required: false
+      - name: input_id
+        type: string
+        required: false
+    additional: forbid
+    required: false
+  - name: description
+    type: string
+    required: false
+additional: forbid

@@ -1,0 +1,78 @@
+type: object
+push_scope: component_id
+fields:
+  - name: jobs
+    type: sequence
+    required: true
+    items:
+      type: object
+      fields:
+        - name: id
+          type: string
+          required: true
+          decl_as: component_id
+        - name: name
+          type: string
+          required: false
+        - name: needs
+          type: sequence
+          required: false
+          items:
+            type: string
+            ref_to:
+              path: "#/jobs/**/id"
+              kind: component_id
+        - name: runs_on
+          type: string
+          required: false
+        - name: steps
+          type: sequence
+          required: true
+          items:
+            type: object
+            fields:
+              - name: id
+                type: string
+                required: false
+                decl_as: step_id
+              - name: run
+                type: string
+                required: false
+              - name: if
+                contexts:
+                  steps:
+                    type: mapping
+                    keys: string
+                    values:
+                      type: object
+                      fields:
+                        - name: status
+                          type: string
+                          required: false
+                        - name: output
+                          type: string
+                          required: false
+                      additional: allow
+                  job:
+                    type: object
+                    fields:
+                      - name: id
+                        type: string
+                        required: false
+                      - name: name
+                        type: string
+                        required: false
+                      - name: status
+                        type: string
+                        required: false
+                    additional: allow
+                sublang:
+                  grammar: expression
+                required: false
+              - name: needs
+                type: string
+                required: false
+                ref_to:
+                  path: "#/jobs/**/steps/**/id"
+                  kind: step_id
+additional: allow

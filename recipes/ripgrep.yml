@@ -1,0 +1,6 @@
+name: ripgrep
+description: Install ripgrep (fast grep)
+
+steps:
+  - name: Install ripgrep
+    install: ripgrep

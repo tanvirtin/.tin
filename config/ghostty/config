@@ -1,0 +1,39 @@
+# Font
+font-family = JetBrainsMono Nerd Font Mono
+font-size = 14
+
+# Monokai theme
+background = #272822
+foreground = #f8f8f2
+
+# Normal colors
+palette = 0=#272822
+palette = 1=#f92672
+palette = 2=#a6e22e
+palette = 3=#f4bf75
+palette = 4=#66d9ef
+palette = 5=#ae81ff
+palette = 6=#a1efe4
+palette = 7=#f8f8f2
+
+# Bright colors
+palette = 8=#75715e
+palette = 9=#f92672
+palette = 10=#a6e22e
+palette = 11=#f4bf75
+palette = 12=#66d9ef
+palette = 13=#ae81ff
+palette = 14=#a1efe4
+palette = 15=#f9f8f5
+
+# Cursor
+cursor-color = #f8f8f2
+cursor-text = #272822
+
+# Selection
+selection-background = #49483e
+selection-foreground = #f8f8f2
+
+# Window
+window-padding-x = 4
+window-padding-y = 4

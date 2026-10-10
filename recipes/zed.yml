@@ -1,0 +1,46 @@
+name: zed
+description: Install Zed editor and register OpenCode as an ACP agent
+
+steps:
+  - name: Install Zed (macOS)
+    run: brew install --cask zed
+    if: "os == 'darwin' && !exists('/Applications/Zed.app')"
+
+  - name: Install Zed (Linux)
+    run: curl -fsSL https://zed.dev/install.sh | sh
+    if: "os == 'linux' && !exists('~/.local/bin/zed')"
+
+  - name: Expose Zed CLI on PATH (macOS)
+    run: |
+      CLI="/Applications/Zed.app/Contents/MacOS/cli"
+      DEST="$HOME/.local/bin/zed"
+      if [ ! -x "$CLI" ]; then
+        echo "  Zed CLI not found at $CLI; skipping"
+        exit 0
+      fi
+      mkdir -p "$(dirname "$DEST")"
+      if [ -L "$DEST" ] && [ "$(readlink "$DEST")" = "$CLI" ]; then
+        echo "  zed CLI already linked at $DEST"
+        exit 0
+      fi
+      ln -sf "$CLI" "$DEST"
+      echo "  linked $DEST -> $CLI"
+    if: "os == 'darwin'"
+
+  - name: Register OpenCode as an ACP agent
+    run: |
+      SETTINGS="${XDG_CONFIG_HOME:-$HOME/.config}/zed/settings.json"
+      if [ -L "$SETTINGS" ]; then
+        echo "  settings.json is provisioned via tin symlink; skipping"
+        exit 0
+      fi
+      mkdir -p "$(dirname "$SETTINGS")"
+      OPENCODE="$(command -v opencode || echo opencode)"
+
+      if grep -q '"agent_servers"' "$SETTINGS" 2>/dev/null; then
+        echo "  OpenCode ACP already configured in $SETTINGS"
+        exit 0
+      fi
+
+      printf '{\n  "agent_servers": {\n    "OpenCode": {\n      "type": "custom",\n      "command": "%s",\n      "args": ["acp"]\n    }\n  }\n}\n' "$OPENCODE" > "$SETTINGS"
+      echo "  wrote $SETTINGS (OpenCode ACP)"

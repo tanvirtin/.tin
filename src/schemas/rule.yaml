@@ -1,0 +1,7 @@
+type: object
+fields:
+  - name: description
+    type: string
+  - name: content
+    type: string
+additional: forbid

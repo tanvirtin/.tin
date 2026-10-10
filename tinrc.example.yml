@@ -1,0 +1,22 @@
+# Minimum baseline: a working shell environment, nothing opinionated.
+# Everything else (editor, terminal, agent runtimes, dev/infra tools) is
+# added per company or personal preference via the same sections below.
+
+identity:
+  name: Your Name
+  email: you@example.com
+
+symlinks:
+  shell:
+    - source: config/.zshrc
+      target: ~/.zshrc
+
+recipes:
+  shell:
+    - zsh
+    - starship
+    - zsh-autosuggestions
+
+install:
+  - link
+  - recipes: shell
