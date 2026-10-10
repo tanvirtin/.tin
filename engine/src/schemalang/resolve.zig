@@ -24,7 +24,9 @@ pub const Scope = struct {
         };
     }
 
-    pub fn deinit(self: *Scope) void {
+    pub fn deinit(self: *Scope, allocator: std.mem.Allocator) void {
+        var it = self.declarations.iterator();
+        while (it.next()) |entry| allocator.free(entry.key_ptr.*);
         self.declarations.deinit();
     }
 

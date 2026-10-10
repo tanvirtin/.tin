@@ -10,6 +10,7 @@ const Engine = @import("../schemalang/engine.zig").Engine;
 const Catalog = @import("../schemalang/resolve.zig").Catalog;
 const Schema = @import("../schemalang/ir.zig").Schema;
 const validate_mod = @import("../schemalang/core.zig");
+const PathExpression = @import("../schemalang/resolve.zig").PathExpression;
 
 const Artifact = @This();
 
@@ -74,7 +75,10 @@ pub fn deinit(self: *Artifact) void {
 
 pub fn validate(self: *Artifact) !void {
     var all_pending_refs = std.ArrayListUnmanaged(validate_mod.PendingReference){};
-    defer all_pending_refs.deinit(self.allocator);
+    defer {
+        freePendingRefs(self.allocator, all_pending_refs.items);
+        all_pending_refs.deinit(self.allocator);
+    }
     var all_diagnostics = std.ArrayListUnmanaged(validate_mod.Diagnostic){};
     defer {
         for (all_diagnostics.items) |d| {
@@ -197,6 +201,13 @@ fn walkYmlFiles(
     }
 }
 
+fn freePendingRefs(allocator: std.mem.Allocator, refs: []const validate_mod.PendingReference) void {
+    for (refs) |pr| {
+        allocator.free(pr.name);
+        pr.path.deinit(allocator);
+    }
+}
+
 fn cloneDiagnostic(allocator: std.mem.Allocator, d: validate_mod.Diagnostic) !validate_mod.Diagnostic {
     return .{
         .severity = d.severity,
@@ -298,6 +309,20 @@ test "deriveId rejects path equal to base dir" {
 
 test "deriveId rejects too-short relative path" {
     try std.testing.expectError(Error.ParseFailed, deriveId(std.testing.allocator, "/artifacts/skills", "/artifacts/skills/a.ym"));
+}
+
+test "freePendingRefs releases reference names and paths" {
+    const allocator = std.testing.allocator;
+    var refs = std.ArrayListUnmanaged(validate_mod.PendingReference){};
+    defer refs.deinit(allocator);
+    try refs.append(allocator, .{
+        .span = .{ .file_id = 0, .start = 0, .end = 0 },
+        .kind = "rule_id",
+        .name = try allocator.dupe(u8, "some_rule"),
+        .path = try PathExpression.parse(allocator, "#/rules/**"),
+    });
+
+    freePendingRefs(allocator, refs.items);
 }
 
 test {

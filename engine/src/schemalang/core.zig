@@ -37,6 +37,7 @@ pub const Validator = struct {
     sublangs: ?*const SublangRegistry,
     catalog: ?*const Catalog,
     scopes: std.ArrayListUnmanaged(*Scope),
+    all_scopes: std.ArrayListUnmanaged(*Scope),
     pending_refs: std.ArrayListUnmanaged(PendingReference),
     context: ?*const ContextEnv,
     path: std.ArrayListUnmanaged(resolve_mod.PathSegment),
@@ -49,6 +50,7 @@ pub const Validator = struct {
             .sublangs = sublangs,
             .catalog = catalog,
             .scopes = .{},
+            .all_scopes = .{},
             .pending_refs = .{},
             .context = null,
             .path = .{},
@@ -66,12 +68,11 @@ pub const Validator = struct {
         }
         self.diagnostics.deinit(self.allocator);
 
-        for (self.scopes.items) |s| {
-            var it = s.declarations.iterator();
-            while (it.next()) |entry| self.allocator.free(entry.key_ptr.*);
-            s.deinit();
+        for (self.all_scopes.items) |s| {
+            s.deinit(self.allocator);
             self.allocator.destroy(s);
         }
+        self.all_scopes.deinit(self.allocator);
         self.scopes.deinit(self.allocator);
 
         for (self.pending_refs.items) |pr| {
@@ -114,8 +115,13 @@ pub const Validator = struct {
         const scope = try self.allocator.create(Scope);
         scope.* = Scope.init(self.allocator, kind, parent);
         try self.scopes.append(self.allocator, scope);
+        errdefer _ = self.scopes.pop();
+        try self.all_scopes.append(self.allocator, scope);
     }
 
+    /// Unwinds the active scope stack. The scope itself stays alive until deinit,
+    /// because pending references record the scope they were declared in and are
+    /// resolved after the stack has been unwound.
     pub fn popScope(self: *Validator) void {
         _ = self.scopes.pop();
     }
@@ -689,6 +695,23 @@ test "resolver rejects non-matching ref value" {
     defer v.deinit();
     try validateImpl(&v, ref_schema, doc.value);
     try std.testing.expect(v.hasErrors());
+}
+
+test "popScope keeps the scope alive for deferred resolution and frees it" {
+    const allocator = std.testing.allocator;
+    var v = Validator.init(allocator, null, null, null);
+
+    try v.pushScope("rule_id");
+    const scope = v.currentScope().?;
+    try scope.declare(try allocator.dupe(u8, "some_rule"), .{
+        .span = .{ .file_id = 0, .start = 0, .end = 0 },
+        .node = undefined,
+    });
+
+    v.popScope();
+
+    try std.testing.expect(scope.resolve("some_rule", null) != null);
+    v.deinit();
 }
 
 test "resolver returns ref_not_resolved for unknown path" {
