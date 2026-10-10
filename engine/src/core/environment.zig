@@ -1,7 +1,7 @@
 const std = @import("std");
 const fs = @import("../lib/fs.zig");
-const Engine = @import("../spec/engine.zig").Engine;
-const Diagnostic = @import("../spec/diagnostic.zig").Diagnostic;
+const Engine = @import("../schemalang/engine.zig").Engine;
+const Diagnostic = @import("../schemalang/diagnostic.zig").Diagnostic;
 
 pub const Paths = @import("environment/paths.zig");
 pub const Config = @import("environment/config.zig");

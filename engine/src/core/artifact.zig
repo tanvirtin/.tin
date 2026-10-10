@@ -6,10 +6,10 @@ const output = @import("../lib/output.zig");
 pub const Rule = @import("artifact/rule.zig");
 pub const Skill = @import("artifact/skill.zig");
 
-const Engine = @import("../spec/engine.zig").Engine;
-const Catalog = @import("../spec/resolve.zig").Catalog;
-const Schema = @import("../spec/ir.zig").Schema;
-const validate_mod = @import("../spec/validate.zig");
+const Engine = @import("../schemalang/engine.zig").Engine;
+const Catalog = @import("../schemalang/resolve.zig").Catalog;
+const Schema = @import("../schemalang/ir.zig").Schema;
+const validate_mod = @import("../schemalang/core.zig");
 
 const Artifact = @This();
 

@@ -2,11 +2,11 @@ const std = @import("std");
 const yaml = @import("yaml");
 const fs = @import("../lib/fs.zig");
 const output = @import("../lib/output.zig");
-const validate_mod = @import("../spec/validate.zig");
-const diag = @import("../spec/diagnostic.zig");
+const validate_mod = @import("../schemalang/core.zig");
+const diag = @import("../schemalang/diagnostic.zig");
 const Environment = @import("../core/environment.zig");
 
-const Engine = @import("../spec/engine.zig").Engine;
+const Engine = @import("../schemalang/engine.zig").Engine;
 const schema_cmd = @import("schema.zig");
 
 pub const meta = .{

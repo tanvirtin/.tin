@@ -45,11 +45,11 @@ test {
     _ = @import("core/recipe.zig");
     _ = @import("core/artifact.zig");
     _ = @import("platform/platform.zig");
-    _ = @import("spec/ir.zig");
-    _ = @import("spec/diagnostic.zig");
-    _ = @import("spec/bootstrap.zig");
-    _ = @import("spec/compile.zig");
-    _ = @import("spec/validate.zig");
-    _ = @import("spec/engine.zig");
-    _ = @import("spec/dogfood_test.zig");
+    _ = @import("schemalang/ir.zig");
+    _ = @import("schemalang/diagnostic.zig");
+    _ = @import("schemalang/bootstrap.zig");
+    _ = @import("schemalang/compile.zig");
+    _ = @import("schemalang/core.zig");
+    _ = @import("schemalang/engine.zig");
+    _ = @import("schemalang/dogfood_test.zig");
 }

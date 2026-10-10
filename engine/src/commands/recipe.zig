@@ -3,8 +3,8 @@ const fs = @import("../lib/fs.zig");
 const output = @import("../lib/output.zig");
 const Recipe = @import("../core/recipe.zig");
 const Environment = @import("../core/environment.zig");
-const Engine = @import("../spec/engine.zig").Engine;
-const diag = @import("../spec/diagnostic.zig");
+const Engine = @import("../schemalang/engine.zig").Engine;
+const diag = @import("../schemalang/diagnostic.zig");
 
 pub const meta = .{
     .name = "recipe",

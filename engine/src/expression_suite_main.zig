@@ -1,9 +1,9 @@
 const std = @import("std");
 const yaml = @import("yaml");
-const expression = @import("spec/sublang/expression/mod.zig");
-const ir = @import("spec/ir.zig");
-const context = @import("spec/context.zig");
-const diag = @import("spec/diagnostic.zig");
+const expression = @import("schemalang/sublang/expression/mod.zig");
+const ir = @import("schemalang/ir.zig");
+const context = @import("schemalang/context.zig");
+const diag = @import("schemalang/diagnostic.zig");
 
 const Value = expression.Value;
 const EvalEnv = expression.EvalEnv;

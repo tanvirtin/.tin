@@ -2,7 +2,7 @@ const std = @import("std");
 const yaml = @import("yaml");
 const bootstrap = @import("bootstrap.zig");
 const compile = @import("compile.zig");
-const validate_mod = @import("validate.zig");
+const validate_mod = @import("core.zig");
 const ir = @import("ir.zig");
 const sublang = @import("sublang.zig");
 
@@ -106,5 +106,5 @@ pub const Engine = struct {
 };
 
 test {
-    _ = @import("validate.zig");
+    _ = @import("core.zig");
 }

@@ -6,8 +6,8 @@ const process = @import("../lib/process.zig");
 const Environment = @import("environment.zig");
 const template = @import("../lib/template.zig");
 const platform = @import("../platform/platform.zig");
-const expression = @import("../spec/sublang/expression/mod.zig");
-const diag = @import("../spec/diagnostic.zig");
+const expression = @import("../schemalang/sublang/expression/mod.zig");
+const diag = @import("../schemalang/diagnostic.zig");
 
 const Recipe = @This();
 

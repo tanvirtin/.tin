@@ -1,7 +1,7 @@
 const std = @import("std");
 const yaml = @import("yaml");
 const Engine = @import("engine.zig").Engine;
-const validate_mod = @import("validate.zig");
+const validate_mod = @import("core.zig");
 
 const schemas_dir = "src/schemas";
 const recipes_dir = "../environment/recipes";
@@ -97,7 +97,7 @@ test "shipped data files validate against their schemas" {
     }
 
     try validateOk(allocator, &engine, "tinrc.yaml", "../environment/tinrc.example.yml");
-    try validateOk(allocator, &engine, "build_plan.yaml", "src/spec/fixtures/build_plan_ok.yml");
+    try validateOk(allocator, &engine, "build_plan.yaml", "src/schemalang/fixtures/build_plan_ok.yml");
 }
 
 test "scoped references and expressions are rejected when broken" {
@@ -108,7 +108,7 @@ test "scoped references and expressions are rejected when broken" {
     var engine = try Engine.init(allocator);
     defer engine.deinit();
 
-    const diagnostics = try engine.validateFile(allocator, schemas_dir, "build_plan.yaml", "src/spec/fixtures/build_plan_bad.yml");
+    const diagnostics = try engine.validateFile(allocator, schemas_dir, "build_plan.yaml", "src/schemalang/fixtures/build_plan_bad.yml");
 
     var saw_ref: bool = false;
     var saw_property: bool = false;
