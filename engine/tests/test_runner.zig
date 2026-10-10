@@ -1,3 +1,13 @@
+//! The single test entry point. `zig build test` runs this, and it owns the whole
+//! suite: unit, integration, YAML spec, flow parsing, benchmarks, and the
+//! expression corpus. Each group is a child process; a group fails the run if it
+//! exits non-zero.
+//!
+//! Leaf scripts can also be run on their own for a single group:
+//!   bash tests/test.sh               integration only
+//!   bash tests/test_yaml_suite.sh <binary> [data-dir]   YAML spec only
+//!
+//! Groups that are Zig executables are passed in as arguments by build.zig.
 const std = @import("std");
 
 pub fn main() !void {

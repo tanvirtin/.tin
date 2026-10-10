@@ -1,4 +1,8 @@
 #!/bin/bash
+# Integration tests: exercises the built tin binary end to end (symlinks, copies,
+# recipes, conditions, fonts, heal, install) against a temp HOME and TIN_DIR.
+# Run by tests/test_runner.zig as one group of `zig build test`.
+# Standalone: (cd engine && zig build && bash tests/test.sh)
 set -euo pipefail
 
 PASSED=0

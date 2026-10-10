@@ -1,0 +1,445 @@
+const std = @import("std");
+const yaml = @import("yaml");
+const schema_mod = @import("ir.zig");
+const Schema = schema_mod.Schema;
+const Kind = schema_mod.Kind;
+const Primitive = schema_mod.Primitive;
+const ConstValue = schema_mod.ConstValue;
+const Field = schema_mod.Field;
+const Additional = schema_mod.Additional;
+const ObjectSchema = schema_mod.ObjectSchema;
+const SeqSchema = schema_mod.SeqSchema;
+const MapSchema = schema_mod.MapSchema;
+const SchemaRef = schema_mod.SchemaRef;
+const DiscriminatedUnion = schema_mod.DiscriminatedUnion;
+const SwitchSchema = schema_mod.SwitchSchema;
+const SwitchCase = schema_mod.SwitchCase;
+const PathRef = schema_mod.PathRef;
+const SublangSchema = schema_mod.SublangSchema;
+const Refinement = schema_mod.Refinement;
+const StringConstraints = schema_mod.StringConstraints;
+const FieldDependency = schema_mod.FieldDependency;
+const Span = @import("diagnostic.zig").Span;
+const diag = @import("diagnostic.zig");
+pub const CompileError = error{ InvalidSchema, UnknownType, NotImplemented, OutOfMemory };
+const containers = @import("compile_containers.zig");
+const constraints = @import("compile_constraints.zig");
+
+fn spanFromNode(node: *const yaml.DocNode) Span {
+    return diag.spanFromValue(node.value);
+}
+
+fn parsePrimitive(s: []const u8) CompileError!Primitive {
+    if (std.mem.eql(u8, s, "string")) return .string;
+    if (std.mem.eql(u8, s, "integer")) return .integer;
+    if (std.mem.eql(u8, s, "number")) return .number;
+    if (std.mem.eql(u8, s, "boolean")) return .boolean;
+    if (std.mem.eql(u8, s, "null")) return .null_t;
+    if (std.mem.eql(u8, s, "any")) return .any;
+    return error.UnknownType;
+}
+
+pub fn isPrimitive(s: []const u8) bool {
+    return parsePrimitive(s) != error.UnknownType;
+}
+
+pub fn compileConstValue(allocator: std.mem.Allocator, value: yaml.Value) CompileError!ConstValue {
+    const s = value.getString() orelse return error.InvalidSchema;
+
+    if (std.mem.eql(u8, s, "true")) return .{ .boolean = true };
+    if (std.mem.eql(u8, s, "false")) return .{ .boolean = false };
+    if (std.mem.eql(u8, s, "null") or std.mem.eql(u8, s, "~")) return .{ .null_t = {} };
+    if (std.fmt.parseInt(i64, s, 10)) |i| return .{ .integer = i } else |_| {}
+    if (std.fmt.parseFloat(f64, s)) |f| return .{ .number = f } else |_| {}
+
+    const duped = try allocator.dupe(u8, s);
+    return .{ .string = duped };
+}
+
+pub fn compileSchemaValue(allocator: std.mem.Allocator, value: yaml.Value, span: Span) CompileError!Schema {
+    const kind = try compileKind(allocator, value);
+    const refinements = try constraints.compileRefinements(allocator, value);
+    const string_constraints = try constraints.compileStringConstraints(allocator, value);
+
+    var ref_to: ?schema_mod.PathRef = null;
+    if (value.get("ref_to")) |rt| {
+        const path_val = rt.get("path") orelse return error.InvalidSchema;
+        const path_str = path_val.getString() orelse return error.InvalidSchema;
+        const kind_val = rt.get("kind") orelse return error.InvalidSchema;
+        const kind_str = kind_val.getString() orelse return error.InvalidSchema;
+        const catalog_val = rt.get("catalog");
+        const catalog_str = if (catalog_val) |cv| try allocator.dupe(u8, cv.getString() orelse return error.InvalidSchema) else null;
+        ref_to = .{
+            .path = try allocator.dupe(u8, path_str),
+            .kind = try allocator.dupe(u8, kind_str),
+            .catalog = catalog_str,
+        };
+    }
+
+    var contexts: ?schema_mod.ContextDecl = null;
+    if (value.get("contexts")) |ctx_val| {
+        var map = std.StringHashMap(*schema_mod.Schema).init(allocator);
+        const node = value.tree.nodes.items[ctx_val.idx];
+        if (node.tag == .mapping) {
+            var child = node.first_child;
+            while (child != 0) {
+                const key_node = value.tree.nodes.items[child];
+                const val_idx = key_node.next_sibling;
+                if (val_idx == 0) break;
+
+                const key_str = key_node.computed_value orelse value.tree.source[key_node.start..key_node.end];
+                const val = yaml.Value{ .tree = value.tree, .idx = val_idx, .arena = value.arena };
+
+                const s = try allocator.create(schema_mod.Schema);
+                s.* = try compileSchemaValue(allocator, val, diag.spanFromValue(val));
+                try map.put(try allocator.dupe(u8, key_str), s);
+
+                child = value.tree.nodes.items[val_idx].next_sibling;
+            }
+        } else if (node.tag == .sequence) {
+            const items = ctx_val.getSequence() orelse return error.InvalidSchema;
+            for (items) |item| {
+                const name = item.getString() orelse return error.InvalidSchema;
+                const any_s = try allocator.create(schema_mod.Schema);
+                any_s.* = schema_mod.Schema{
+                    .span = undefined,
+                    .kind = .{ .primitive = .any },
+                    .refinements = &.{},
+                    .contexts = null,
+                };
+                try map.put(try allocator.dupe(u8, name), any_s);
+            }
+        }
+        contexts = .{ .map = map };
+    }
+
+    var decl_as: ?[]const u8 = null;
+    if (value.get("decl_as")) |da| {
+        decl_as = try allocator.dupe(u8, da.getString() orelse return error.InvalidSchema);
+    }
+
+    var push_scope: ?schema_mod.ReferenceKind = null;
+    if (value.get("push_scope")) |ps| {
+        push_scope = try allocator.dupe(u8, ps.getString() orelse return error.InvalidSchema);
+    }
+
+    return Schema{
+        .span = span,
+        .kind = kind,
+        .refinements = refinements,
+        .contexts = contexts,
+        .string_constraints = string_constraints,
+        .ref_to = ref_to,
+        .decl_as = decl_as,
+        .push_scope = push_scope,
+    };
+}
+
+pub fn readSchema(allocator: std.mem.Allocator, value: yaml.Value) CompileError!*Schema {
+    const schema = try allocator.create(Schema);
+    schema.* = try compileSchemaValue(allocator, value, diag.spanFromValue(value));
+    return schema;
+}
+
+pub fn compile(allocator: std.mem.Allocator, doc: *const yaml.DocNode) CompileError!Schema {
+    return compileSchemaValue(allocator, doc.value, spanFromNode(doc));
+}
+
+pub fn compileKind(allocator: std.mem.Allocator, value: yaml.Value) CompileError!Kind {
+    if (value.getString()) |s| {
+        return Kind{ .primitive = try parsePrimitive(s) };
+    }
+
+    const type_val = value.get("type") orelse {
+        if (value.get("any_of")) |v| return .{ .any_of = try containers.compileAnyOf(allocator, v) };
+        if (value.get("all_of")) |v| return .{ .all_of = try containers.compileAllOf(allocator, v) };
+        if (value.get("enum")) |v| return .{ .enum_of = try constraints.compileEnum(allocator, v) };
+        if (value.get("const")) |v| return .{ .constant = try compileConstValue(allocator, v) };
+        if (value.get("ref")) |v| return .{ .ref = try containers.compileRef(allocator, v) };
+        if (value.get("discriminated")) |v| return .{ .discriminated = try containers.compileDiscriminated(allocator, v) };
+        if (value.get("switch")) |v| return .{ .switch_on = try containers.compileSwitch(allocator, v) };
+        if (value.get("sublang")) |v| return .{ .sublang = try constraints.compileSublang(allocator, v) };
+
+        return error.InvalidSchema;
+    };
+    const type_str = type_val.getString() orelse return error.InvalidSchema;
+
+    if (std.mem.eql(u8, type_str, "string")) return .{ .primitive = .string };
+    if (std.mem.eql(u8, type_str, "integer")) return .{ .primitive = .integer };
+    if (std.mem.eql(u8, type_str, "number")) return .{ .primitive = .number };
+    if (std.mem.eql(u8, type_str, "boolean")) return .{ .primitive = .boolean };
+    if (std.mem.eql(u8, type_str, "null")) return .{ .primitive = .null_t };
+    if (std.mem.eql(u8, type_str, "any")) return .{ .primitive = .any };
+    if (std.mem.eql(u8, type_str, "constant")) return .{ .constant = try constraints.compileConstant(allocator, value) };
+    if (std.mem.eql(u8, type_str, "enum")) return .{ .enum_of = try constraints.compileEnum(allocator, value) };
+    if (std.mem.eql(u8, type_str, "sequence")) return .{ .sequence = try containers.compileSequence(allocator, value) };
+    if (std.mem.eql(u8, type_str, "mapping")) return .{ .mapping = try containers.compileMapping(allocator, value) };
+    if (std.mem.eql(u8, type_str, "object")) return .{ .object = try containers.compileObject(allocator, value) };
+    if (std.mem.eql(u8, type_str, "any_of")) return .{ .any_of = try containers.compileAnyOf(allocator, value) };
+    if (std.mem.eql(u8, type_str, "all_of")) return .{ .all_of = try containers.compileAllOf(allocator, value) };
+    if (std.mem.eql(u8, type_str, "not")) return .{ .not = try containers.compileNot(allocator, value) };
+    if (std.mem.eql(u8, type_str, "ref")) return .{ .ref = try containers.compileRef(allocator, value) };
+    if (std.mem.eql(u8, type_str, "discriminated")) return .{ .discriminated = try containers.compileDiscriminated(allocator, value) };
+    if (std.mem.eql(u8, type_str, "switch")) return .{ .switch_on = try containers.compileSwitch(allocator, value) };
+    if (std.mem.eql(u8, type_str, "sublang")) return .{ .sublang = try constraints.compileSublang(allocator, value) };
+
+    return error.UnknownType;
+}
+test "compile parses string primitive" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(), "type: string");
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expectEqual(Kind{ .primitive = .string }, s.kind);
+}
+
+test "compile parses shorthand primitive" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(), "\"integer\"");
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expectEqual(Kind{ .primitive = .integer }, s.kind);
+}
+
+test "compile parses object with fields" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: object
+        \\fields:
+        \\  - name: foo
+        \\    type: string
+        \\  - name: bar
+        \\    type: integer
+        \\    required: false
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const obj = s.kind.object;
+    try std.testing.expectEqual(@as(usize, 2), obj.fields.len);
+    try std.testing.expectEqualStrings("foo", obj.fields[0].name);
+    try std.testing.expectEqual(Kind{ .primitive = .string }, obj.fields[0].schema.kind);
+    try std.testing.expect(obj.fields[0].required);
+    try std.testing.expectEqualStrings("bar", obj.fields[1].name);
+    try std.testing.expect(!obj.fields[1].required);
+}
+
+test "compile parses sequence with items" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: sequence
+        \\items:
+        \\  type: number
+        \\min_items: 1
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const seq = s.kind.sequence;
+    try std.testing.expectEqual(Kind{ .primitive = .number }, seq.items.kind);
+    try std.testing.expectEqual(@as(usize, 1), seq.min_items.?);
+}
+
+test "compile parses mapping" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: mapping
+        \\keys:
+        \\  type: string
+        \\values:
+        \\  type: boolean
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const map = s.kind.mapping;
+    try std.testing.expectEqual(Kind{ .primitive = .string }, map.keys.kind);
+    try std.testing.expectEqual(Kind{ .primitive = .boolean }, map.values.kind);
+}
+
+test "compile rejects unknown type" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(), "type: bogus");
+    defer doc.deinit();
+    try std.testing.expectError(error.UnknownType, compile(arena.allocator(), &doc));
+}
+
+test "compile rejects missing type" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(), "something: else");
+    defer doc.deinit();
+    try std.testing.expectError(error.InvalidSchema, compile(arena.allocator(), &doc));
+}
+
+test "compile parses ref" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: ref
+        \\path: "#/definitions/Foo"
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expectEqualStrings("#/definitions/Foo", s.kind.ref.path);
+}
+
+test "compile parses enum" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: enum
+        \\values:
+        \\  - a
+        \\  - 42
+        \\  - true
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const items = s.kind.enum_of;
+    try std.testing.expectEqual(@as(usize, 3), items.len);
+    try std.testing.expectEqualStrings("a", items[0].string);
+    try std.testing.expectEqual(@as(i64, 42), items[1].integer);
+    try std.testing.expectEqual(true, items[2].boolean);
+}
+
+test "compile parses any_of" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: any_of
+        \\schemas:
+        \\  - type: string
+        \\  - type: integer
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const schemas = s.kind.any_of;
+    try std.testing.expectEqual(@as(usize, 2), schemas.len);
+    try std.testing.expectEqual(Kind{ .primitive = .string }, schemas[0].kind);
+    try std.testing.expectEqual(Kind{ .primitive = .integer }, schemas[1].kind);
+}
+
+test "compile parses nested object" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: object
+        \\fields:
+        \\  - name: nested
+        \\    type:
+        \\      type: object
+        \\      fields:
+        \\        - name: x
+        \\          type: string
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const obj = s.kind.object;
+    try std.testing.expectEqual(@as(usize, 1), obj.fields.len);
+    try std.testing.expectEqualStrings("nested", obj.fields[0].name);
+    const nested_obj = obj.fields[0].schema.kind.object;
+    try std.testing.expectEqual(@as(usize, 1), nested_obj.fields.len);
+    try std.testing.expectEqualStrings("x", nested_obj.fields[0].name);
+}
+
+test "compile parses constant" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: constant
+        \\value: hello
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expectEqualStrings("hello", s.kind.constant.string);
+}
+
+test "compile parses constant integer" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: constant
+        \\value: 42
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expectEqual(@as(i64, 42), s.kind.constant.integer);
+}
+
+test "compile parses object with min_properties and max_properties" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: object
+        \\fields:
+        \\  - name: foo
+        \\    type: string
+        \\min_properties: 1
+        \\max_properties: 5
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const obj = s.kind.object;
+    try std.testing.expectEqual(@as(usize, 1), obj.min_properties.?);
+    try std.testing.expectEqual(@as(usize, 5), obj.max_properties.?);
+}
+
+test "compile parses not schema" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: not
+        \\schema:
+        \\  type: string
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expect(s.kind == .not);
+    try std.testing.expectEqual(Kind{ .primitive = .string }, s.kind.not.kind);
+}
+
+test "compile parses string with constraints" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: string
+        \\min_length: 1
+        \\max_length: 100
+        \\pattern: "^[a-z]+$"
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    try std.testing.expectEqual(Kind{ .primitive = .string }, s.kind);
+    const sc = s.string_constraints.?;
+    try std.testing.expectEqual(@as(usize, 1), sc.min_length.?);
+    try std.testing.expectEqual(@as(usize, 100), sc.max_length.?);
+    try std.testing.expectEqualStrings("^[a-z]+$", sc.pattern.?);
+}
+
+test "compile parses object with dependencies" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var doc = try yaml.parse(arena.allocator(),
+        \\type: object
+        \\fields:
+        \\  - name: run
+        \\    type: string
+        \\  - name: shell
+        \\    type: string
+        \\    required: false
+        \\dependencies:
+        \\  - field: shell
+        \\    requires: [run]
+    );
+    defer doc.deinit();
+    const s = try compile(arena.allocator(), &doc);
+    const obj = s.kind.object;
+    try std.testing.expectEqual(@as(usize, 1), obj.dependencies.len);
+    try std.testing.expectEqualStrings("shell", obj.dependencies[0].field);
+    try std.testing.expectEqual(@as(usize, 1), obj.dependencies[0].requires.len);
+    try std.testing.expectEqualStrings("run", obj.dependencies[0].requires[0]);
+}

@@ -48,7 +48,7 @@ test {
     _ = @import("schemalang/ir.zig");
     _ = @import("schemalang/diagnostic.zig");
     _ = @import("schemalang/bootstrap.zig");
-    _ = @import("schemalang/compile.zig");
+    _ = @import("schemalang/compile_core.zig");
     _ = @import("schemalang/core.zig");
     _ = @import("schemalang/engine.zig");
     _ = @import("schemalang/dogfood_test.zig");

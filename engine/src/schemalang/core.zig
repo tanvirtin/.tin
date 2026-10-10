@@ -143,7 +143,7 @@ pub const Resolver = struct {
     }
 
     pub fn build(allocator: std.mem.Allocator, doc: *const yaml.DocNode) !Resolver {
-        const compile = @import("compile.zig");
+        const compile = @import("compile_core.zig");
         var resolver = Resolver.init(allocator);
 
         const defs_val = doc.value.getMapping("definitions") orelse return resolver;

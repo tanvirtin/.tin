@@ -497,10 +497,22 @@ zig build
 
 ## Running tests
 
+`zig build test` is the single entry point. It runs `tests/test_runner.zig`, which
+owns the whole suite: unit tests, integration tests, the YAML spec suite, flow
+parsing, benchmarks, and the expression corpus. A group fails the run if it exits
+non-zero.
+
 ```bash
 cd engine
-zig build test                  # unit tests
-bash tests/test.sh              # integration tests
+zig build test                  # the full suite
+```
+
+Each group is also runnable on its own:
+
+```bash
+cd engine
+zig build && bash tests/test.sh                        # integration only
+zig build && bash tests/test_yaml_suite.sh ./zig-out/bin/test_yaml_one   # YAML spec only
 ```
 
 ## Supported platforms

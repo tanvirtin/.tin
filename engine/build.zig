@@ -136,10 +136,10 @@ pub fn build(b: *std.Build) void {
     });
     flow_test.root_module.addImport("yaml", yaml_mod);
 
-    const suite_exe = b.addExecutable(.{
-        .name = "suite_manager",
+    const test_runner_exe = b.addExecutable(.{
+        .name = "test_runner",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("tests/suite_manager.zig"),
+            .root_source_file = b.path("tests/test_runner.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -155,16 +155,16 @@ pub fn build(b: *std.Build) void {
     });
     expression_suite_exe.root_module.addImport("yaml", yaml_mod);
 
-    const suite_run = b.addRunArtifact(suite_exe);
-    suite_run.addArtifactArg(exe);
-    suite_run.addArtifactArg(test_yaml_exe);
-    suite_run.addArtifactArg(bench_exe);
-    suite_run.addArtifactArg(unit_test);
-    suite_run.addArtifactArg(flow_test);
-    suite_run.addArtifactArg(expression_suite_exe);
-    suite_run.addFileArg(b.path("tests/expression_suite.yml"));
+    const test_run = b.addRunArtifact(test_runner_exe);
+    test_run.addArtifactArg(exe);
+    test_run.addArtifactArg(test_yaml_exe);
+    test_run.addArtifactArg(bench_exe);
+    test_run.addArtifactArg(unit_test);
+    test_run.addArtifactArg(flow_test);
+    test_run.addArtifactArg(expression_suite_exe);
+    test_run.addFileArg(b.path("tests/expression_suite.yml"));
 
-    const test_step = b.step("test", "Run unit, integration, YAML spec, and performance tests");
-    test_step.dependOn(&suite_run.step);
+    const test_step = b.step("test", "Run the full suite: unit, integration, YAML spec, flow, benchmarks, and expressions");
+    test_step.dependOn(&test_run.step);
     test_step.dependOn(&TestWiringCheck.create(b).step);
 }
