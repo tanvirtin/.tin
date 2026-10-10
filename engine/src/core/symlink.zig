@@ -75,10 +75,6 @@ fn copyInto(self: *const Symlink) !void {
 
 pub const RepairError = error{ BackupFailed, LinkFailed };
 
-/// Brings the target back in line with the source: backs up an existing target
-/// when the state calls for it, then links or copies. Returns whether a backup
-/// was written so the caller can report it. Shared by `tin link` and `tin heal`
-/// so the two can't drift apart.
 pub fn repair(self: *const Symlink, allocator: std.mem.Allocator, current: Status) RepairError!bool {
     const backed_up = self.backupBeforeRepair(current);
     if (backed_up) self.backup(allocator) catch return error.BackupFailed;

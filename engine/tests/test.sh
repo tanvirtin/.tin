@@ -1,8 +1,4 @@
 #!/bin/bash
-# Integration tests: exercises the built tin binary end to end (symlinks, copies,
-# recipes, conditions, fonts, heal, install) against a temp HOME and TIN_DIR.
-# Run by tests/test_runner.zig as one group of `zig build test`.
-# Standalone: (cd engine && zig build && bash tests/test.sh)
 set -euo pipefail
 
 PASSED=0
@@ -27,7 +23,6 @@ run_bounded() {
 echo "[tin] Running integration tests..."
 echo ""
 
-# === setup ===
 
 export TEST_ROOT=$(mktemp -d)
 export HOME="$TEST_ROOT"
@@ -60,7 +55,6 @@ EOF
 trap "rm -rf $TEST_ROOT" EXIT
 
 
-# === build ===
 if zig build 2>/dev/null; then
     pass "zig build"
 else
@@ -69,7 +63,6 @@ fi
 
 
 
-# === basic commands ===
 if $TIN help >/dev/null 2>&1; then
     pass "tin help"
 else
@@ -125,7 +118,6 @@ else
 fi
 
 
-# === recipe layering ===
 mkdir -p "$HOME/.config/tin/recipes"
 cat > "$HOME/.config/tin/recipes/layer-personal.yml" << 'EOF'
 name: layer-personal
@@ -171,7 +163,6 @@ else
 fi
 rm -rf "$HOME/.config/tin/recipes"
 
-# === recipe steps ===
 MKDIR_TEST_DIR=$(mktemp -d)/tin_mkdir_test
 cat > "$TIN_DIR/environment/recipes/mkdir-test.yml" << EOF
 name: mkdir-test
@@ -267,7 +258,6 @@ fi
 rm -f "$TIN_DIR/environment/recipes/template-test.yml"
 
 
-# === symlinks (link/unlink) ===
 LINK_TEST_DIR=$(mktemp -d)
 LINK_SOURCE="$LINK_TEST_DIR/source_file"
 LINK_TARGET="$LINK_TEST_DIR/target_link"
@@ -301,7 +291,6 @@ fi
 rm -rf "$LINK_TEST_DIR"
 
 
-# === copies (copy: true) ===
 COPY_SOURCE="$TIN_DIR/environment/config/.tmux.conf"
 COPY_TARGET="$HOME/.config/tin/test-copy.conf"
 
@@ -339,7 +328,6 @@ fi
 $TIN link >/dev/null 2>&1
 
 
-# === heal ===
 HEAL_TEST_DIR=$(mktemp -d)
 HEAL_SOURCE="$HEAL_TEST_DIR/heal_source"
 HEAL_TARGET="$HEAL_TEST_DIR/heal_target"
@@ -363,7 +351,6 @@ else
 fi
 
 
-# === clone ===
 CLONE_TEST_DIR=$(mktemp -d)
 CLONE_REPO="$CLONE_TEST_DIR/fake_repo"
 CLONE_DEST="$CLONE_TEST_DIR/cloned"
@@ -399,7 +386,6 @@ rm -f "$TIN_DIR/environment/recipes/clone-test.yml"
 rm -rf "$CLONE_TEST_DIR"
 
 
-# === artifact validate + list ===
 ARTIFACTS_DIR="$HOME/.config/tin/artifacts"
 mkdir -p "$ARTIFACTS_DIR/skills/demo" "$ARTIFACTS_DIR/rules"
 cat > "$ARTIFACTS_DIR/rules/demo-rule.yml" << 'EOF'
@@ -427,14 +413,8 @@ else
     fail "artifact list shows discovered skill"
 fi
 
-# NOTE: cross-reference checking (skills:/include: pointing at missing ids) does
-# not currently fire. The validator records the catalog kind from ref_to.catalog,
-# but the schemas express it as ref_to.kind, so catalog_kind stays null and
-# validate() skips the check. See the artifact validation notes before changing
-# this; the README claims the check exists.
 
 
-# === fonts + full install ===
 mkdir -p "$HOME/Library/Fonts"
 if $TIN fonts 2>&1 | grep -q "fonts\|copy\|skipped"; then
     pass "tin fonts runs"

@@ -40,22 +40,18 @@ check_parse
 secret_*
 /bin/
 
-# secrets
 *\.secret
 *\.token
 auth\.json
 \.env\.local
 
-# secrets
 auth.json
 *.secret
 *.token
 
-# runtime state
 serve.log
 serve.pid
 __pycache__/
 /tin
 
-# personal machine config — see environment/tinrc.example.yml
 /tinrc.yml

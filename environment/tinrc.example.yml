@@ -1,6 +1,3 @@
-# Minimum baseline: a working shell environment, nothing opinionated.
-# Everything else (editor, terminal, agent runtimes, dev/infra tools) is
-# added per company or personal preference via the same sections below.
 
 identity:
   name: Your Name

@@ -1,8 +1,5 @@
 const std = @import("std");
 
-/// Fails `zig build test` when a file under src/ contains tests but is not reachable
-/// from a test root by relative `@import`. Zig can't glob imports, so this keeps
-/// the hand-written lists in main.zig and lib/yaml.zig from silently skipping tests.
 const TestWiringCheck = struct {
     step: std.Build.Step,
 

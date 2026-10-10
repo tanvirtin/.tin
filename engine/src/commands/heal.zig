@@ -56,8 +56,6 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         output.plain("  (no managed symlinks)", .{});
     }
 
-    // Probe each target once and reuse the result for both the report and the
-    // repair pass, instead of hitting the filesystem twice per symlink.
     const statuses = allocator.alloc(Symlink.Status, symlinks.len) catch {
         output.err("could not allocate status buffer", .{});
         return 1;

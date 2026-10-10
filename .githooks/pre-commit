@@ -1,12 +1,7 @@
 #!/bin/bash
-# [tin] Quality guard: blocks commits that contain likely secrets or fail artifact validation.
-# Enable in a clone with: git config core.hooksPath .githooks (install.sh does this).
 
 echo "[tin] Scanning staged files for secrets..."
 
-# Stricter patterns with length thresholds so test fixtures (sk-test, vck_test,
-# sk-ant-123) and binary font blobs don't deadlock real commits. Real keys are
-# long: sk-ant-... are 100+ chars, vck_ are 40+, OpenAI sk- are 48+, tvly- are 20+.
 SECRET_PATTERNS=(
   "vck_[a-zA-Z0-9]{20,}"
   "sk-ant-[a-zA-Z0-9]{40,}"
@@ -18,8 +13,6 @@ SECRET_PATTERNS=(
   "-----BEGIN [A-Z ]*PRIVATE KEY-----"
 )
 
-# Only scan text files (skip binary), and skip docs/examples/tests where
-# placeholder key-shaped strings legitimately appear.
 SKIP_PATTERNS='(^|/)(test|tests|example|examples|fixtures?)/|\.(ttf|woff2?|png|jpg|jpeg|ico|pdf|zip|gz)$'
 
 STAGED=$(git diff --cached --name-only -z | xargs -0 -I{} bash -c '

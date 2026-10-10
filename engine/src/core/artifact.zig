@@ -58,8 +58,6 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []
     };
 }
 
-/// Reads one schema YAML from the schemas directory and compiles it. The four
-/// artifact kinds each load this way; the file content is not retained.
 fn loadSchemaFile(allocator: std.mem.Allocator, engine: *Engine, schemas_dir: []const u8, filename: []const u8) !Schema {
     const path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ schemas_dir, filename });
     defer allocator.free(path);

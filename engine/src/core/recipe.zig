@@ -143,8 +143,6 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
         output.plain("  {s}", .{desc});
     }
 
-    // Built on first use: most recipes have no conditions, and building it copies
-    // the whole process environment.
     var cond_env: expression.EvalEnv = undefined;
     var cond_env_ready = false;
 
