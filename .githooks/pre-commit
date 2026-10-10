@@ -1,0 +1,51 @@
+#!/bin/bash
+# [tin] Quality guard: blocks commits that contain likely secrets or fail artifact validation.
+# Enable in a clone with: git config core.hooksPath .githooks (install.sh does this).
+
+echo "[tin] Scanning staged files for secrets..."
+
+# Stricter patterns with length thresholds so test fixtures (sk-test, vck_test,
+# sk-ant-123) and binary font blobs don't deadlock real commits. Real keys are
+# long: sk-ant-... are 100+ chars, vck_ are 40+, OpenAI sk- are 48+, tvly- are 20+.
+SECRET_PATTERNS=(
+  "vck_[a-zA-Z0-9]{20,}"
+  "sk-ant-[a-zA-Z0-9]{40,}"
+  "sk-[a-zA-Z0-9]{40,}"
+  "AIza[0-9A-Za-z_-]{30,}"
+  "ghp_[a-zA-Z0-9]{30,}"
+  "tvly-[a-zA-Z0-9_-]{20,}"
+  "AKIA[0-9A-Z]{16}"
+  "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+)
+
+# Only scan text files (skip binary), and skip docs/examples/tests where
+# placeholder key-shaped strings legitimately appear.
+SKIP_PATTERNS='(^|/)(test|tests|example|examples|fixtures?)/|\.(ttf|woff2?|png|jpg|jpeg|ico|pdf|zip|gz)$'
+
+STAGED=$(git diff --cached --name-only -z | xargs -0 -I{} bash -c '
+  f="$1"
+  [[ "$f" =~ '"$SKIP_PATTERNS"' ]] && exit 0
+  file "$f" 2>/dev/null | grep -qE "text|script|source|empty" || exit 0
+  grep -lE "$2" "$f" 2>/dev/null
+' _ "{}" "$(IFS='|'; echo "${SECRET_PATTERNS[*]}")")
+
+if [ -n "$STAGED" ]; then
+  echo "[tin] ERROR: Staged files contain what looks like a secret (API key / private key):"
+  echo "$STAGED"
+  echo "[tin] Remove the secret from these files. Keep real keys in an untracked file such as .env."
+  exit 1
+fi
+
+TIN=./engine/zig-out/bin/tin
+if [ ! -x "$TIN" ]; then
+  echo "[tin] ERROR: $TIN not found. Build it first: (cd engine && zig build)"
+  exit 1
+fi
+
+echo "[tin] Running artifact validation..."
+if ! "$TIN" artifact validate; then
+  echo "[tin] ERROR: Artifact validation failed. Fix the errors above and commit again."
+  exit 1
+fi
+
+echo "[tin] Quality check passed."

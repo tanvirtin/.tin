@@ -30,33 +30,33 @@ fn printPrefix(writer: anytype, color: Color) void {
     }
 }
 
-pub fn success(comptime fmt: []const u8, args: anytype) void {
-    const writer = std.fs.File.stdout().deprecatedWriter();
-    printPrefix(writer, .green);
+fn emit(file: std.fs.File, color: ?Color, comptime fmt: []const u8, args: anytype) void {
+    var buf: [1024]u8 = undefined;
+    var file_writer = file.writerStreaming(&buf);
+    const writer = &file_writer.interface;
+    defer writer.flush() catch {};
+    if (color) |c| printPrefix(writer, c);
     writer.print(fmt ++ "\n", args) catch return;
+}
+
+pub fn success(comptime fmt: []const u8, args: anytype) void {
+    emit(std.fs.File.stdout(), .green, fmt, args);
 }
 
 pub fn info(comptime fmt: []const u8, args: anytype) void {
-    const writer = std.fs.File.stdout().deprecatedWriter();
-    printPrefix(writer, .blue);
-    writer.print(fmt ++ "\n", args) catch return;
+    emit(std.fs.File.stdout(), .blue, fmt, args);
 }
 
 pub fn warn(comptime fmt: []const u8, args: anytype) void {
-    const writer = std.fs.File.stderr().deprecatedWriter();
-    printPrefix(writer, .yellow);
-    writer.print(fmt ++ "\n", args) catch return;
+    emit(std.fs.File.stderr(), .yellow, fmt, args);
 }
 
 pub fn err(comptime fmt: []const u8, args: anytype) void {
-    const writer = std.fs.File.stderr().deprecatedWriter();
-    printPrefix(writer, .red);
-    writer.print(fmt ++ "\n", args) catch return;
+    emit(std.fs.File.stderr(), .red, fmt, args);
 }
 
 pub fn plain(comptime fmt: []const u8, args: anytype) void {
-    const writer = std.fs.File.stdout().deprecatedWriter();
-    writer.print(fmt ++ "\n", args) catch return;
+    emit(std.fs.File.stdout(), null, fmt, args);
 }
 
 test "isTty returns a boolean" {

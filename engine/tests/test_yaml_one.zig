@@ -13,8 +13,14 @@ pub fn main() !void {
     const content = try file.readToEndAlloc(arena.allocator(), 1024 * 1024);
     const result = yaml.parse(arena.allocator(), content);
     if (result) |_| {
-        try std.fs.File.stdout().deprecatedWriter().print("OK\n", .{});
+        var buf: [16]u8 = undefined;
+        var file_writer = std.fs.File.stdout().writerStreaming(&buf);
+        try file_writer.interface.print("OK\n", .{});
+        try file_writer.interface.flush();
     } else |_| {
-        try std.fs.File.stdout().deprecatedWriter().print("ERROR\n", .{});
+        var buf: [16]u8 = undefined;
+        var file_writer = std.fs.File.stdout().writerStreaming(&buf);
+        try file_writer.interface.print("ERROR\n", .{});
+        try file_writer.interface.flush();
     }
 }

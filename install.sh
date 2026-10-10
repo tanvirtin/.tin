@@ -36,6 +36,8 @@ else
     cd "$TIN_DIR" && git pull --ff-only 2>/dev/null || info "Could not update (offline or uncommitted changes)"
 fi
 
+git -C "$TIN_DIR" config core.hooksPath .githooks
+
 info "Fetching latest release..."
 LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*: "//;s/".*//' || true)
 

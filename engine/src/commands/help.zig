@@ -44,7 +44,10 @@ pub fn printOverview() void {
 }
 
 fn printIndex() void {
-    const writer = std.fs.File.stdout().deprecatedWriter();
+    var buf: [4096]u8 = undefined;
+    var file_writer = std.fs.File.stdout().writerStreaming(&buf);
+    const writer = &file_writer.interface;
+    defer writer.flush() catch {};
     writer.writeAll("{\"version\":1,\"commands\":{") catch return;
     var first = true;
     inline for (router.command_entries) |entry| {

@@ -11,7 +11,7 @@ const Catalog = @import("../spec/resolve.zig").Catalog;
 const Schema = @import("../spec/ir.zig").Schema;
 const validate_mod = @import("../spec/validate.zig");
 
-const Sn = @This();
+const Artifact = @This();
 
 pub const Error = error{
     DirectoryNotFound,
@@ -27,7 +27,7 @@ mcp_schema: Schema,
 dialect_schema: Schema,
 catalog: Catalog,
 
-pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []const u8) !Sn {
+pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []const u8) !Artifact {
     const sn_dir = try allocator.dupe(u8, artifacts_dir);
 
     var dir = std.fs.openDirAbsolute(sn_dir, .{}) catch {
@@ -77,13 +77,13 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []
     };
 }
 
-pub fn deinit(self: *Sn) void {
+pub fn deinit(self: *Artifact) void {
     self.catalog.deinit();
     self.engine.deinit();
     self.allocator.free(self.sn_dir);
 }
 
-pub fn validate(self: *Sn) !void {
+pub fn validate(self: *Artifact) !void {
     var all_pending_refs = std.ArrayListUnmanaged(validate_mod.PendingReference){};
     defer all_pending_refs.deinit(self.allocator);
     var all_diagnostics = std.ArrayListUnmanaged(validate_mod.Diagnostic){};
@@ -124,7 +124,7 @@ pub fn validate(self: *Sn) !void {
 }
 
 fn processArtifacts(
-    self: *Sn,
+    self: *Artifact,
     sub_dir: []const u8,
     schema: *const Schema,
     catalog_kind: []const u8,
@@ -141,7 +141,7 @@ fn processArtifacts(
 }
 
 fn walkAndProcess(
-    self: *Sn,
+    self: *Artifact,
     dir: std.fs.Dir,
     base_dir: []const u8,
     current_dir: []const u8,
@@ -199,12 +199,12 @@ fn cloneDiagnostic(allocator: std.mem.Allocator, d: validate_mod.Diagnostic) !va
     };
 }
 
-pub fn discoverSkills(self: *const Sn, allocator: std.mem.Allocator) ![]Skill {
+pub fn discoverSkills(self: *const Artifact, allocator: std.mem.Allocator) ![]Skill {
     const dir = try std.fmt.allocPrint(allocator, "{s}/skills", .{self.sn_dir});
     return discover(Skill, allocator, dir);
 }
 
-pub fn discoverRules(self: *const Sn, allocator: std.mem.Allocator) ![]Rule {
+pub fn discoverRules(self: *const Artifact, allocator: std.mem.Allocator) ![]Rule {
     const dir = try std.fmt.allocPrint(allocator, "{s}/rules", .{self.sn_dir});
     return discover(Rule, allocator, dir);
 }
