@@ -45,31 +45,22 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
                 };
                 output.success("link {s}", .{symlink.name});
             },
-            .wrong_target, .not_a_symlink => {
-                const backed_up = symlink.backupBeforeRepair(status);
-                if (backed_up) symlink.backup(allocator) catch {
-                    output.err("failed to backup {s}", .{symlink.name});
-                    failed += 1;
-                    continue;
-                };
-                symlink.link() catch {
-                    output.err("failed to link {s}", .{symlink.name});
+            .wrong_target, .not_a_symlink, .broken => {
+                const backed_up = symlink.repair(allocator, status) catch |e| {
+                    switch (e) {
+                        error.BackupFailed => output.err("failed to backup {s}", .{symlink.name}),
+                        error.LinkFailed => output.err("failed to link {s}", .{symlink.name}),
+                    }
                     failed += 1;
                     continue;
                 };
                 if (backed_up) {
                     output.success("link {s} (backed up existing)", .{symlink.name});
+                } else if (status == .broken) {
+                    output.success("link {s} (replaced broken)", .{symlink.name});
                 } else {
                     output.success("refresh {s}", .{symlink.name});
                 }
-            },
-            .broken => {
-                symlink.link() catch {
-                    output.err("failed to link {s}", .{symlink.name});
-                    failed += 1;
-                    continue;
-                };
-                output.success("link {s} (replaced broken)", .{symlink.name});
             },
             .source_missing => {
                 output.warn("skip {s} (source missing: {s})", .{ symlink.name, symlink.source });

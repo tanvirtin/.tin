@@ -73,6 +73,19 @@ fn copyInto(self: *const Symlink) !void {
     try fs.copyFile(self.source, self.target);
 }
 
+pub const RepairError = error{ BackupFailed, LinkFailed };
+
+/// Brings the target back in line with the source: backs up an existing target
+/// when the state calls for it, then links or copies. Returns whether a backup
+/// was written so the caller can report it. Shared by `tin link` and `tin heal`
+/// so the two can't drift apart.
+pub fn repair(self: *const Symlink, allocator: std.mem.Allocator, current: Status) RepairError!bool {
+    const backed_up = self.backupBeforeRepair(current);
+    if (backed_up) self.backup(allocator) catch return error.BackupFailed;
+    self.link() catch return error.LinkFailed;
+    return backed_up;
+}
+
 pub fn backupBeforeRepair(self: *const Symlink, current: Status) bool {
     if (current == .broken) return false;
     if (current == .not_a_symlink) return true;
@@ -241,6 +254,26 @@ test "copy status returns source_missing when source gone" {
     try std.testing.expectEqual(Status.source_missing, s.status());
 
     std.fs.deleteFileAbsolute(target) catch {};
+}
+
+test "repair replaces a wrong-target symlink" {
+    const source = "/tmp/tin_test_repair_source";
+    const target = "/tmp/tin_test_repair_target";
+    std.fs.deleteFileAbsolute(target) catch {};
+    std.fs.deleteFileAbsolute(source) catch {};
+    const f = try std.fs.createFileAbsolute(source, .{});
+    f.close();
+    try std.fs.symLinkAbsolute("/some/other/path", target, .{});
+
+    const s = Symlink{ .source = source, .target = target, .name = "test" };
+    try std.testing.expectEqual(Status.wrong_target, s.status());
+    const backed_up = try s.repair(std.testing.allocator, s.status());
+    try std.testing.expect(backed_up);
+    try std.testing.expectEqual(Status.linked, s.status());
+
+    std.fs.deleteFileAbsolute(target) catch {};
+    std.fs.deleteFileAbsolute(source) catch {};
+    std.fs.deleteFileAbsolute("/tmp/tin_test_repair_target.tin.bak") catch {};
 }
 
 fn isSymlink(path: []const u8) bool {

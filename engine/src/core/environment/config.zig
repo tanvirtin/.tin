@@ -10,7 +10,7 @@ doc: ?yaml.DocNode,
 const max_config_bytes = 256 * 1024;
 
 pub fn load(allocator: std.mem.Allocator, paths: Paths) ?Config {
-    const config_path = std.fs.path.join(allocator, &.{ paths.tin_dir, "tinrc.yml" }) catch return null;
+    const config_path = paths.tinrcPath(allocator) catch return null;
     defer allocator.free(config_path);
 
     const file = std.fs.openFileAbsolute(config_path, .{}) catch return null;

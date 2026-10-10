@@ -3,6 +3,7 @@ const output = @import("../lib/output.zig");
 const fs = @import("../lib/fs.zig");
 const Environment = @import("../core/environment.zig");
 const Paths = @import("../core/environment/paths.zig").Paths;
+const Symlink = @import("../core/symlink.zig");
 
 pub const meta = .{
     .name = "heal",
@@ -21,7 +22,7 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
     var healed_any = false;
     var still_broken: usize = 0;
 
-    const tinrc_path = std.fs.path.join(allocator, &.{ paths.tin_dir, "tinrc.yml" }) catch {
+    const tinrc_path = paths.tinrcPath(allocator) catch {
         output.err("could not resolve tinrc.yml", .{});
         return 1;
     };
@@ -51,13 +52,21 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         return 1;
     };
 
-    const status_lines: usize = symlinks.len;
-    if (status_lines == 0) {
+    if (symlinks.len == 0) {
         output.plain("  (no managed symlinks)", .{});
     }
-    for (symlinks) |symlink| {
-        const status = symlink.status();
-        switch (status) {
+
+    // Probe each target once and reuse the result for both the report and the
+    // repair pass, instead of hitting the filesystem twice per symlink.
+    const statuses = allocator.alloc(Symlink.Status, symlinks.len) catch {
+        output.err("could not allocate status buffer", .{});
+        return 1;
+    };
+    defer allocator.free(statuses);
+    for (symlinks, 0..) |symlink, i| statuses[i] = symlink.status();
+
+    for (symlinks, 0..) |symlink, i| {
+        switch (statuses[i]) {
             .linked => output.success("  [ok]  {s}", .{symlink.name}),
             .missing => output.plain("  [--]  {s}  (not linked)", .{symlink.name}),
             .wrong_target => {
@@ -73,9 +82,8 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         }
     }
 
-    for (symlinks) |symlink| {
-        const status = symlink.status();
-        switch (status) {
+    for (symlinks, 0..) |symlink, i| {
+        switch (statuses[i]) {
             .linked => {},
             .missing => {
                 symlink.link() catch {
@@ -87,14 +95,11 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
                 healed_any = true;
             },
             .wrong_target, .not_a_symlink, .broken => {
-                const backed_up = symlink.backupBeforeRepair(status);
-                if (backed_up) symlink.backup(allocator) catch {
-                    output.err("  failed to backup {s}", .{symlink.name});
-                    still_broken += 1;
-                    continue;
-                };
-                symlink.link() catch {
-                    output.err("  failed to relink {s}", .{symlink.name});
+                const backed_up = symlink.repair(allocator, statuses[i]) catch |e| {
+                    switch (e) {
+                        error.BackupFailed => output.err("  failed to backup {s}", .{symlink.name}),
+                        error.LinkFailed => output.err("  failed to relink {s}", .{symlink.name}),
+                    }
                     still_broken += 1;
                     continue;
                 };

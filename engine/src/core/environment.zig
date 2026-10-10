@@ -46,7 +46,7 @@ pub fn fontSourceDir(self: *const Environment, allocator: std.mem.Allocator) ![]
 }
 
 pub fn validateTinrc(allocator: std.mem.Allocator, paths: Paths) ?[]const Diagnostic {
-    const tinrc_path = std.fs.path.join(allocator, &.{ paths.tin_dir, "tinrc.yml" }) catch return null;
+    const tinrc_path = paths.tinrcPath(allocator) catch return null;
     defer allocator.free(tinrc_path);
     if (!fs.pathExists(tinrc_path)) return null;
 

@@ -143,13 +143,20 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
         output.plain("  {s}", .{desc});
     }
 
-    const cond_env = buildConditionEnv(allocator) catch |err| {
-        output.err("could not build condition environment: {s}", .{@errorName(err)});
-        return;
-    };
+    // Built on first use: most recipes have no conditions, and building it copies
+    // the whole process environment.
+    var cond_env: expression.EvalEnv = undefined;
+    var cond_env_ready = false;
 
     for (self.steps) |step| {
         if (step.condition) |condition| {
+            if (!cond_env_ready) {
+                cond_env = buildConditionEnv(allocator) catch |err| {
+                    output.err("could not build condition environment: {s}", .{@errorName(err)});
+                    return;
+                };
+                cond_env_ready = true;
+            }
             if (!checkCondition(condition, allocator, &cond_env)) {
                 if (step.name) |name| {
                     output.info("  skip {s} (condition not met)", .{name});

@@ -75,6 +75,10 @@ pub fn schemasDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 
     return std.fs.path.join(allocator, &.{ self.tin_dir, "engine", "src", "schemas" });
 }
 
+pub fn tinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    return std.fs.path.join(allocator, &.{ self.tin_dir, "tinrc.yml" });
+}
+
 pub fn artifactsDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
     const dir = std.process.getEnvVarOwned(allocator, "TIN_ARTIFACTS") catch
         return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "artifacts" });
@@ -140,4 +144,11 @@ test "artifactsDir defaults to ~/.config/tin/artifacts when no override" {
     const p = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
     const dir = try p.artifactsDir(a);
     try std.testing.expectEqualStrings("/home/u/.config/tin/artifacts", dir);
+}
+
+test "tinrcPath sits at the tin dir root" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const p = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
+    try std.testing.expectEqualStrings("/tin/tinrc.yml", try p.tinrcPath(arena.allocator()));
 }
