@@ -413,6 +413,44 @@ else
     fail "artifact list shows discovered skill"
 fi
 
+cat > "$ARTIFACTS_DIR/skills/demo/broken.yml" << 'EOF'
+description: A skill with a broken include
+include:
+  - does-not-exist
+system: |
+  {{ does-not-exist }}
+EOF
+
+broken_out=$($TIN artifact validate 2>&1 || true)
+if echo "$broken_out" | grep -q "undefined reference: does-not-exist"; then
+    pass "artifact validate rejects a broken include"
+else
+    fail "artifact validate rejects a broken include"
+fi
+rm -f "$ARTIFACTS_DIR/skills/demo/broken.yml"
+
+
+cat > "$TIN_DIR/environment/recipes/apply-steps.yml" << 'EOF'
+name: apply-steps
+steps:
+  - name: link
+    link: true
+  - name: fonts
+    fonts: true
+EOF
+
+if $TIN recipe apply-steps 2>&1 | grep -q "linking complete"; then
+    pass "recipe link: step links symlinks"
+else
+    fail "recipe link: step links symlinks"
+fi
+
+if $TIN recipe apply-steps 2>&1 | grep -qE "fonts installed|fonts up to date"; then
+    pass "recipe fonts: step installs fonts"
+else
+    fail "recipe fonts: step installs fonts"
+fi
+rm -f "$TIN_DIR/environment/recipes/apply-steps.yml"
 
 
 mkdir -p "$HOME/Library/Fonts"

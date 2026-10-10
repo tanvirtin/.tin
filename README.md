@@ -165,8 +165,8 @@ steps:
 | `run` | `run: <command>` | Execute a shell command |
 | `install` | `install: <package>` | Install via brew (macOS) or apt (Linux) |
 | `recipe` | `recipe: <name>` | Run another recipe |
-| `link` | `link: all` | Create all symlinks from tinrc.yml |
-| `fonts` | `fonts: all` | Install fonts from tinrc.yml |
+| `link` | `link: true` | Create all symlinks from tinrc.yml |
+| `fonts` | `fonts: true` | Install fonts from tinrc.yml |
 | `mkdir` | `mkdir: <path>` | Create a directory (and parents) |
 | `download` | `download: <url>` | Download a file (requires `to:` field) |
 | `clone` | `clone: <repo>` | Git clone (requires `to:` field, skips if exists) |

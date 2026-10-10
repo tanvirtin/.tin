@@ -113,7 +113,7 @@ pub const PendingReference = struct {
     span: Span,
     kind: ReferenceKind,
     name: []const u8,
-    scope: *Scope,
+    scope: ?*Scope = null,
     path: PathExpression,
     catalog_kind: ?[]const u8 = null,
 };

@@ -7,6 +7,7 @@ const Environment = @import("environment.zig");
 const template = @import("../lib/template.zig");
 const platform = @import("../platform/platform.zig");
 const expression = @import("../schemalang/sublang/expression/mod.zig");
+const apply = @import("apply.zig");
 const diag = @import("../schemalang/diagnostic.zig");
 
 const Recipe = @This();
@@ -133,10 +134,8 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
         return;
     };
 
-    const vars = blk: {
-        const config = Environment.Config.load(allocator, paths) orelse break :blk &[_]Environment.TemplateVar{};
-        break :blk Environment.IdentityProvider.getTemplateVars(allocator, config) catch break :blk &[_]Environment.TemplateVar{};
-    };
+    const config = Environment.Config.load(allocator, paths) orelse Environment.Config{ .doc = null };
+    const vars = Environment.IdentityProvider.getTemplateVars(allocator, config) catch &[_]Environment.TemplateVar{};
 
     output.info("Executing recipe: {s}", .{self.name});
     if (self.description) |desc| {
@@ -167,14 +166,14 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
             output.info("  Step: {s}", .{name});
         }
 
-        executeAction(allocator, step.action, vars, paths) catch {
+        executeAction(allocator, step.action, vars, paths, config) catch {
             output.err("  step failed: {s}", .{step.name orelse "unnamed"});
             return;
         };
     }
 }
 
-fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar, paths: Environment.Paths) anyerror!void {
+fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar, paths: Environment.Paths, config: Environment.Config) anyerror!void {
     switch (action) {
         .run => |cmd| {
             const rendered = template.render(allocator, cmd, vars) catch cmd;
@@ -197,8 +196,12 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
             const sub = try parse(allocator, content);
             try sub.execute(allocator);
         },
-        .link => {},
-        .fonts => {},
+        .link => {
+            if (apply.linkManaged(allocator, paths, config) != 0) return error.LinkFailed;
+        },
+        .fonts => {
+            if (apply.installFonts(allocator, paths, config) != 0) return error.FontsFailed;
+        },
         .mkdir => |dir| {
             const rendered = template.render(allocator, dir, vars) catch dir;
             const resolved = paths.absolutePath(allocator, rendered) catch rendered;

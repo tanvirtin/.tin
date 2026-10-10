@@ -19,7 +19,7 @@ pub const Error = error{
 };
 
 allocator: std.mem.Allocator,
-sn_dir: []const u8,
+artifacts_dir: []const u8,
 engine: Engine,
 skill_schema: Schema,
 rule_schema: Schema,
@@ -28,10 +28,10 @@ dialect_schema: Schema,
 catalog: Catalog,
 
 pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []const u8) !Artifact {
-    const sn_dir = try allocator.dupe(u8, artifacts_dir);
+    const owned_dir = try allocator.dupe(u8, artifacts_dir);
 
-    var dir = std.fs.openDirAbsolute(sn_dir, .{}) catch {
-        allocator.free(sn_dir);
+    var dir = std.fs.openDirAbsolute(owned_dir, .{}) catch {
+        allocator.free(owned_dir);
         return Error.DirectoryNotFound;
     };
     dir.close();
@@ -48,7 +48,7 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []
 
     return .{
         .allocator = allocator,
-        .sn_dir = sn_dir,
+        .artifacts_dir = owned_dir,
         .engine = engine,
         .skill_schema = skill_schema,
         .rule_schema = rule_schema,
@@ -69,7 +69,7 @@ fn loadSchemaFile(allocator: std.mem.Allocator, engine: *Engine, schemas_dir: []
 pub fn deinit(self: *Artifact) void {
     self.catalog.deinit();
     self.engine.deinit();
-    self.allocator.free(self.sn_dir);
+    self.allocator.free(self.artifacts_dir);
 }
 
 pub fn validate(self: *Artifact) !void {
@@ -120,59 +120,79 @@ fn processArtifacts(
     all_pending_refs: *std.ArrayListUnmanaged(validate_mod.PendingReference),
     all_diagnostics: *std.ArrayListUnmanaged(validate_mod.Diagnostic),
 ) !void {
-    const base_dir = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ self.sn_dir, sub_dir });
+    const base_dir = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ self.artifacts_dir, sub_dir });
     defer self.allocator.free(base_dir);
 
     var dir = std.fs.openDirAbsolute(base_dir, .{ .iterate = true }) catch return;
     defer dir.close();
 
-    try self.walkAndProcess(dir, base_dir, base_dir, schema, catalog_kind, all_pending_refs, all_diagnostics);
+    var ctx = ValidateCtx{
+        .artifact = self,
+        .base_dir = base_dir,
+        .schema = schema,
+        .catalog_kind = catalog_kind,
+        .pending = all_pending_refs,
+        .diagnostics = all_diagnostics,
+    };
+    try walkYmlFiles(self.allocator, dir, base_dir, &ctx, processArtifactFile);
 }
 
-fn walkAndProcess(
-    self: *Artifact,
-    dir: std.fs.Dir,
+const ValidateCtx = struct {
+    artifact: *Artifact,
     base_dir: []const u8,
-    current_dir: []const u8,
     schema: *const Schema,
     catalog_kind: []const u8,
-    all_pending_refs: *std.ArrayListUnmanaged(validate_mod.PendingReference),
-    all_diagnostics: *std.ArrayListUnmanaged(validate_mod.Diagnostic),
-) !void {
+    pending: *std.ArrayListUnmanaged(validate_mod.PendingReference),
+    diagnostics: *std.ArrayListUnmanaged(validate_mod.Diagnostic),
+};
+
+fn processArtifactFile(ctx: *ValidateCtx, file_path: []const u8) anyerror!void {
+    const self = ctx.artifact;
+    const content = fs.readFileAlloc(self.allocator, file_path) catch return;
+    defer self.allocator.free(content);
+    const id = try deriveId(self.allocator, ctx.base_dir, file_path);
+
+    const doc = try yaml.parse(self.allocator, content);
+    var v = validate_mod.Validator.init(self.allocator, null, &self.engine.sublangs, &self.catalog);
+    defer v.deinit();
+    try validate_mod.validateImpl(&v, ctx.schema, doc.value);
+
+    for (v.diagnostics.items) |d| {
+        try ctx.diagnostics.append(self.allocator, try cloneDiagnostic(self.allocator, d));
+    }
+
+    for (v.pending_refs.items) |pr| {
+        try ctx.pending.append(self.allocator, pr);
+    }
+    v.pending_refs = .{};
+
+    if (!v.hasErrors()) {
+        try self.catalog.register(ctx.catalog_kind, id, .{
+            .span = .{ .file_id = 0, .start = 0, .end = @intCast(content.len) },
+            .node = doc.value,
+        });
+    }
+}
+
+fn walkYmlFiles(
+    allocator: std.mem.Allocator,
+    dir: std.fs.Dir,
+    current_dir: []const u8,
+    ctx: anytype,
+    comptime onFile: anytype,
+) anyerror!void {
     var iter = dir.iterate();
     while (try iter.next()) |entry| {
         if (entry.kind == .directory) {
-            const sub_path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ current_dir, entry.name });
-            defer self.allocator.free(sub_path);
+            const sub_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ current_dir, entry.name });
+            defer allocator.free(sub_path);
             var sub_dir = dir.openDir(entry.name, .{ .iterate = true }) catch continue;
             defer sub_dir.close();
-            try self.walkAndProcess(sub_dir, base_dir, sub_path, schema, catalog_kind, all_pending_refs, all_diagnostics);
+            try walkYmlFiles(allocator, sub_dir, sub_path, ctx, onFile);
         } else if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".yml")) {
-            const file_path = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ current_dir, entry.name });
-            defer self.allocator.free(file_path);
-            const content = fs.readFileAlloc(self.allocator, file_path) catch continue;
-            defer self.allocator.free(content);
-            const id = try deriveId(self.allocator, base_dir, file_path);
-
-            const doc = try yaml.parse(self.allocator, content);
-            var v = validate_mod.Validator.init(self.allocator, null, &self.engine.sublangs, &self.catalog);
-            try validate_mod.validateImpl(&v, schema, doc.value);
-
-            for (v.diagnostics.items) |d| {
-                try all_diagnostics.append(self.allocator, try cloneDiagnostic(self.allocator, d));
-            }
-
-            for (v.pending_refs.items) |pr| {
-                try all_pending_refs.append(self.allocator, pr);
-            }
-            v.pending_refs = .{};
-
-            if (!v.hasErrors()) {
-                try self.catalog.register(catalog_kind, id, .{
-                    .span = .{ .file_id = 0, .start = 0, .end = @intCast(content.len) },
-                    .node = doc.value,
-                });
-            }
+            const file_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ current_dir, entry.name });
+            defer allocator.free(file_path);
+            try onFile(ctx, file_path);
         }
     }
 }
@@ -189,12 +209,14 @@ fn cloneDiagnostic(allocator: std.mem.Allocator, d: validate_mod.Diagnostic) !va
 }
 
 pub fn discoverSkills(self: *const Artifact, allocator: std.mem.Allocator) ![]Skill {
-    const dir = try std.fmt.allocPrint(allocator, "{s}/skills", .{self.sn_dir});
+    const dir = try std.fmt.allocPrint(allocator, "{s}/skills", .{self.artifacts_dir});
+    defer allocator.free(dir);
     return discover(Skill, allocator, dir);
 }
 
 pub fn discoverRules(self: *const Artifact, allocator: std.mem.Allocator) ![]Rule {
-    const dir = try std.fmt.allocPrint(allocator, "{s}/rules", .{self.sn_dir});
+    const dir = try std.fmt.allocPrint(allocator, "{s}/rules", .{self.artifacts_dir});
+    defer allocator.free(dir);
     return discover(Rule, allocator, dir);
 }
 
@@ -204,35 +226,35 @@ fn discover(comptime T: type, allocator: std.mem.Allocator, base_dir: []const u8
     var dir = std.fs.openDirAbsolute(base_dir, .{ .iterate = true }) catch return items.toOwnedSlice(allocator);
     defer dir.close();
 
-    try walkAndParse(T, allocator, dir, base_dir, base_dir, &items);
+    var ctx = ParseCtx(T){ .allocator = allocator, .base_dir = base_dir, .items = &items };
+    try walkYmlFiles(allocator, dir, base_dir, &ctx, parseOneFile);
 
     return items.toOwnedSlice(allocator);
 }
 
-fn walkAndParse(comptime T: type, allocator: std.mem.Allocator, dir: std.fs.Dir, base_dir: []const u8, current_dir: []const u8, items: *std.ArrayListUnmanaged(T)) !void {
-    var iter = dir.iterate();
-    while (try iter.next()) |entry| {
-        if (entry.kind == .directory) {
-            const sub_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ current_dir, entry.name });
-            defer allocator.free(sub_path);
-            var sub_dir = dir.openDir(entry.name, .{ .iterate = true }) catch continue;
-            defer sub_dir.close();
-            try walkAndParse(T, allocator, sub_dir, base_dir, sub_path, items);
-        } else if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".yml")) {
-            const file_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ current_dir, entry.name });
-            defer allocator.free(file_path);
-            const content = fs.readFileAlloc(allocator, file_path) catch continue;
-            defer allocator.free(content);
-            const id = deriveId(allocator, base_dir, file_path) catch continue;
+fn ParseCtx(comptime T: type) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        base_dir: []const u8,
+        items: *std.ArrayListUnmanaged(T),
 
-            var item = parseYaml(T, allocator, content) catch {
-                allocator.free(id);
-                continue;
-            };
-            item.id = id;
-            try items.append(allocator, item);
-        }
-    }
+        const Item = T;
+    };
+}
+
+fn parseOneFile(ctx: anytype, file_path: []const u8) anyerror!void {
+    const T = @TypeOf(ctx.*).Item;
+    const allocator = ctx.allocator;
+    const content = fs.readFileAlloc(allocator, file_path) catch return;
+    defer allocator.free(content);
+    const id = deriveId(allocator, ctx.base_dir, file_path) catch return;
+
+    var item = parseYaml(T, allocator, content) catch {
+        allocator.free(id);
+        return;
+    };
+    item.id = id;
+    try ctx.items.append(allocator, item);
 }
 
 fn parseYaml(comptime T: type, allocator: std.mem.Allocator, content: []const u8) !T {

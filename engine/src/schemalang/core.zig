@@ -199,17 +199,15 @@ pub fn validateImpl(v: *Validator, schema: *const Schema, value: yaml.Value) any
     }
 
     if (schema.ref_to) |rt| {
-        if (v.currentScope()) |s| {
-            if (value.getString()) |name| {
-                try v.pending_refs.append(v.allocator, .{
-                    .span = span,
-                    .kind = rt.kind,
-                    .name = try v.allocator.dupe(u8, name),
-                    .scope = s,
-                    .path = try resolve_mod.PathExpression.parse(v.allocator, rt.path),
-                    .catalog_kind = rt.catalog,
-                });
-            }
+        if (value.getString()) |name| {
+            try v.pending_refs.append(v.allocator, .{
+                .span = span,
+                .kind = rt.kind,
+                .name = try v.allocator.dupe(u8, name),
+                .scope = v.currentScope(),
+                .path = try resolve_mod.PathExpression.parse(v.allocator, rt.path),
+                .catalog_kind = rt.catalog,
+            });
         }
     }
 
@@ -270,15 +268,20 @@ pub fn validate(
 
     for (v.pending_refs.items) |pr| {
         var decl: ?resolve_mod.Declaration = null;
+        var checkable = true;
         if (pr.catalog_kind) |ck| {
             if (v.catalog) |cat| {
                 decl = cat.resolve(ck, pr.name);
+            } else {
+                // No catalog to check against (e.g. `tin validate` on a single
+                // file). Skip rather than report a false undefined reference.
+                checkable = false;
             }
-        } else {
-            decl = pr.scope.resolve(pr.name, pr.path);
+        } else if (pr.scope) |s| {
+            decl = s.resolve(pr.name, pr.path);
         }
 
-        if (decl == null) {
+        if (checkable and decl == null) {
             try v.emit(pr.span, "undefined_reference", try std.fmt.allocPrint(v.allocator, "undefined reference: {s}", .{pr.name}));
         }
     }

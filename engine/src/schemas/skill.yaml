@@ -32,13 +32,13 @@ fields:
     type: sequence
     items:
       type: string
-      ref_to: { path: "#/skills/**", kind: skill_id }
+      ref_to: { path: "#/skills/**", kind: skill_id, catalog: skill_id }
     required: false
   - name: include
     type: sequence
     items:
       type: string
-      ref_to: { path: "#/rules/**", kind: rule_id }
+      ref_to: { path: "#/rules/**", kind: rule_id, catalog: rule_id }
     required: false
   - name: context
     type: string

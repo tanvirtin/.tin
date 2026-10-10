@@ -1,6 +1,7 @@
 const std = @import("std");
 const output = @import("../lib/output.zig");
 const Environment = @import("../core/environment.zig");
+const apply = @import("../core/apply.zig");
 
 pub const meta = .{
     .name = "link",
@@ -18,62 +19,5 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         return 1;
     };
 
-    const symlinks = Environment.RecipeManager.getManagedSymlinks(allocator, config, paths) catch {
-        output.err("could not resolve symlinks from tinrc.yml", .{});
-        return 1;
-    };
-
-    if (symlinks.len == 0) {
-        output.warn("no symlinks defined in tinrc.yml", .{});
-        return 0;
-    }
-
-    output.info("linking config files...", .{});
-
-    var failed: usize = 0;
-    for (symlinks) |symlink| {
-        const status = symlink.status();
-        switch (status) {
-            .linked => {
-                output.success("skip {s} (already linked)", .{symlink.name});
-            },
-            .missing => {
-                symlink.link() catch {
-                    output.err("failed to link {s}", .{symlink.name});
-                    failed += 1;
-                    continue;
-                };
-                output.success("link {s}", .{symlink.name});
-            },
-            .wrong_target, .not_a_symlink, .broken => {
-                const backed_up = symlink.repair(allocator, status) catch |e| {
-                    switch (e) {
-                        error.BackupFailed => output.err("failed to backup {s}", .{symlink.name}),
-                        error.LinkFailed => output.err("failed to link {s}", .{symlink.name}),
-                    }
-                    failed += 1;
-                    continue;
-                };
-                if (backed_up) {
-                    output.success("link {s} (backed up existing)", .{symlink.name});
-                } else if (status == .broken) {
-                    output.success("link {s} (replaced broken)", .{symlink.name});
-                } else {
-                    output.success("refresh {s}", .{symlink.name});
-                }
-            },
-            .source_missing => {
-                output.warn("skip {s} (source missing: {s})", .{ symlink.name, symlink.source });
-                failed += 1;
-            },
-        }
-    }
-
-    if (failed > 0) {
-        output.err("linking finished with {d} failure{s}", .{ failed, if (failed == 1) "" else "s" });
-        return 1;
-    }
-
-    output.success("linking complete", .{});
-    return 0;
+    return apply.linkManaged(allocator, paths, config);
 }
