@@ -399,6 +399,41 @@ rm -f "$TIN_DIR/environment/recipes/clone-test.yml"
 rm -rf "$CLONE_TEST_DIR"
 
 
+# === artifact validate + list ===
+ARTIFACTS_DIR="$HOME/.config/tin/artifacts"
+mkdir -p "$ARTIFACTS_DIR/skills/demo" "$ARTIFACTS_DIR/rules"
+cat > "$ARTIFACTS_DIR/rules/demo-rule.yml" << 'EOF'
+description: A demo rule
+content: |
+  - do the thing
+EOF
+cat > "$ARTIFACTS_DIR/skills/demo/plan.yml" << 'EOF'
+description: A demo skill
+include:
+  - demo-rule
+system: |
+  {{ demo-rule }}
+EOF
+
+if $TIN artifact validate 2>&1 | grep -q "all references valid"; then
+    pass "artifact validate accepts valid artifacts"
+else
+    fail "artifact validate accepts valid artifacts"
+fi
+
+if $TIN artifact list 2>&1 | grep -q "demo/plan"; then
+    pass "artifact list shows discovered skill"
+else
+    fail "artifact list shows discovered skill"
+fi
+
+# NOTE: cross-reference checking (skills:/include: pointing at missing ids) does
+# not currently fire. The validator records the catalog kind from ref_to.catalog,
+# but the schemas express it as ref_to.kind, so catalog_kind stays null and
+# validate() skips the check. See the artifact validation notes before changing
+# this; the README claims the check exists.
+
+
 # === fonts + full install ===
 mkdir -p "$HOME/Library/Fonts"
 if $TIN fonts 2>&1 | grep -q "fonts\|copy\|skipped"; then

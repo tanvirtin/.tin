@@ -41,29 +41,10 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []
 
     var engine = try Engine.initWithSchemasDir(allocator, schemas_dir);
 
-    const skill_schema_path = try std.fmt.allocPrint(allocator, "{s}/skill.yaml", .{schemas_dir});
-    defer allocator.free(skill_schema_path);
-    const skill_schema_content = try fs.readFileAlloc(allocator, skill_schema_path);
-    defer allocator.free(skill_schema_content);
-    const skill_schema = try engine.loadSchema(skill_schema_content);
-
-    const rule_schema_path = try std.fmt.allocPrint(allocator, "{s}/rule.yaml", .{schemas_dir});
-    defer allocator.free(rule_schema_path);
-    const rule_schema_content = try fs.readFileAlloc(allocator, rule_schema_path);
-    defer allocator.free(rule_schema_content);
-    const rule_schema = try engine.loadSchema(rule_schema_content);
-
-    const mcp_schema_path = try std.fmt.allocPrint(allocator, "{s}/mcp.yaml", .{schemas_dir});
-    defer allocator.free(mcp_schema_path);
-    const mcp_schema_content = try fs.readFileAlloc(allocator, mcp_schema_path);
-    defer allocator.free(mcp_schema_content);
-    const mcp_schema = try engine.loadSchema(mcp_schema_content);
-
-    const dialect_schema_path = try std.fmt.allocPrint(allocator, "{s}/dialect.yaml", .{schemas_dir});
-    defer allocator.free(dialect_schema_path);
-    const dialect_schema_content = try fs.readFileAlloc(allocator, dialect_schema_path);
-    defer allocator.free(dialect_schema_content);
-    const dialect_schema = try engine.loadSchema(dialect_schema_content);
+    const skill_schema = try loadSchemaFile(allocator, &engine, schemas_dir, "skill.yaml");
+    const rule_schema = try loadSchemaFile(allocator, &engine, schemas_dir, "rule.yaml");
+    const mcp_schema = try loadSchemaFile(allocator, &engine, schemas_dir, "mcp.yaml");
+    const dialect_schema = try loadSchemaFile(allocator, &engine, schemas_dir, "dialect.yaml");
 
     return .{
         .allocator = allocator,
@@ -75,6 +56,16 @@ pub fn init(allocator: std.mem.Allocator, tin_dir: []const u8, artifacts_dir: []
         .dialect_schema = dialect_schema,
         .catalog = Catalog.init(allocator),
     };
+}
+
+/// Reads one schema YAML from the schemas directory and compiles it. The four
+/// artifact kinds each load this way; the file content is not retained.
+fn loadSchemaFile(allocator: std.mem.Allocator, engine: *Engine, schemas_dir: []const u8, filename: []const u8) !Schema {
+    const path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ schemas_dir, filename });
+    defer allocator.free(path);
+    const content = try fs.readFileAlloc(allocator, path);
+    defer allocator.free(content);
+    return engine.loadSchema(content);
 }
 
 pub fn deinit(self: *Artifact) void {
