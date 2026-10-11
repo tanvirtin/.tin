@@ -64,57 +64,61 @@ else
     fail "checksum mismatch for $ARCHIVE_BASE"
 fi
 
-tar -tzf "$ARCHIVE" > "$WORK/list"
-tar -tvzf "$ARCHIVE" > "$WORK/verbose"
+inspect_archive() {
+    tar -tzf "$ARCHIVE" > "$WORK/list"
+    tar -tvzf "$ARCHIVE" > "$WORK/verbose"
 
-have_bin=0
-have_rev=0
-have_tinrc=0
-have_schemas=0
-have_env=0
+    have_bin=0
+    have_rev=0
+    have_tinrc=0
+    have_schemas=0
+    have_env=0
 
-while IFS= read -r entry; do
-    [ -n "$entry" ] || continue
-    case "/$entry/" in
-        */../*) fail "archive member has a traversal segment: $entry"; continue ;;
-    esac
-    case "$entry" in
-        /*) fail "archive member is absolute: $entry"; continue ;;
-    esac
-    case "$entry" in
-        "$ROOT"|"$ROOT"/*) ;;
-        *) fail "archive member is outside $ROOT/: $entry"; continue ;;
-    esac
-    inner=${entry#"$ROOT"}
-    inner=${inner#/}
-    [ -n "$inner" ] || continue
-    case "$entry" in
-        */) continue ;;
-    esac
-    case "$inner" in
-        bin/tin) have_bin=1 ;;
-        .tin-revision) have_rev=1 ;;
-        tinrc.yml) have_tinrc=1 ;;
-        engine/src/schemas/*) have_schemas=1 ;;
-        environment/*) have_env=1 ;;
-        *) fail "unexpected archive member: $entry" ;;
-    esac
-done < "$WORK/list"
+    while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        case "/$entry/" in
+            */../*) fail "archive member has a traversal segment: $entry"; continue ;;
+        esac
+        case "$entry" in
+            /*) fail "archive member is absolute: $entry"; continue ;;
+        esac
+        case "$entry" in
+            "$ROOT"|"$ROOT"/*) ;;
+            *) fail "archive member is outside $ROOT/: $entry"; continue ;;
+        esac
+        inner=${entry#"$ROOT"}
+        inner=${inner#/}
+        [ -n "$inner" ] || continue
+        case "$entry" in
+            */) continue ;;
+        esac
+        case "$inner" in
+            bin/tin) have_bin=1 ;;
+            .tin-revision) have_rev=1 ;;
+            tinrc.yml) have_tinrc=1 ;;
+            engine/src/schemas/*) have_schemas=1 ;;
+            environment/*) have_env=1 ;;
+            *) fail "unexpected archive member: $entry" ;;
+        esac
+    done < "$WORK/list"
 
-while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    kind=$(printf '%s' "$line" | cut -c1)
-    case "$kind" in
-        -|d) ;;
-        *) fail "unexpected archive entry type '$kind': $line" ;;
-    esac
-done < "$WORK/verbose"
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        kind=$(printf '%s' "$line" | cut -c1)
+        case "$kind" in
+            -|d) ;;
+            *) fail "unexpected archive entry type '$kind': $line" ;;
+        esac
+    done < "$WORK/verbose"
 
-[ "$have_bin" = 1 ] && pass "member bin/tin present" || fail "member bin/tin missing"
-[ "$have_rev" = 1 ] && pass "member .tin-revision present" || fail "member .tin-revision missing"
-[ "$have_tinrc" = 1 ] && pass "member tinrc.yml present" || fail "member tinrc.yml missing"
-[ "$have_schemas" = 1 ] && pass "member engine/src/schemas/ present" || fail "member engine/src/schemas/ missing"
-[ "$have_env" = 1 ] && pass "member environment/ present" || fail "member environment/ missing"
+    [ "$have_bin" = 1 ] && pass "member bin/tin present" || fail "member bin/tin missing"
+    [ "$have_rev" = 1 ] && pass "member .tin-revision present" || fail "member .tin-revision missing"
+    [ "$have_tinrc" = 1 ] && pass "member tinrc.yml present" || fail "member tinrc.yml missing"
+    [ "$have_schemas" = 1 ] && pass "member engine/src/schemas/ present" || fail "member engine/src/schemas/ missing"
+    [ "$have_env" = 1 ] && pass "member environment/ present" || fail "member environment/ missing"
+}
+
+inspect_archive
 
 mkdir -p "$WORK/extract"
 tar -xzf "$ARCHIVE" -C "$WORK/extract"

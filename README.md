@@ -610,9 +610,10 @@ zig build
 ## Running tests
 
 `zig build test` is the default entry point. It runs unit tests, integration
-tests against the freshly built binary, flow parsing, the expression corpus, and
-the test-wiring check. It uses only local fixtures: no downloads and no
-benchmarks. A group fails the run if it exits non-zero.
+tests against the freshly built binary, flow parsing, the expression corpus,
+the YAML suite runner's own regression cases, and the test-wiring check. It
+uses only local fixtures: no downloads and no benchmarks. A group fails the run
+if it exits non-zero.
 
 ```bash
 cd engine
@@ -635,13 +636,16 @@ with `git init`, `git remote add origin https://github.com/yaml/yaml-test-suite.
 The runner exits 1 for an empty or wrong-layout corpus, a revision mismatch, or a
 compliance failure, and exits 0 with `SKIP` when no corpus is given.
 
-The installer and the YAML runner have their own offline regression suites:
+The installer has its own offline regression suite:
 
 ```bash
 cd engine/tests
 bash installer.sh
-bash test_yaml_suite_runner.sh
 ```
+
+The YAML conformance runner is a Zig executable. Its own regression cases run
+as part of `zig build test`; run the conformance suite itself against the
+pinned corpus with `zig build test-yaml -- <corpus-dir>`.
 
 Each integration check can be run on its own against a binary:
 

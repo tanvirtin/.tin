@@ -123,6 +123,37 @@ pub fn build(b: *std.Build) void {
     test_yaml_exe.root_module.addImport("yaml", yaml_mod);
     b.installArtifact(test_yaml_exe);
 
+    const yaml_suite_exe = b.addExecutable(.{
+        .name = "test_yaml_suite",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/test_yaml_suite.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    const yaml_fixture_exe = b.addExecutable(.{
+        .name = "test_yaml_fixture",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/test_yaml_fixture.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    const yaml_suite_options = b.addOptions();
+    yaml_suite_options.addOptionPath("suite_exe", yaml_suite_exe.getEmittedBin());
+    yaml_suite_options.addOptionPath("fixture_exe", yaml_fixture_exe.getEmittedBin());
+
+    const yaml_suite_regression = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/test_yaml_suite_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    yaml_suite_regression.root_module.addOptions("build_options", yaml_suite_options);
+
     const run_step = b.step("run", "Run tin");
     run_step.dependOn(&run_cmd.step);
 
@@ -184,9 +215,10 @@ pub fn build(b: *std.Build) void {
     test_run.addArtifactArg(expression_suite_exe);
     test_run.addFileArg(b.path("tests/expression_suite.yml"));
 
-    const test_step = b.step("test", "Run the local suite: unit, integration, flow, expressions, and test wiring");
+    const test_step = b.step("test", "Run the local suite: unit, integration, flow, expressions, yaml runner, and test wiring");
     test_step.dependOn(&test_run.step);
     test_step.dependOn(&TestWiringCheck.create(b).step);
+    test_step.dependOn(&b.addRunArtifact(yaml_suite_regression).step);
 
     const yaml_unit_test = b.addTest(.{
         .root_module = b.createModule(.{
@@ -204,7 +236,7 @@ pub fn build(b: *std.Build) void {
     const test_yaml_step = b.step("test-yaml", "Run YAML conformance against an explicit corpus: zig build test-yaml -- <corpus-dir>");
     if (b.args) |args| {
         if (args.len > 0) {
-            const yaml_run = b.addSystemCommand(&.{ "bash", "tests/test_yaml_suite.sh" });
+            const yaml_run = b.addRunArtifact(yaml_suite_exe);
             yaml_run.addArtifactArg(test_yaml_exe);
             yaml_run.addArgs(args);
             test_yaml_step.dependOn(&yaml_run.step);
