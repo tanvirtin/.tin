@@ -4,7 +4,7 @@ Your developer environment as code. Clone it, run it, you're you on any machine.
 
 ## Quickstart
 
-One command bootstraps everything — installs the `tin` binary, clones this repo to `~/.tin`, and runs `tin install` (symlinks, fonts, tool recipes):
+One command installs the `tin` binary and clones this repo to `~/.tin`. It does not change your environment — apply that separately (see below):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh
@@ -44,11 +44,21 @@ placing your own at `~/.config/tin/tinrc.yml` — the personal copy wins:
   artifacts/       ← your skills, rules, dialects (your own git repo)
 ```
 
-To customize without dirtying the repo (so `git pull` stays clean), copy the
-default and edit the copy:
+Create your personal configuration without changing anything else:
 
 ```bash
-mkdir -p ~/.config/tin && cp ~/.tin/tinrc.yml ~/.config/tin/tinrc.yml
+tin init
+```
+
+`tin init` writes `~/.config/tin/tinrc.yml` from a neutral template (placeholder
+identity, no package installs), drops a harmless sample skill into your
+artifacts directory, and creates the Zed export target `~/.agents/skills`. It
+never overwrites existing files and never exports or applies anything; without a
+terminal it never prompts (`-y`, or non-empty `TIN_NONINTERACTIVE`, forces that
+in CI). Edit the file, then apply it when you are ready:
+
+```bash
+tin install
 ```
 
 The repo ships the runtime and a shared default environment; anything personal
@@ -257,12 +267,15 @@ Available variables: `{{ identity.name }}`, `{{ identity.email }}`.
 
 ```
 tin install                         Full environment setup from tinrc.yml
+tin init                            Create personal config without applying it
+tin config path                     Show the effective tinrc.yml and its origin
+tin status                          Read-only environment state
 tin link                            Create managed symlinks
 tin unlink                          Remove symlinks and restore backups
 tin heal                            Inspect symlink state, then repair safely
 tin fonts                           Install fonts
 tin recipe [name]                   List or run recipes
-tin artifact                        Browse, validate, and export skills
+tin artifact                        Browse, validate, inspect, and export skills
 tin mcp                             Project MCP servers into runtime configs
 tin help                            Show runtime command reference and index
 ```
@@ -486,6 +499,19 @@ tin artifact export all
 
 Exports skills as `SKILL.md` files (the [agentskills.io](https://agentskills.io) standard) for the target runtime. Point the export at the skill directory your runtime reads; the `exports:` map in `tinrc.yml` records it.
 
+Zed reads global skills from `~/.agents/skills/`, so export there:
+
+```yaml
+exports:
+  zed:
+    dir: ~/.agents/skills
+```
+
+Export is non-destructive: it only rewrites the skill folders it wrote before
+(tracked in a `.tin-skills` manifest inside the target directory), so skills
+other tools placed in `~/.agents/skills` are left alone. Removed skills are
+pruned on the next export.
+
 Which skills exist is up to you — `tin artifact list` reports what your artifacts directory holds.
 
 ### Validation
@@ -583,22 +609,45 @@ zig build
 
 ## Running tests
 
-`zig build test` is the single entry point. It runs `tests/test_runner.zig`, which
-owns the whole suite: unit tests, integration tests, the YAML spec suite, flow
-parsing, benchmarks, and the expression corpus. A group fails the run if it exits
-non-zero.
+`zig build test` is the default entry point. It runs unit tests, integration
+tests against the freshly built binary, flow parsing, the expression corpus, and
+the test-wiring check. It uses only local fixtures: no downloads and no
+benchmarks. A group fails the run if it exits non-zero.
 
 ```bash
 cd engine
-zig build test                  # the full suite
+zig build test                  # default suite
+zig build test-unit             # unit tests only
+zig build bench                 # performance benchmarks (explicit)
 ```
 
-Each group is also runnable on its own:
+The YAML spec suite needs the official corpus at a pinned revision. It is never
+fetched implicitly:
 
 ```bash
 cd engine
-zig build && bash tests/test.sh                        # integration only
-zig build && bash tests/test_yaml_suite.sh ./zig-out/bin/test_yaml_one   # YAML spec only
+zig build test-yaml -- /path/to/yaml-test-suite
+```
+
+Provision the corpus at the revision recorded in `engine/tests/yaml-suite-revision.txt`
+with `git init`, `git remote add origin https://github.com/yaml/yaml-test-suite.git`,
+`git fetch --depth 1 origin <revision>`, and `git checkout --detach FETCH_HEAD`.
+The runner exits 1 for an empty or wrong-layout corpus, a revision mismatch, or a
+compliance failure, and exits 0 with `SKIP` when no corpus is given.
+
+The installer and the YAML runner have their own offline regression suites:
+
+```bash
+cd engine/tests
+bash installer.sh
+bash test_yaml_suite_runner.sh
+```
+
+Each integration check can be run on its own against a binary:
+
+```bash
+cd engine
+zig build && bash tests/test.sh "$PWD/zig-out/bin/tin"
 ```
 
 ## Supported platforms

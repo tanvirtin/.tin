@@ -36,6 +36,10 @@ jobs:
         working-directory: .tin/engine
         run: zig build test
 
+      - name: YAML conformance runner regression
+        working-directory: .tin/engine/tests
+        run: bash test_yaml_suite_runner.sh
+
   cross-compile:
     runs-on: ubuntu-latest
     steps:

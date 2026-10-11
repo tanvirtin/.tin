@@ -56,12 +56,24 @@ jobs:
 
           "$TIN_DIR/install.sh" --from-source
 
-      - name: Verify tin runs and config is applied
+      - name: Verify installer does not apply the environment
+        run: |
+          export HOME="$SMOKE_HOME"
+          test ! -e "$HOME/.zshrc"
+          test ! -L "$HOME/.zshrc"
+
+      - name: Apply environment explicitly and verify symlink
         run: |
           export HOME="$SMOKE_HOME"
           "$HOME/.tin/bin/tin" help >/dev/null
-          "$HOME/.tin/bin/tin" heal
+          "$HOME/.tin/bin/tin" install
           test -L "$HOME/.zshrc"
+          "$HOME/.tin/bin/tin" heal
+
+      - name: Run installer regression suite
+        run: |
+          export HOME="$SMOKE_HOME"
+          bash "$HOME/.tin/engine/tests/installer.sh"
 
       - name: Verify installer flags
         run: |
