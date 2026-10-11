@@ -162,7 +162,6 @@ fn resolveRuntimePath(
         return std.fs.path.join(allocator, &.{ paths.home_dir, path[2..] });
     }
     if (std.fs.path.isAbsolute(path)) return allocator.dupe(u8, path);
-    // Project-scoped runtimes (e.g. VS Code's .vscode/mcp.json) resolve against cwd.
     return std.fs.path.join(allocator, &.{ cwd orelse ".", path });
 }
 

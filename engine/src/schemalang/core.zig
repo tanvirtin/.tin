@@ -119,9 +119,6 @@ pub const Validator = struct {
         try self.all_scopes.append(self.allocator, scope);
     }
 
-    /// Unwinds the active scope stack. The scope itself stays alive until deinit,
-    /// because pending references record the scope they were declared in and are
-    /// resolved after the stack has been unwound.
     pub fn popScope(self: *Validator) void {
         _ = self.scopes.pop();
     }
@@ -279,8 +276,6 @@ pub fn validate(
             if (v.catalog) |cat| {
                 decl = cat.resolve(ck, pr.name);
             } else {
-                // No catalog to check against (e.g. `tin validate` on a single
-                // file). Skip rather than report a false undefined reference.
                 checkable = false;
             }
         } else if (pr.scope) |s| {

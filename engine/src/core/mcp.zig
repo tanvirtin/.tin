@@ -1,13 +1,6 @@
 const std = @import("std");
 const yaml = @import("yaml");
 
-// MCP projection: turn declarative `mcp/` server artifacts into each runtime's
-// native config format, using a per-runtime `dialects/` artifact.
-//
-// A server is rendered into an ordered list of fields (Field), then serialized
-// to JSON (std.json) or TOML (textual merge). The dialect controls the shape:
-// container key, transport tagging, command layout, injected keys, and how
-// secret references are rewritten.
 
 pub const ServerType = enum { stdio, http };
 pub const Format = enum { json, toml };
@@ -31,9 +24,6 @@ pub const Error = error{
     InvalidSecretStyle,
 };
 
-/// A value inside a rendered server object. Ordered, and sufficient to express
-/// everything the dialect schemas describe (scalars, string arrays, nested
-/// objects such as `env`, `headers`, and zed's empty `settings`).
 pub const FieldValue = union(enum) {
     string: []const u8,
     strings: []const []const u8,
@@ -86,16 +76,12 @@ pub const Dialect = struct {
     description: ?[]const u8 = null,
 };
 
-/// One server projected into a runtime, ready to be merged into a config file.
 pub const Entry = struct {
     name: []const u8,
     fields: []const Field,
     needs_input: bool = false,
 };
 
-// ---------------------------------------------------------------------------
-// Parsing
-// ---------------------------------------------------------------------------
 
 fn optString(val: yaml.Value, key: []const u8) ?[]const u8 {
     const v = val.getMapping(key) orelse return null;
@@ -212,11 +198,7 @@ pub fn parseDialect(allocator: std.mem.Allocator, val: yaml.Value) !Dialect {
     return dialect;
 }
 
-// ---------------------------------------------------------------------------
-// Rendering a server into dialect-shaped fields
-// ---------------------------------------------------------------------------
 
-/// Resolve the string value at a dotted path (e.g. "headers.Authorization").
 fn lookupString(fields: []const Field, path: []const u8) ?[]const u8 {
     const dot = std.mem.indexOfScalar(u8, path, '.');
     const head = if (dot) |d| path[0..d] else path;
@@ -236,7 +218,6 @@ fn lookupString(fields: []const Field, path: []const u8) ?[]const u8 {
     return null;
 }
 
-/// Replace the string value at a dotted path in place.
 fn replaceString(fields: []Field, path: []const u8, replacement: []const u8) bool {
     const dot = std.mem.indexOfScalar(u8, path, '.');
     const head = if (dot) |d| path[0..d] else path;
@@ -284,8 +265,6 @@ fn applySecret(
             _ = replaceString(fields.items, path, repl);
         },
         .env_var_name => {
-            // Only HTTP servers have a bearer-token reference form; stdio secrets
-            // have none and must be passed literally, so leave them untouched.
             if (server_type != .http) return;
             const key = secret.key orelse "token";
             const remaining = try removePath(allocator, fields.items, path);
@@ -296,8 +275,6 @@ fn applySecret(
     }
 }
 
-/// Return a copy of `fields` with the string at a dotted path removed. Nested
-/// objects are rebuilt so the parent list stays well-formed.
 fn removePath(allocator: std.mem.Allocator, fields: []Field, path: []const u8) std.mem.Allocator.Error![]Field {
     const dot = std.mem.indexOfScalar(u8, path, '.');
     const head = if (dot) |d| path[0..d] else path;
@@ -324,9 +301,6 @@ fn removePath(allocator: std.mem.Allocator, fields: []Field, path: []const u8) s
     return out.toOwnedSlice(allocator);
 }
 
-/// Deep-copy a field list into fresh, owned, mutable memory. Server-supplied
-/// fields may live in read-only storage (parsed YAML is fine, but literals and
-/// dialect constants are not), so secret rewriting must never write in place.
 fn cloneFields(allocator: std.mem.Allocator, fields: []const Field) std.mem.Allocator.Error![]Field {
     var list: std.ArrayListUnmanaged(Field) = .{};
     for (fields) |field| try list.append(allocator, try cloneField(allocator, field));
@@ -349,7 +323,6 @@ fn cloneFieldValue(allocator: std.mem.Allocator, value: FieldValue) std.mem.Allo
     };
 }
 
-/// Build the ordered field list for one server under one dialect.
 pub fn buildEntry(allocator: std.mem.Allocator, server: Server, dialect: Dialect) !Entry {
     var fields: std.ArrayListUnmanaged(Field) = .{};
 
@@ -410,9 +383,6 @@ pub fn buildEntry(allocator: std.mem.Allocator, server: Server, dialect: Dialect
     };
 }
 
-// ---------------------------------------------------------------------------
-// JSON serialization + merge
-// ---------------------------------------------------------------------------
 
 fn fieldValueToJson(allocator: std.mem.Allocator, value: FieldValue) !std.json.Value {
     switch (value) {
@@ -441,7 +411,6 @@ pub fn mergeJson(
     var root: std.json.Value = .{ .object = std.json.ObjectMap.init(allocator) };
     if (existing) |text| {
         if (std.mem.trim(u8, text, " \t\r\n").len > 0) {
-            // Refuse to overwrite a config we cannot understand.
             const parsed = std.json.parseFromSlice(std.json.Value, allocator, text, .{}) catch
                 return error.InvalidExistingConfig;
             switch (parsed.value) {
@@ -494,9 +463,6 @@ pub fn mergeJson(
     return out.toOwnedSlice();
 }
 
-// ---------------------------------------------------------------------------
-// TOML serialization + textual merge
-// ---------------------------------------------------------------------------
 
 fn tomlString(allocator: std.mem.Allocator, s: []const u8) ![]const u8 {
     var out: std.ArrayListUnmanaged(u8) = .{};
@@ -523,7 +489,6 @@ fn isBareKey(s: []const u8) bool {
 }
 
 fn tomlBareKey(allocator: std.mem.Allocator, s: []const u8) ![]const u8 {
-    // Bare keys are limited to A-Za-z0-9_-; quote anything else (e.g. slashed ids).
     if (isBareKey(s)) return allocator.dupe(u8, s);
     return std.fmt.allocPrint(allocator, "\"{s}\"", .{s});
 }
@@ -575,7 +540,6 @@ fn stripDots(segment: []const u8) []const u8 {
 }
 
 fn isManagedTomlHeader(header: []const u8, dialect: Dialect, entries: []const Entry) bool {
-    // header is the trimmed "[...]" line.
     if (header.len < 2 or header[0] != '[') return false;
     const end = std.mem.indexOfScalar(u8, header, ']') orelse return false;
     const inner = std.mem.trim(u8, header[1..end], " \t");
@@ -597,7 +561,6 @@ pub fn mergeToml(
     dialect: Dialect,
     entries: []const Entry,
 ) ![]const u8 {
-    // 1. Keep every line that does not belong to a managed server block.
     var kept = std.io.Writer.Allocating.init(allocator);
     if (existing) |text| {
         var skipping = false;
@@ -617,7 +580,6 @@ pub fn mergeToml(
     }
     const kept_text = std.mem.trimRight(u8, kept.written(), "\n");
 
-    // 2. Render the managed entries.
     var rendered = std.io.Writer.Allocating.init(allocator);
     for (entries, 0..) |entry, i| {
         if (i > 0) try rendered.writer.writeAll("\n\n");
@@ -625,7 +587,6 @@ pub fn mergeToml(
     }
     const rendered_text = std.mem.trimRight(u8, rendered.written(), "\n");
 
-    // 3. Join with a single blank-line separator so re-running is a no-op.
     var out = std.io.Writer.Allocating.init(allocator);
     if (kept_text.len > 0) {
         try out.writer.writeAll(kept_text);
@@ -648,8 +609,6 @@ pub fn merge(
     };
 }
 
-/// Render the managed entries on their own, with no surrounding config. Used for
-/// dry-run display.
 pub fn renderPreview(allocator: std.mem.Allocator, dialect: Dialect, entries: []const Entry) ![]const u8 {
     switch (dialect.format) {
         .json => {
@@ -671,9 +630,6 @@ pub fn renderPreview(allocator: std.mem.Allocator, dialect: Dialect, entries: []
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 fn parseOne(allocator: std.mem.Allocator, text: []const u8) !yaml.DocNode {
     return yaml.parse(allocator, text);
