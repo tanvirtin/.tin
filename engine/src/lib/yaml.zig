@@ -154,3 +154,29 @@ test "source map: folded block" {
     try std.testing.expectEqual(@as(u32, 15), map.map(6));
     try std.testing.expectEqual(@as(u32, 18), map.map(7));
 }
+
+test "parse accepts escaped tab and tab separated values" {
+    var doc = try parse(std.testing.allocator, "key: \"a\\\tb\"\nother:\tvalue\n");
+    defer doc.deinit();
+
+    try std.testing.expectEqualStrings("a\tb", doc.value.get("key").?.getString().?);
+    try std.testing.expectEqualStrings("value", doc.value.get("other").?.getString().?);
+}
+
+test "parse accepts flow mapping key with value indicator on next line" {
+    var doc = try parse(std.testing.allocator, "{foo\n: bar}\n");
+    defer doc.deinit();
+
+    try std.testing.expectEqualStrings("bar", doc.value.get("foo").?.getString().?);
+}
+
+test "parse rejects flow sequence key with value indicator on next line" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    try std.testing.expectError(error.InvalidYaml, parse(arena.allocator(), "[foo\n: bar]\n"));
+}
+
+test "parse accepts tab-only line before document start" {
+    var doc = try parse(std.testing.allocator, "%YAML 1.2\n\t\n---\n");
+    defer doc.deinit();
+}

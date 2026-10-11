@@ -17,6 +17,15 @@ pub const SimpleKey = struct {
     is_quoted: bool = false,
 };
 
+fn isYamlVersion(s: []const u8) bool {
+    const dot = std.mem.indexOfScalar(u8, s, '.') orelse return false;
+    if (dot == 0 or dot == s.len - 1) return false;
+    for (s, 0..) |c, i| {
+        if (i != dot and !std.ascii.isDigit(c)) return false;
+    }
+    return true;
+}
+
 pub const Scanner = struct {
     fn validateTrailing(self: *Scanner) !void {
         const had_space = !self.eof() and isBlank(self.ch());
@@ -54,6 +63,7 @@ pub const Scanner = struct {
     last_was_flow_entry: bool = false,
     flow_just_started: bool = false,
     explicit_key_pending: bool = false,
+    explicit_key_tab: ?usize = null,
     value_indicator_on_line: bool = false,
     value_after_explicit_key: bool = false,
     doc_start_line: ?usize = null,
@@ -116,6 +126,7 @@ pub const Scanner = struct {
     fn rollIndent(self: *Scanner, col: i32, tt: TokenTag) !void {
         if (self.flow_level > 0) return;
         if (col > self.indent) {
+            if (self.blanksBeforeHaveTab(self.pos)) return error.InvalidYaml;
             self.indents.append(self.alloc, self.indent) catch return error.OutOfMemory;
             self.indent = col;
             try self.emit(.{ .tag = tt });
@@ -160,16 +171,50 @@ pub const Scanner = struct {
             if (!sk.possible) continue;
             const line_changed = (sk.line != self.line);
             const too_long = (self.pos > sk.byte_pos and self.pos - sk.byte_pos > 1024);
-            if (too_long or (line_changed and !(sk.is_quoted and self.flow_level > 0))) {
+            if (too_long or (line_changed and self.flow_level == 0)) {
                 if (sk.required) return error.InvalidYaml;
                 sk.possible = false;
             }
         }
     }
 
+    fn onlyBlanksBeforeOnLine(self: *Scanner) bool {
+        var p = self.pos;
+        while (p > 0 and isBlank(self.src[p - 1])) p -= 1;
+        return p == 0 or isBreak(self.src[p - 1]);
+    }
+
+    fn tabInLeadingBlanks(self: *Scanner) ?usize {
+        var p = self.pos;
+        while (p < self.src.len and isBlank(self.src[p])) : (p += 1) {
+            if (self.src[p] == '\t') return p;
+        }
+        return null;
+    }
+
+    fn blanksBeforeHaveTab(self: *Scanner, pos: usize) bool {
+        var p = pos;
+        while (p > 0 and isBlank(self.src[p - 1])) : (p -= 1) {
+            if (self.src[p - 1] == '\t') return true;
+        }
+        return false;
+    }
+
+    fn checkIndentationTab(self: *Scanner) ParseError!void {
+        if (self.indent < 0 or self.ch() != '\t' or self.col > @as(usize, @intCast(self.indent)) or !self.onlyBlanksBeforeOnLine()) return;
+        var p = self.pos;
+        while (p < self.src.len and isBlank(self.src[p])) p += 1;
+        if (p == self.src.len or isBreak(self.src[p]) or self.src[p] == '#') return;
+        if (self.flow_level > 0 and (self.src[p] == ']' or self.src[p] == '}' or self.src[p] == ',')) return;
+        return error.InvalidYaml;
+    }
+
     fn eatSpacesAndComments(self: *Scanner) ParseError!void {
         while (!self.eof()) {
-            if (self.ch() == ' ' or self.ch() == '\t') {
+            if (self.ch() == ' ') {
+                self.step();
+            } else if (self.ch() == '\t') {
+                try self.checkIndentationTab();
                 self.step();
             } else if (self.ch() == '#') {
                 if (self.pos > 0 and self.col > 0 and !isBlank(self.src[self.pos - 1]) and !isBreak(self.src[self.pos - 1])) {
@@ -216,14 +261,7 @@ pub const Scanner = struct {
                 var found_content = false;
                 while (!found_content and !self.eof()) {
                     const iter_start = self.pos;
-                    while (!self.eof() and self.ch() == ' ') self.step();
-                    if (!self.eof() and self.ch() == '\t' and self.indent >= 0 and self.col <= @as(usize, @intCast(self.indent + 1))) {
-                        return error.InvalidYaml;
-                    }
-                    if (self.eof()) break;
-                    if (self.ch() == '#') {
-                        while (!self.eof() and !isBreak(self.ch())) self.step();
-                    }
+                    try self.eatSpacesAndComments();
                     if (!self.eof() and isBreak(self.ch())) {
                         self.skipBreak();
                         self.value_indicator_on_line = false;
@@ -315,27 +353,31 @@ pub const Scanner = struct {
             }
 
             if (self.flow_level == 0 and self.col == 0 and c == '%' and self.indent < 0 and !self.had_content) {
-                const rest_start = self.pos + 1;
-                const is_yaml_dir = rest_start + 4 <= self.src.len and std.mem.eql(u8, self.src[rest_start..][0..4], "YAML");
-                const is_tag_dir = rest_start + 3 <= self.src.len and std.mem.eql(u8, self.src[rest_start..][0..3], "TAG");
-                if (is_yaml_dir or is_tag_dir) {
-                    if (is_yaml_dir and self.had_yaml_directive) return error.InvalidYaml;
-                    if (is_yaml_dir) self.had_yaml_directive = true;
-                    self.had_directive = true;
-                    while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step();
-                    while (!self.eof() and isBlank(self.ch())) self.step();
-                    const handle_start = self.pos;
-                    while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step();
-                    if (is_tag_dir) {
-                        self.tag_handles.append(self.alloc, self.src[handle_start..self.pos]) catch return error.OutOfMemory;
-                    }
-                    while (!self.eof() and isBlank(self.ch())) self.step();
-                    if (!self.eof() and !isBreak(self.ch()) and self.ch() != '#') {
-                        if (is_yaml_dir) return error.InvalidYaml;
-                    }
-                    while (!self.eof() and !isBreak(self.ch())) self.step();
-                    continue;
+                if (self.had_doc_start and !self.had_doc_end) return error.InvalidYaml;
+                const name_start = self.pos + 1;
+                var name_end = name_start;
+                while (name_end < self.src.len and !isBlank(self.src[name_end]) and !isBreak(self.src[name_end])) name_end += 1;
+                const name = self.src[name_start..name_end];
+                if (name.len == 0) return error.InvalidYaml;
+                const is_yaml_dir = std.mem.eql(u8, name, "YAML");
+                const is_tag_dir = std.mem.eql(u8, name, "TAG");
+                if (is_yaml_dir and self.had_yaml_directive) return error.InvalidYaml;
+                if (is_yaml_dir) self.had_yaml_directive = true;
+                self.had_directive = true;
+                while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step();
+                while (!self.eof() and isBlank(self.ch())) self.step();
+                const arg_start = self.pos;
+                while (!self.eof() and !isBlank(self.ch()) and !isBreak(self.ch())) self.step();
+                if (is_yaml_dir and !isYamlVersion(self.src[arg_start..self.pos])) return error.InvalidYaml;
+                if (is_tag_dir) {
+                    self.tag_handles.append(self.alloc, self.src[arg_start..self.pos]) catch return error.OutOfMemory;
                 }
+                while (!self.eof() and isBlank(self.ch())) self.step();
+                if (!self.eof() and !isBreak(self.ch()) and self.ch() != '#') {
+                    if (is_yaml_dir) return error.InvalidYaml;
+                }
+                while (!self.eof() and !isBreak(self.ch())) self.step();
+                continue;
             }
 
             if (c == '[') {
@@ -417,6 +459,7 @@ pub const Scanner = struct {
                 self.simple_key_allowed = false;
                 self.explicit_key_pending = true;
                 self.step();
+                self.explicit_key_tab = self.tabInLeadingBlanks();
                 try self.emit(.{ .tag = .key_token, .start = @intCast(self.pos), .end = @intCast(self.pos) });
                 continue;
             }
@@ -425,9 +468,9 @@ pub const Scanner = struct {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
                 if (self.currentSimpleKey().*.possible) {
-                    if (self.flow_level > 0 and self.currentSimpleKey().*.line != self.line) {
+                    if (self.flow_level > 0 and self.isFlowSequence() and self.currentSimpleKey().*.line != self.line) {
                         if (!self.currentSimpleKey().*.is_quoted) return error.InvalidYaml;
-                        if (self.isFlowSequence() and !self.isBlankOrBreakOrEofAt(1) and !self.isFlowIndicator(self.chAt(1))) {
+                        if (!self.isBlankOrBreakOrEofAt(1) and !self.isFlowIndicator(self.chAt(1))) {
                             return error.InvalidYaml;
                         }
                     }
@@ -439,6 +482,7 @@ pub const Scanner = struct {
                                 if (self.currentSimpleKey().*.line == dsl) return error.InvalidYaml;
                             }
                             if (self.value_indicator_on_line and !self.value_after_explicit_key) return error.InvalidYaml;
+                            if (self.blanksBeforeHaveTab(self.currentSimpleKey().*.byte_pos)) return error.InvalidYaml;
                             try self.insertAt(sk_pos, .{ .tag = .block_mapping_start, .start = @intCast(self.pos), .end = @intCast(self.pos) });
                             try self.insertAt(sk_pos + 1, .{ .tag = .key_token, .start = @intCast(self.pos), .end = @intCast(self.pos) });
                             self.indents.append(self.alloc, self.indent) catch return error.OutOfMemory;
@@ -452,7 +496,13 @@ pub const Scanner = struct {
                     self.currentSimpleKey().*.possible = false;
                     if (self.flow_level == 0) self.value_indicator_on_line = true;
                 } else {
-                    if (self.explicit_key_pending) {} else if (self.flow_level == 0) {
+                    if (self.explicit_key_pending) {
+                        if (self.flow_level == 0) {
+                            if (self.explicit_key_tab) |tab| {
+                                if (std.mem.indexOfAny(u8, self.src[tab..self.pos], "\r\n") == null) return error.InvalidYaml;
+                            }
+                        }
+                    } else if (self.flow_level == 0) {
                         try self.rollIndent(@intCast(self.col), .block_mapping_start);
                         try self.emit(.{ .tag = .key_token, .start = @intCast(self.pos), .end = @intCast(self.pos) });
                     }
@@ -544,6 +594,7 @@ pub const Scanner = struct {
                 continue;
             }
 
+            if (c == '%' or c == '@' or c == '`') return error.InvalidYaml;
             if (self.flow_level > 0 and c == '-') {
                 if (self.isBlankOrBreakOrEofAt(1) or self.isFlowIndicator(self.chAt(1))) {
                     return error.InvalidYaml;
@@ -640,10 +691,13 @@ pub const Scanner = struct {
                 }
             }
             if (!found_content) {
-                block_indent = if (self.indent >= 0) @as(usize, @intCast(self.indent)) + 1 else 1;
-                if (max_blank_indent > block_indent) return error.InvalidYaml;
+                const min_indent: usize = if (self.indent >= 0) @as(usize, @intCast(self.indent)) + 1 else 1;
+                block_indent = @max(max_blank_indent, min_indent);
+            } else {
+                if (block_indent > 0 and max_blank_indent > block_indent) return error.InvalidYaml;
+                const min_content: usize = if (self.indent >= 0) @as(usize, @intCast(self.indent)) + 1 else 0;
+                block_indent = @max(block_indent, min_content);
             }
-            if (found_content and block_indent > 0 and max_blank_indent > block_indent) return error.InvalidYaml;
         }
 
         var result: std.ArrayListUnmanaged(u8) = .{};
@@ -673,6 +727,7 @@ pub const Scanner = struct {
             }
 
             if (line_indent < block_indent) {
+                if (self.indent >= 0 and self.ch() == '\t') return error.InvalidYaml;
                 self.pos -= line_indent;
                 self.col -= line_indent;
                 break;
@@ -787,7 +842,7 @@ pub const Scanner = struct {
                         self.src[target_pos] = '\n';
                         target_pos += 1;
                     },
-                    't' => {
+                    't', '\t' => {
                         self.src[target_pos] = '\t';
                         target_pos += 1;
                     },
@@ -1097,8 +1152,104 @@ pub const Scanner = struct {
                 .style = .plain,
                 .source_map = final_map,
             });
-        } else {
-            source_map_entries.deinit(self.alloc);
         }
     }
 };
+
+fn scanSource(src: []const u8) !void {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const buf = try alloc.dupe(u8, src);
+    var scanner = Scanner{ .alloc = alloc, .src = buf };
+    _ = try scanner.scan();
+}
+
+test "scanner accepts escaped tab in double quoted scalar" {
+    try scanSource("\"2 inline\\\ttab\"\n");
+    try scanSource("\"3 trailing\\\t\n    tab\"\n");
+    try scanSource("\"5 leading\n    \\\t  tab\"\n");
+}
+
+test "scanner accepts tab as separation after indentation" {
+    try scanSource("foo:\n \tbar\n");
+    try scanSource("key:\tvalue\n");
+    try scanSource("-\tvalue\n");
+    try scanSource("-\t-1\n");
+    try scanSource("?\tkey\n");
+}
+
+test "scanner rejects tab used as indentation" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("foo:\n\tbar\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("foo:\n  a: 1\n  \tb: 2\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("a: b\n\tc: d\n"));
+}
+
+test "scanner accepts tab-only and tab-prefixed comment lines" {
+    try scanSource("a: 1\n\t\nb: 2\n");
+    try scanSource("a: 1\n\t# comment\nb: 2\n");
+    try scanSource("- [\n\t\n foo\n ]\n");
+    try scanSource("%YAML 1.2\n\t\n---\n");
+}
+
+test "scanner rejects tab before a compact block collection" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("-\t-\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("- \t-\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("?\t-\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("?\tkey:\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("? key:\n:\tkey:\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("? -\n:\t-\n"));
+}
+
+test "scanner rejects flow content indented by tab" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("- [\n\tfoo,\n foo\n ]\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("- [a,\n\tb]\n"));
+}
+
+test "scanner rejects tab line that ends a block scalar" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("foo: |\n\t\nbar: 1\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("- |\n  a\n\t\n- b\n"));
+    try scanSource("foo: |\n \t\nbar: 1\n");
+    try scanSource("--- |\n  x\n\t\n");
+}
+
+test "scanner accepts flow mapping key with value indicator on next line" {
+    try scanSource("{foo\n: bar}\n");
+    try scanSource("k: {\n k\n :\n v\n }\n");
+    try std.testing.expectError(error.InvalidYaml, scanSource("[ foo\n: bar ]\n"));
+}
+
+test "scanner validates YAML directive version and placement" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("%YAML 1.1#...\n---\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("%YAML 1.2.3\n---\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("%YAML\n---\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("%YAML 1.2\n---\n%YAML 1.2\n---\n"));
+    try scanSource("%YAML \t 1.1\n---\n");
+    try scanSource("%YAML 1.2 # comment\n---\nx\n");
+    try scanSource("%YAML 1.2\n---\na\n...\n%YAML 1.2\n---\nb\n");
+}
+
+test "scanner rejects directive inside document content" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("---\n%x\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("!foo \"bar\"\n%TAG ! tag:example.com,2000:app/\n---\n"));
+}
+
+test "scanner accepts reserved directives before document start" {
+    try scanSource("%FOO  bar baz # ignored\n              # with a warning.\n--- \"foo\"\n");
+    try std.testing.expectError(error.InvalidYaml, scanSource("%FOO bar\nx\n"));
+}
+
+test "scanner rejects indicators that cannot start a plain scalar" {
+    try std.testing.expectError(error.InvalidYaml, scanSource("key: @x\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("key: `x\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("key: %x\n"));
+    try scanSource("{ matches\n% : 20 }\n");
+}
+
+test "scanner block scalar indentation rules" {
+    try scanSource("- |+\n   \n");
+    try scanSource("a: |\nfoo: 1\n");
+    try scanSource("--- |\nfoo\n");
+    try std.testing.expectError(error.InvalidYaml, scanSource("key: |\n\tx\n"));
+    try std.testing.expectError(error.InvalidYaml, scanSource("a: |\n  x\n \t\n  y\n"));
+}

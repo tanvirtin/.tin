@@ -1,0 +1,3 @@
+revision=6ad3d2c62885d82fc349026c136ef560838fdf3d
+url=https://github.com/yaml/yaml-test-suite.git
+branch=data
