@@ -53,5 +53,3 @@ serve.log
 serve.pid
 __pycache__/
 /tin
-
-/tinrc.yml

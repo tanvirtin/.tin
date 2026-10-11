@@ -14,10 +14,7 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         return 1;
     };
 
-    const config = Environment.Config.load(allocator, paths) orelse {
-        output.err("could not load tinrc.yml", .{});
-        return 1;
-    };
+    const config = Environment.Config.loadOrEmpty(allocator, paths);
 
     return apply.linkManaged(allocator, paths, config);
 }

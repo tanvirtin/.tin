@@ -43,10 +43,7 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         }
     }
 
-    const config = Environment.Config.load(allocator, paths) orelse {
-        output.err("could not load tinrc.yml", .{});
-        return 1;
-    };
+    const config = Environment.Config.loadOrEmpty(allocator, paths);
     const symlinks = Environment.RecipeManager.getManagedSymlinks(allocator, config, paths) catch {
         output.err("could not resolve symlinks from tinrc.yml", .{});
         return 1;

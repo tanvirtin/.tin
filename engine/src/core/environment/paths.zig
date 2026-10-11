@@ -44,13 +44,20 @@ pub const RecipeSearch = struct {
     }
 };
 
+fn configDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin" });
+}
+
 pub fn recipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
     return std.fs.path.join(allocator, &.{ self.tin_dir, "environment", "recipes" });
 }
 
 pub fn personalRecipesDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    const dir = std.process.getEnvVarOwned(allocator, "TIN_RECIPES") catch
-        return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "recipes" });
+    const dir = std.process.getEnvVarOwned(allocator, "TIN_RECIPES") catch {
+        const config_dir = try self.configDir(allocator);
+        defer allocator.free(config_dir);
+        return std.fs.path.join(allocator, &.{ config_dir, "recipes" });
+    };
 
     return dir;
 }
@@ -75,13 +82,29 @@ pub fn schemasDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 
     return std.fs.path.join(allocator, &.{ self.tin_dir, "engine", "src", "schemas" });
 }
 
-pub fn tinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+pub fn personalTinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    const config_dir = try self.configDir(allocator);
+    defer allocator.free(config_dir);
+    return std.fs.path.join(allocator, &.{ config_dir, "tinrc.yml" });
+}
+
+pub fn repoTinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
     return std.fs.path.join(allocator, &.{ self.tin_dir, "tinrc.yml" });
 }
 
+pub fn tinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    const personal = try self.personalTinrcPath(allocator);
+    if (fs.pathExists(personal)) return personal;
+    allocator.free(personal);
+    return self.repoTinrcPath(allocator);
+}
+
 pub fn artifactsDir(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
-    const dir = std.process.getEnvVarOwned(allocator, "TIN_ARTIFACTS") catch
-        return std.fs.path.join(allocator, &.{ self.home_dir, ".config", "tin", "artifacts" });
+    const dir = std.process.getEnvVarOwned(allocator, "TIN_ARTIFACTS") catch {
+        const config_dir = try self.configDir(allocator);
+        defer allocator.free(config_dir);
+        return std.fs.path.join(allocator, &.{ config_dir, "artifacts" });
+    };
 
     return dir;
 }
@@ -146,9 +169,58 @@ test "artifactsDir defaults to ~/.config/tin/artifacts when no override" {
     try std.testing.expectEqualStrings("/home/u/.config/tin/artifacts", dir);
 }
 
-test "tinrcPath sits at the tin dir root" {
+test "personalTinrcPath defaults to ~/.config/tin/tinrc.yml" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const p = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
+    try std.testing.expectEqualStrings("/home/u/.config/tin/tinrc.yml", try p.personalTinrcPath(arena.allocator()));
+}
+
+test "repoTinrcPath sits at the tin dir root" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const p = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
+    try std.testing.expectEqualStrings("/tin/tinrc.yml", try p.repoTinrcPath(arena.allocator()));
+}
+
+test "tinrcPath falls back to the repo default when no personal override exists" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const p = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
     try std.testing.expectEqualStrings("/tin/tinrc.yml", try p.tinrcPath(arena.allocator()));
+}
+
+test "tinrcPath prefers the personal override when present" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const root = try tmp.parent_dir.realpathAlloc(std.testing.allocator, &tmp.sub_path);
+    defer std.testing.allocator.free(root);
+
+    const tin_dir = try std.fs.path.join(std.testing.allocator, &.{ root, ".tin" });
+    defer std.testing.allocator.free(tin_dir);
+    const config_dir = try std.fs.path.join(std.testing.allocator, &.{ root, ".config", "tin" });
+    defer std.testing.allocator.free(config_dir);
+    const repo_file = try std.fs.path.join(std.testing.allocator, &.{ tin_dir, "tinrc.yml" });
+    defer std.testing.allocator.free(repo_file);
+    const personal_file = try std.fs.path.join(std.testing.allocator, &.{ config_dir, "tinrc.yml" });
+    defer std.testing.allocator.free(personal_file);
+
+    const p = Paths{ .tin_dir = tin_dir, .home_dir = root };
+
+    try fs.ensureDirectoryExists(tin_dir);
+    try fs.writeFile(repo_file, "identity:\n  name: repo");
+    {
+        const path = try p.tinrcPath(std.testing.allocator);
+        defer std.testing.allocator.free(path);
+        try std.testing.expectEqualStrings(repo_file, path);
+    }
+
+    try fs.ensureDirectoryExists(config_dir);
+    try fs.writeFile(personal_file, "identity:\n  name: personal");
+    {
+        const path = try p.tinrcPath(std.testing.allocator);
+        defer std.testing.allocator.free(path);
+        try std.testing.expectEqualStrings(personal_file, path);
+    }
 }

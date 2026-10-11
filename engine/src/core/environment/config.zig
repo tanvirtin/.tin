@@ -29,6 +29,10 @@ pub fn load(allocator: std.mem.Allocator, paths: Paths) ?Config {
     return .{ .doc = doc };
 }
 
+pub fn loadOrEmpty(allocator: std.mem.Allocator, paths: Paths) Config {
+    return load(allocator, paths) orelse .{ .doc = null };
+}
+
 pub fn getMapping(self: *const Config, key: []const u8) ?yaml.Value {
     const doc = self.doc orelse return null;
     return doc.getMapping(key);

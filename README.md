@@ -20,16 +20,26 @@ tin install
 
 `tin` is a CLI that reads `tinrc.yml` and executes recipes. Everything about your environment — identity, symlinks, fonts, tools — is defined in YAML. The Zig binary is the engine; the YAML is the configuration.
 
-`tinrc.yml` is personal and not committed — start from [`tinrc.example.yml`](environment/tinrc.example.yml):
+A default `tinrc.yml` ships with the repo at `~/.tin/tinrc.yml`. Override it by
+placing your own at `~/.config/tin/tinrc.yml` — the personal copy wins:
 
 ```
-~/.tin/            ← this repo: the runtime. Core logic, nothing personal.
+~/.tin/            ← this repo: the runtime + default environment (incl. tinrc.yml)
 ~/.config/tin/
+  tinrc.yml        ← optional personal override (wins over the repo default)
   artifacts/       ← your skills, rules, dialects (your own git repo)
 ```
 
-The repo is runtime only. Your artifacts — the skills and rules `tin artifact
-export` publishes — live outside it at `~/.config/tin/artifacts`, so they're
+To customize without dirtying the repo (so `git pull` stays clean), copy the
+default and edit the copy:
+
+```bash
+mkdir -p ~/.config/tin && cp ~/.tin/tinrc.yml ~/.config/tin/tinrc.yml
+```
+
+The repo ships the runtime and a shared default environment; anything personal
+lives in `~/.config/tin`. Your artifacts — the skills and rules `tin artifact
+export` publishes — live there too, at `~/.config/tin/artifacts`, so they're
 yours to version, share, or keep private. Set `TIN_ARTIFACTS` to point tin
 somewhere else; the default is `~/.config/tin/artifacts`.
 
@@ -541,6 +551,7 @@ the current directory (for project-scoped targets like `.vscode/mcp.json`).
 ## Repo layout
 
 ```
+tinrc.yml      default config (override at ~/.config/tin/tinrc.yml)
 engine/        the tin CLI: build.zig, src/, tests/, bench/
 environment/   what tin applies: recipes/, config/ (dotfiles), tinrc.example.yml
 install.sh     bootstrap script

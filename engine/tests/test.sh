@@ -28,11 +28,11 @@ export TEST_ROOT=$(mktemp -d)
 export HOME="$TEST_ROOT"
 export TIN_DIR="$TEST_ROOT/.tin"
 
-mkdir -p "$TIN_DIR/environment" "$TIN_DIR/engine/src"
+mkdir -p "$TIN_DIR/environment" "$TIN_DIR/engine/src" "$HOME/.config/tin"
 cp -r ../environment/recipes "$TIN_DIR/environment/"
 cp -r ../environment/config "$TIN_DIR/environment/"
 cp -r src/schemas "$TIN_DIR/engine/src/"
-cat > "$TIN_DIR/tinrc.yml" << 'EOF'
+cat > "$HOME/.config/tin/tinrc.yml" << 'EOF'
 identity:
   name: Your Name
   email: you@example.com
@@ -459,7 +459,7 @@ secret:
   key: bearer_token_env_var
 EOF
 
-cat >> "$TIN_DIR/tinrc.yml" << 'EOF'
+cat >> "$HOME/.config/tin/tinrc.yml" << 'EOF'
 
 runtimes:
   cursor:

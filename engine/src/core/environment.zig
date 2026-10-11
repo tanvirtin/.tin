@@ -19,7 +19,7 @@ home_dir: []const u8,
 
 pub fn init(allocator: std.mem.Allocator) !Environment {
     const paths = try Paths.init(allocator);
-    const config = Config.load(allocator, paths) orelse Config{ .doc = null };
+    const config = Config.loadOrEmpty(allocator, paths);
 
     return .{
         .paths = paths,
