@@ -68,6 +68,7 @@ else
 fi
 
 mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR=$(CDPATH= cd "$OUTPUT_DIR" && pwd)
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/tin-package.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT INT TERM
