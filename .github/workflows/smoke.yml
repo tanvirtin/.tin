@@ -17,6 +17,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash --noprofile --norc -euo pipefail {0}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,9 +27,8 @@ jobs:
         with:
           version: 0.15.2
 
-      - name: Bootstrap install.sh in a clean HOME
+      - name: Install tin (install.sh --from-source)
         run: |
-          set -euo pipefail
           export HOME="$SMOKE_HOME"
           rm -rf "$HOME"
           mkdir -p "$HOME"
@@ -52,19 +54,26 @@ jobs:
             'install:' \
             '  - link' > "$HOME/.config/tin/tinrc.yml"
 
-          TIN_FROM_SOURCE=1 "$TIN_DIR/install.sh"
+          "$TIN_DIR/install.sh" --from-source
 
-      - name: Smoke assertions
+      - name: Verify tin runs and config is applied
         run: |
-          set -euo pipefail
           export HOME="$SMOKE_HOME"
           "$HOME/.tin/bin/tin" help >/dev/null
           "$HOME/.tin/bin/tin" heal
           test -L "$HOME/.zshrc"
 
-      - name: Missing config degrades gracefully
+      - name: Verify installer flags
         run: |
-          set -euo pipefail
+          export HOME="$SMOKE_HOME"
+          "$HOME/.tin/install.sh" --help >/dev/null
+          if "$HOME/.tin/install.sh" --bogus 2>/dev/null; then
+            echo "expected an unknown flag to be rejected"
+            exit 1
+          fi
+
+      - name: Verify missing config is tolerated
+        run: |
           export HOME="$SMOKE_HOME"
           rm -f "$HOME/.config/tin/tinrc.yml" "$HOME/.tin/tinrc.yml"
           "$HOME/.tin/bin/tin" install
