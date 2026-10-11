@@ -239,6 +239,7 @@ tin heal                            Inspect symlink state, then repair safely
 tin fonts                           Install fonts
 tin recipe [name]                   List or run recipes
 tin artifact                        Browse, validate, and export skills
+tin mcp                             Project MCP servers into runtime configs
 tin help                            Show runtime command reference and index
 ```
 
@@ -358,6 +359,7 @@ Tin CLI for deeper context.
   skills/       ← workflows, procedures, composed skills
   rules/        ← reusable rule sets included by skills
   dialects/     ← per-runtime MCP dialects
+  mcp/          ← MCP server declarations projected into runtimes
 ```
 
 ### Commands
@@ -474,6 +476,65 @@ Checks:
 - No duplicate IDs
 - Every skill has `description` and either `command` or `system`
 
+
+</details>
+
+<details>
+<summary>MCP servers</summary>
+
+## MCP servers
+
+`tin mcp` projects MCP server declarations into each runtime's own config file.
+Declare a server once in `artifacts/mcp/`, describe a runtime's format once in
+`artifacts/dialects/`, and point `runtimes:` at the target file — tin renders and
+merges.
+
+### Declaring a server
+
+`artifacts/mcp/mem0.yml`:
+
+```yaml
+type: http
+url: https://mcp.mem0.ai/mcp
+headers:
+  Authorization: MEM0_API_KEY
+secrets:
+  - headers.Authorization
+```
+
+`type` is `stdio` (with `command`, `args`, `cwd`, `env`) or `http` (with `url`,
+`headers`). `secrets` lists dotted paths whose values are secret identifiers; tin
+rewrites them per dialect.
+
+### Configuring a runtime
+
+```yaml
+runtimes:
+  cursor:
+    mcp: ~/.cursor/mcp.json
+    dialect: cursor
+  codex:
+    mcp: ~/.codex/config.toml
+    dialect: codex
+```
+
+A dialect (`artifacts/dialects/<name>.yml`) describes how to write servers into a
+runtime's file: the container key, `json`/`toml`, whether transport is `explicit`
+or `inferred`, how `command` is shaped, keys to inject, and how secrets are
+referenced (`env_ref`, `var_ref`, `input_ref`, or `env_var_name`).
+
+### Commands
+
+```
+tin mcp list                List declared servers and configured runtimes
+tin mcp diff [runtime]      Show the projected config without writing
+tin mcp apply [runtime]     Merge servers into runtime configs (backs up to .tin.bak)
+```
+
+`apply` merges idempotently: unrelated keys are preserved, managed servers are
+rewritten in place, and a changed file is backed up to `<path>.tin.bak` first.
+Paths beginning with `~/` resolve to `$HOME`; other relative paths resolve against
+the current directory (for project-scoped targets like `.vscode/mcp.json`).
 
 </details>
 

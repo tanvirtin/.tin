@@ -2,6 +2,7 @@ const std = @import("std");
 const fs = @import("../lib/fs.zig");
 const yaml = @import("yaml");
 const output = @import("../lib/output.zig");
+const mcp = @import("mcp.zig");
 
 pub const Rule = @import("artifact/rule.zig");
 pub const Skill = @import("artifact/skill.zig");
@@ -231,6 +232,18 @@ pub fn discoverRules(self: *const Artifact, allocator: std.mem.Allocator) ![]Rul
     return discover(Rule, allocator, dir);
 }
 
+pub fn discoverMcp(self: *const Artifact, allocator: std.mem.Allocator) ![]mcp.Server {
+    const dir = try std.fmt.allocPrint(allocator, "{s}/mcp", .{self.artifacts_dir});
+    defer allocator.free(dir);
+    return discoverWith(mcp.Server, allocator, dir, mcp.parseServer);
+}
+
+pub fn discoverDialects(self: *const Artifact, allocator: std.mem.Allocator) ![]mcp.Dialect {
+    const dir = try std.fmt.allocPrint(allocator, "{s}/dialects", .{self.artifacts_dir});
+    defer allocator.free(dir);
+    return discoverWith(mcp.Dialect, allocator, dir, mcp.parseDialect);
+}
+
 fn discover(comptime T: type, allocator: std.mem.Allocator, base_dir: []const u8) ![]T {
     var items = std.ArrayListUnmanaged(T){};
 
@@ -241,6 +254,53 @@ fn discover(comptime T: type, allocator: std.mem.Allocator, base_dir: []const u8
     try walkYmlFiles(allocator, dir, base_dir, &ctx, parseOneFile);
 
     return items.toOwnedSlice(allocator);
+}
+
+fn discoverWith(
+    comptime T: type,
+    allocator: std.mem.Allocator,
+    base_dir: []const u8,
+    comptime parseFn: anytype,
+) ![]T {
+    var items = std.ArrayListUnmanaged(T){};
+
+    var dir = std.fs.openDirAbsolute(base_dir, .{ .iterate = true }) catch return items.toOwnedSlice(allocator);
+    defer dir.close();
+
+    var ctx = CustomCtx(T, parseFn){ .allocator = allocator, .base_dir = base_dir, .items = &items };
+    try walkYmlFiles(allocator, dir, base_dir, &ctx, parseCustomFile);
+
+    return items.toOwnedSlice(allocator);
+}
+
+fn CustomCtx(comptime T: type, comptime parseFn: anytype) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        base_dir: []const u8,
+        items: *std.ArrayListUnmanaged(T),
+
+        const Parse = parseFn;
+        const Item = T;
+    };
+}
+
+fn parseCustomFile(ctx: anytype, file_path: []const u8) anyerror!void {
+    const Ctx = @TypeOf(ctx.*);
+    const allocator = ctx.allocator;
+    const content = fs.readFileAlloc(allocator, file_path) catch return;
+    defer allocator.free(content);
+    const id = deriveId(allocator, ctx.base_dir, file_path) catch return;
+
+    const doc = yaml.parse(allocator, content) catch {
+        allocator.free(id);
+        return;
+    };
+    var item = Ctx.Parse(allocator, doc.value) catch {
+        allocator.free(id);
+        return;
+    };
+    item.id = id;
+    try ctx.items.append(allocator, item);
 }
 
 fn ParseCtx(comptime T: type) type {

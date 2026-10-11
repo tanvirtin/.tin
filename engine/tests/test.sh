@@ -430,6 +430,98 @@ fi
 rm -f "$ARTIFACTS_DIR/skills/demo/broken.yml"
 
 
+MCP_DIR="$ARTIFACTS_DIR/mcp"
+DIALECT_DIR="$ARTIFACTS_DIR/dialects"
+mkdir -p "$MCP_DIR" "$DIALECT_DIR"
+cat > "$MCP_DIR/mem0.yml" << 'EOF'
+type: http
+url: https://mcp.mem0.ai/mcp
+headers:
+  Authorization: MEM0_API_KEY
+secrets:
+  - headers.Authorization
+EOF
+cat > "$DIALECT_DIR/cursor.yml" << 'EOF'
+container: mcpServers
+format: json
+transport: inferred
+command_style: scalar
+secret:
+  style: env_ref
+EOF
+cat > "$DIALECT_DIR/codex.yml" << 'EOF'
+container: mcp_servers
+format: toml
+transport: inferred
+command_style: scalar
+secret:
+  style: env_var_name
+  key: bearer_token_env_var
+EOF
+
+cat >> "$TIN_DIR/tinrc.yml" << 'EOF'
+
+runtimes:
+  cursor:
+    mcp: ~/.cursor/mcp.json
+    dialect: cursor
+  codex:
+    mcp: ~/.codex/config.toml
+    dialect: codex
+EOF
+
+mkdir -p "$HOME/.cursor" "$HOME/.codex"
+echo '{"mcpServers":{"other":{"command":"keep-me"}},"unrelated":true}' > "$HOME/.cursor/mcp.json"
+printf 'model = "gpt-5"\n' > "$HOME/.codex/config.toml"
+
+if $TIN mcp list 2>&1 | grep -q "mem0"; then
+    pass "tin mcp list shows declared server"
+else
+    fail "tin mcp list shows declared server"
+fi
+
+if $TIN mcp diff 2>&1 | grep -q "would update"; then
+    pass "tin mcp diff reports pending changes"
+else
+    fail "tin mcp diff reports pending changes"
+fi
+
+if $TIN mcp apply 2>&1 | grep -qE "wrote|updated"; then
+    pass "tin mcp apply writes runtime configs"
+else
+    fail "tin mcp apply writes runtime configs"
+fi
+
+if grep -q "keep-me" "$HOME/.cursor/mcp.json" && grep -q "mcp.mem0.ai" "$HOME/.cursor/mcp.json"; then
+    pass "mcp json merge preserves foreign entries"
+else
+    fail "mcp json merge preserves foreign entries"
+fi
+
+if grep -q '\${env:MEM0_API_KEY}' "$HOME/.cursor/mcp.json"; then
+    pass "mcp env_ref secret rewritten"
+else
+    fail "mcp env_ref secret rewritten"
+fi
+
+if grep -q 'bearer_token_env_var = "MEM0_API_KEY"' "$HOME/.codex/config.toml" && grep -q 'model = "gpt-5"' "$HOME/.codex/config.toml"; then
+    pass "mcp toml merge keeps unrelated keys and hoists secret"
+else
+    fail "mcp toml merge keeps unrelated keys and hoists secret"
+fi
+
+MCP_BEFORE=$(cat "$HOME/.cursor/mcp.json")
+$TIN mcp apply >/dev/null 2>&1
+MCP_AFTER=$(cat "$HOME/.cursor/mcp.json")
+if [ "$MCP_BEFORE" = "$MCP_AFTER" ]; then
+    pass "tin mcp apply is idempotent"
+else
+    fail "tin mcp apply is idempotent"
+fi
+
+rm -rf "$MCP_DIR" "$DIALECT_DIR" "$HOME/.cursor" "$HOME/.codex"
+
+
 cat > "$TIN_DIR/environment/recipes/apply-steps.yml" << 'EOF'
 name: apply-steps
 steps:

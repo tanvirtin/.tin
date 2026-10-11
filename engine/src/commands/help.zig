@@ -17,8 +17,10 @@ const Topic = struct {
 };
 
 const artifact_children = [_][]const u8{ "list", "validate", "export" };
+const mcp_children = [_][]const u8{ "list", "diff", "apply" };
 const topics = [_]Topic{
     .{ .name = "artifact", .description = "Validate and export skills and rules", .children = &artifact_children, .usage = "tin artifact <list|validate|export> [...]" },
+    .{ .name = "mcp", .description = "Project MCP server artifacts into configured runtimes", .children = &mcp_children, .usage = "tin mcp <list|diff|apply> [runtime]" },
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {

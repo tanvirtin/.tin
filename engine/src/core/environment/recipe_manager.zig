@@ -141,6 +141,85 @@ pub fn getExportTargets(allocator: std.mem.Allocator, config: Config, paths: Pat
     return try collected.toOwnedSlice(allocator);
 }
 
+pub const Runtime = struct {
+    name: []const u8,
+    mcp_path: []const u8,
+    dialect: []const u8,
+};
+
+fn runtimeString(val: yaml.Value, key: []const u8) ?[]const u8 {
+    const v = val.getMapping(key) orelse return null;
+    return v.getString();
+}
+
+fn resolveRuntimePath(
+    allocator: std.mem.Allocator,
+    paths: Paths,
+    path: []const u8,
+    cwd: ?[]const u8,
+) ![]const u8 {
+    if (std.mem.startsWith(u8, path, "~/")) {
+        return std.fs.path.join(allocator, &.{ paths.home_dir, path[2..] });
+    }
+    if (std.fs.path.isAbsolute(path)) return allocator.dupe(u8, path);
+    // Project-scoped runtimes (e.g. VS Code's .vscode/mcp.json) resolve against cwd.
+    return std.fs.path.join(allocator, &.{ cwd orelse ".", path });
+}
+
+pub fn getRuntimes(allocator: std.mem.Allocator, config: Config, paths: Paths) ![]const Runtime {
+    const section = config.getMapping("runtimes") orelse return &.{};
+    const node = section.tree.nodes.items[section.idx];
+    if (node.tag != .mapping) return &.{};
+
+    const cwd = std.fs.cwd().realpathAlloc(allocator, ".") catch null;
+
+    var list: std.ArrayListUnmanaged(Runtime) = .{};
+    var child = node.first_child;
+    while (child != 0) {
+        const key_node = section.tree.nodes.items[child];
+        const name = key_node.computed_value orelse section.tree.source[key_node.start..key_node.end];
+        const val_idx = key_node.next_sibling;
+        if (val_idx == 0) break;
+
+        const val = yaml.Value{ .tree = section.tree, .idx = val_idx, .arena = section.arena };
+        const mcp_s = runtimeString(val, "mcp");
+        const dialect_s = runtimeString(val, "dialect");
+        if (mcp_s != null and dialect_s != null) {
+            try list.append(allocator, .{
+                .name = try allocator.dupe(u8, name),
+                .mcp_path = try resolveRuntimePath(allocator, paths, mcp_s.?, cwd),
+                .dialect = try allocator.dupe(u8, dialect_s.?),
+            });
+        }
+
+        child = section.tree.nodes.items[val_idx].next_sibling;
+    }
+    return list.toOwnedSlice(allocator);
+}
+
+test "getRuntimes parses targets and resolves cwd-relative paths" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const doc = try yaml.parse(a,
+        \\runtimes:
+        \\  cursor:
+        \\    mcp: ~/.cursor/mcp.json
+        \\    dialect: cursor
+        \\  vscode:
+        \\    mcp: .vscode/mcp.json
+        \\    dialect: vscode
+    );
+    const config = Config{ .doc = doc };
+    const paths = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
+    const runtimes = try getRuntimes(a, config, paths);
+    try std.testing.expectEqual(@as(usize, 2), runtimes.len);
+    try std.testing.expectEqualStrings("cursor", runtimes[0].name);
+    try std.testing.expectEqualStrings("/home/u/.cursor/mcp.json", runtimes[0].mcp_path);
+    try std.testing.expectEqualStrings("cursor", runtimes[0].dialect);
+    try std.testing.expect(std.mem.endsWith(u8, runtimes[1].mcp_path, ".vscode/mcp.json"));
+}
+
 test "getInstallSteps parses link, fonts, and recipes group" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
