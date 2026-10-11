@@ -7,6 +7,9 @@ on:
         description: 'Version tag (e.g. v0.1.0)'
         required: true
 
+  push:
+    tags: ['v*']
+
 permissions:
   contents: read
 
@@ -24,7 +27,7 @@ jobs:
         name: Resolve version to commit
         run: |
           set -eu
-          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
           git fetch --force --tags origin
           if ! git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
             echo "tag not found: $VERSION" >&2
@@ -144,10 +147,10 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version }}
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
           files: |
             dist/*.tar.gz
             dist/*.tar.gz.sha256
           generate_release_notes: false
-          body: 'Release ${{ github.event.inputs.version }}'
+          body: 'Release ${{ github.event.inputs.version || github.ref_name }}'
           make_latest: true
