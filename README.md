@@ -10,6 +10,20 @@ One command bootstraps everything — installs the `tin` binary, clones this rep
 curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh
 ```
 
+By default it installs the latest prebuilt release and falls back to building
+from source. Control that explicitly:
+
+```bash
+# Prebuilt binary only — fails if no release exists (no compiler needed)
+curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --from-binary
+
+# Build from source (requires Zig)
+curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --from-source
+
+# Pin a specific release
+curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --version v0.1.0
+```
+
 If you already have `tin`, just run the install steps directly:
 
 ```bash
