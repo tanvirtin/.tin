@@ -79,7 +79,21 @@ jobs:
         run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSafe
 
       - name: Package
-        run: sh engine/package.sh engine/zig-out/bin/tin "${{ matrix.artifact }}" dist "${{ needs.resolve.outputs.revision }}"
+        run: |
+          set +e
+          sh engine/package.sh engine/zig-out/bin/tin "${{ matrix.artifact }}" dist "${{ needs.resolve.outputs.revision }}" > package.out 2>&1
+          status=$?
+          set -e
+          echo "[diagnostic] package step exited $status"
+          cat package.out
+          exit "$status"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: package-log-${{ matrix.artifact }}
+          path: package.out
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
@@ -122,9 +136,22 @@ jobs:
           TIN_SMOKE_EXECUTE: ${{ matrix.execute }}
           TIN_PACKAGE_SMOKE_INSTALLER: ${{ github.workspace }}/install.sh
         run: |
+          set +e
           sh engine/tests/package_smoke.sh \
             "candidate/${{ matrix.artifact }}.tar.gz" \
-            "candidate/${{ matrix.artifact }}.tar.gz.sha256"
+            "candidate/${{ matrix.artifact }}.tar.gz.sha256" > gate.out 2>&1
+          status=$?
+          set -e
+          echo "[diagnostic] gate step exited $status"
+          cat gate.out
+          exit "$status"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-log-${{ matrix.artifact }}
+          path: gate.out
+          if-no-files-found: error
 
   release:
     needs: gate
