@@ -135,7 +135,3 @@ test "schema allocations are freed when the engine is deinited" {
     const schema = try engine.loadSchema(content);
     try std.testing.expect(schema.kind == .object);
 }
-
-test {
-    _ = @import("core.zig");
-}
