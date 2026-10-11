@@ -1,6 +1,5 @@
 const std = @import("std");
-const fs = @import("../lib/fs.zig");
-const Engine = @import("../schemalang/engine.zig").Engine;
+const output = @import("../lib/output.zig");
 const Diagnostic = @import("../schemalang/diagnostic.zig").Diagnostic;
 
 pub const Paths = @import("environment/paths.zig");
@@ -19,7 +18,7 @@ home_dir: []const u8,
 
 pub fn init(allocator: std.mem.Allocator) !Environment {
     const paths = try Paths.init(allocator);
-    const config = Config.loadOrEmpty(allocator, paths);
+    const config = try Config.loadOrEmpty(allocator, paths);
 
     return .{
         .paths = paths,
@@ -46,15 +45,12 @@ pub fn fontSourceDir(self: *const Environment, allocator: std.mem.Allocator) ![]
 }
 
 pub fn validateTinrc(allocator: std.mem.Allocator, paths: Paths) ?[]const Diagnostic {
-    const tinrc_path = paths.tinrcPath(allocator) catch return null;
-    defer allocator.free(tinrc_path);
-    if (!fs.pathExists(tinrc_path)) return null;
+    const selection = paths.selectTinrc(allocator) catch return null;
+    defer selection.deinit(allocator);
+    const tinrc_path = selection.path orelse return null;
 
-    const schemas_dir = paths.schemasDir(allocator) catch return null;
-    defer allocator.free(schemas_dir);
-
-    var engine = Engine.initWithSchemasDir(allocator, schemas_dir) catch return null;
-    defer engine.deinit();
-
-    return engine.validateFile(allocator, schemas_dir, "tinrc.yaml", tinrc_path) catch null;
+    return Config.validate(allocator, paths, tinrc_path) catch |e| {
+        output.err("could not validate {s}: {s}", .{ tinrc_path, @errorName(e) });
+        return null;
+    };
 }

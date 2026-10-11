@@ -16,7 +16,14 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         return 1;
     };
 
-    const config = Environment.Config.loadOrEmpty(allocator, paths);
+    const loaded_config = Environment.Config.load(allocator, paths) catch {
+        output.err("install aborted: configuration could not be loaded", .{});
+        return 1;
+    };
+    const config = loaded_config orelse {
+        output.warn("no tinrc.yml found — nothing to install", .{});
+        return 0;
+    };
 
     const steps = Environment.RecipeManager.getInstallSteps(allocator, config) catch {
         output.err("could not read install steps from tinrc.yml", .{});

@@ -24,6 +24,61 @@ pub const RecipeLayer = struct {
     origin: []const u8,
 };
 
+const Presence = enum { absent, present };
+
+fn pathPresence(path: []const u8) Presence {
+    _ = std.posix.fstatat(std.posix.AT.FDCWD, path, std.posix.AT.SYMLINK_NOFOLLOW) catch |e| switch (e) {
+        error.FileNotFound => return .absent,
+        else => return .present,
+    };
+    return .present;
+}
+
+pub const Origin = enum { personal, repo, none };
+
+pub const Selection = struct {
+    path: ?[]const u8,
+    origin: Origin,
+    personal_path: []const u8,
+    repo_path: []const u8,
+
+    pub fn deinit(self: Selection, allocator: std.mem.Allocator) void {
+        if (self.path) |p| allocator.free(p);
+        allocator.free(self.personal_path);
+        allocator.free(self.repo_path);
+    }
+};
+
+pub fn selectTinrc(self: *const Paths, allocator: std.mem.Allocator) !Selection {
+    const personal_path = try self.personalTinrcPath(allocator);
+    errdefer allocator.free(personal_path);
+    const repo_path = try self.repoTinrcPath(allocator);
+    errdefer allocator.free(repo_path);
+
+    if (pathPresence(personal_path) == .present) {
+        return .{
+            .path = try allocator.dupe(u8, personal_path),
+            .origin = .personal,
+            .personal_path = personal_path,
+            .repo_path = repo_path,
+        };
+    }
+    if (pathPresence(repo_path) == .present) {
+        return .{
+            .path = try allocator.dupe(u8, repo_path),
+            .origin = .repo,
+            .personal_path = personal_path,
+            .repo_path = repo_path,
+        };
+    }
+    return .{
+        .path = null,
+        .origin = .none,
+        .personal_path = personal_path,
+        .repo_path = repo_path,
+    };
+}
+
 pub const RecipeSearch = struct {
     layers: [2]RecipeLayer,
     count: usize,
@@ -94,7 +149,7 @@ pub fn repoTinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const 
 
 pub fn tinrcPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
     const personal = try self.personalTinrcPath(allocator);
-    if (fs.pathExists(personal)) return personal;
+    if (pathPresence(personal) == .present) return personal;
     allocator.free(personal);
     return self.repoTinrcPath(allocator);
 }
@@ -223,4 +278,113 @@ test "tinrcPath prefers the personal override when present" {
         defer std.testing.allocator.free(path);
         try std.testing.expectEqualStrings(personal_file, path);
     }
+}
+
+const SelectFixture = struct {
+    root: []const u8,
+    tin_dir: []const u8,
+    config_dir: []const u8,
+    repo_file: []const u8,
+    personal_file: []const u8,
+    paths: Paths,
+};
+
+fn selectFixture(a: std.mem.Allocator, tmp: *std.testing.TmpDir) !SelectFixture {
+    const root = try tmp.parent_dir.realpathAlloc(a, &tmp.sub_path);
+    const tin_dir = try std.fs.path.join(a, &.{ root, ".tin" });
+    const config_dir = try std.fs.path.join(a, &.{ root, ".config", "tin" });
+    const repo_file = try std.fs.path.join(a, &.{ tin_dir, "tinrc.yml" });
+    const personal_file = try std.fs.path.join(a, &.{ config_dir, "tinrc.yml" });
+    return .{
+        .root = root,
+        .tin_dir = tin_dir,
+        .config_dir = config_dir,
+        .repo_file = repo_file,
+        .personal_file = personal_file,
+        .paths = Paths{ .tin_dir = tin_dir, .home_dir = root },
+    };
+}
+
+test "selectTinrc reports none when neither file exists" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const f = try selectFixture(a, &tmp);
+
+    const selection = try f.paths.selectTinrc(a);
+    try std.testing.expect(selection.path == null);
+    try std.testing.expect(selection.origin == .none);
+    try std.testing.expectEqualStrings(f.personal_file, selection.personal_path);
+    try std.testing.expectEqualStrings(f.repo_file, selection.repo_path);
+}
+
+test "selectTinrc reports repo when only the repo file exists" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const f = try selectFixture(a, &tmp);
+
+    try fs.ensureDirectoryExists(f.tin_dir);
+    try fs.writeFile(f.repo_file, "identity:\n  name: repo");
+
+    const selection = try f.paths.selectTinrc(a);
+    try std.testing.expectEqual(Origin.repo, selection.origin);
+    try std.testing.expectEqualStrings(f.repo_file, selection.path.?);
+}
+
+test "selectTinrc prefers a present personal file over the repo default" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const f = try selectFixture(a, &tmp);
+
+    try fs.ensureDirectoryExists(f.tin_dir);
+    try fs.writeFile(f.repo_file, "identity:\n  name: repo");
+    try fs.ensureDirectoryExists(f.config_dir);
+    try fs.writeFile(f.personal_file, "identity:\n  name: personal");
+
+    const selection = try f.paths.selectTinrc(a);
+    try std.testing.expectEqual(Origin.personal, selection.origin);
+    try std.testing.expectEqualStrings(f.personal_file, selection.path.?);
+}
+
+test "selectTinrc treats a dangling personal symlink as present" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const f = try selectFixture(a, &tmp);
+
+    try fs.ensureDirectoryExists(f.tin_dir);
+    try fs.writeFile(f.repo_file, "identity:\n  name: repo");
+    try fs.ensureDirectoryExists(f.config_dir);
+    const missing_target = try std.fs.path.join(a, &.{ f.root, "absent.yml" });
+    try std.fs.symLinkAbsolute(missing_target, f.personal_file, .{});
+
+    const selection = try f.paths.selectTinrc(a);
+    try std.testing.expectEqual(Origin.personal, selection.origin);
+    try std.testing.expectEqualStrings(f.personal_file, selection.path.?);
+}
+
+test "tinrcPath keeps returning the personal path for a dangling symlink" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const f = try selectFixture(a, &tmp);
+
+    try fs.ensureDirectoryExists(f.config_dir);
+    const missing_target = try std.fs.path.join(a, &.{ f.root, "absent.yml" });
+    try std.fs.symLinkAbsolute(missing_target, f.personal_file, .{});
+
+    const path = try f.paths.tinrcPath(a);
+    try std.testing.expectEqualStrings(f.personal_file, path);
 }

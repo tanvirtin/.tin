@@ -1,9 +1,11 @@
 const std = @import("std");
 const Artifact = @import("../core/artifact.zig");
-const fs = @import("../lib/fs.zig");
 const output = @import("../lib/output.zig");
 const Environment = @import("../core/environment.zig");
 const utils = @import("../lib/utils.zig");
+
+const export_mod = Artifact.exporter;
+const inspection = @import("../core/inspection.zig");
 
 pub const meta = .{
     .name = "artifact",
@@ -61,11 +63,26 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
         return validate(&engine);
     } else if (std.mem.eql(u8, sub, "export")) {
         return exportTarget(allocator, &engine, &environment, sub_args);
+    } else if (std.mem.eql(u8, sub, "inspect")) {
+        return inspectOne(allocator, &environment, sub_args);
     } else {
         output.err("unknown artifact command: {s}", .{sub});
         showHelp(allocator, &environment);
         return 1;
     }
+}
+
+fn inspectOne(allocator: std.mem.Allocator, environment: *const Environment, args: []const []const u8) u8 {
+    if (args.len < 1) {
+        output.err("usage: tin artifact inspect <skill-id>", .{});
+        return 1;
+    }
+    const result = inspection.inspectSkill(allocator, environment, args[0]) catch |e| {
+        output.err("could not inspect {s}: {s}", .{ args[0], @errorName(e) });
+        return 1;
+    };
+    inspection.renderSkillInspection(result);
+    return 0;
 }
 
 fn showHelp(allocator: std.mem.Allocator, env: *const Environment) void {
@@ -74,7 +91,8 @@ fn showHelp(allocator: std.mem.Allocator, env: *const Environment) void {
     output.plain("  tin artifact list [skills]                    List definitions", .{});
     output.plain("  tin artifact validate                         Validate all references", .{});
     output.plain("  tin artifact --path=<path> --format=<fmt>     Export a definition", .{});
-    output.plain("  tin artifact export [target]                  Export skills to a configured target (default: all)", .{});
+    output.plain("  tin artifact export [target] [--dry-run] [--adopt-legacy]", .{});
+    output.plain("                                                Export skills to a configured target (default: all)", .{});
     output.plain("", .{});
     output.plain("  Paths:   skills/search/ripgrep", .{});
     const targets = Environment.RecipeManager.getExportTargets(allocator, env.config, env.paths) catch &.{};
@@ -292,6 +310,22 @@ fn validate(engine: *Artifact) u8 {
 }
 
 fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, env: *const Environment, args: []const []const u8) u8 {
+    var dry_run = false;
+    var adopt_legacy = false;
+    var target_name: ?[]const u8 = null;
+    for (args) |arg| {
+        if (std.mem.eql(u8, arg, "--dry-run")) {
+            dry_run = true;
+        } else if (std.mem.eql(u8, arg, "--adopt-legacy")) {
+            adopt_legacy = true;
+        } else if (std.mem.startsWith(u8, arg, "-")) {
+            output.err("unknown export flag: {s}", .{arg});
+            return 1;
+        } else {
+            target_name = arg;
+        }
+    }
+
     const targets = Environment.RecipeManager.getExportTargets(allocator, env.config, env.paths) catch {
         output.err("could not read exports from tinrc.yml", .{});
         return 1;
@@ -303,110 +337,105 @@ fn exportTarget(allocator: std.mem.Allocator, engine: *const Artifact, env: *con
         return 1;
     }
 
-    const skills = engine.discoverSkills(allocator) catch {
-        output.err("failed to discover skills", .{});
+    const skills = engine.discoverSkillsStrict(allocator) catch |e| {
+        output.err("failed to discover skills: {s}", .{@errorName(e)});
         return 1;
     };
-    const rules = engine.discoverRules(allocator) catch {
-        output.err("failed to discover rules", .{});
+    const rules = engine.discoverRulesStrict(allocator) catch |e| {
+        output.err("failed to discover rules: {s}", .{@errorName(e)});
         return 1;
     };
 
-    if (args.len == 0 or std.mem.eql(u8, args[0], "all")) {
-        var failed: usize = 0;
-        for (targets) |target| {
-            if (exportSkills(allocator, target.dir, skills, rules) != 0) failed += 1;
-        }
-        return if (failed > 0) 1 else 0;
-    }
-
-    for (targets) |target| {
-        if (std.mem.eql(u8, target.name, args[0])) {
-            return exportSkills(allocator, target.dir, skills, rules);
-        }
-    }
-
-    var buf: std.ArrayListUnmanaged(u8) = .{};
-    const w = buf.writer(allocator);
-    for (targets) |target| w.print("{s} ", .{target.name}) catch {};
-    output.err("unknown target: {s} (available: {s})", .{ args[0], buf.items });
-    return 1;
-}
-
-fn writeExportFile(path: []const u8, content: []const u8) !void {
-    try fs.ensureParentDirExists(path);
-    const file = try std.fs.createFileAbsolute(path, .{});
-    defer file.close();
-    try file.writeAll(content);
-}
-
-fn renderSkillToMd(allocator: std.mem.Allocator, skill: Artifact.Skill) ![]const u8 {
-    var buf: std.ArrayListUnmanaged(u8) = .{};
-    const w = buf.writer(allocator);
-    const name = try utils.slugify(allocator, skill.id);
-
-    try w.print("---\nname: {s}\ndescription: {s}\n", .{ name, skill.description });
-    if (skill.command != null) try w.print("allowed-tools: Bash Read\n", .{});
-    if (skill.context) |ctx| try w.print("context: {s}\n", .{ctx});
-    if (skill.skills.len > 0) {
-        try w.print("skills:\n", .{});
-        for (skill.skills) |s| try w.print("  - {s}\n", .{s});
-    }
-    try w.print("---\n\n", .{});
-
-    if (skill.system) |sys| try w.print("{s}\n", .{sys});
-    if (skill.command) |cmd| {
-        try w.print("\n## Command\n\n`{s}`\n", .{cmd});
-    }
-    if (skill.input.len > 0) {
-        try w.print("\n## Parameters\n\n", .{});
-        for (skill.input) |param| {
-            const req = if (param.required) " (required)" else "";
-            const desc = param.description orelse "";
-            try w.print("- **{s}** ({s}{s}): {s}\n", .{ param.name, param.type, req, desc });
+    if (target_name) |name| {
+        if (!std.mem.eql(u8, name, "all")) {
+            for (targets) |target| {
+                if (std.mem.eql(u8, target.name, name)) {
+                    return exportOne(allocator, target, skills, rules, dry_run, adopt_legacy);
+                }
+            }
+            var buf: std.ArrayListUnmanaged(u8) = .{};
+            const w = buf.writer(allocator);
+            for (targets) |target| w.print("{s} ", .{target.name}) catch {};
+            output.err("unknown target: {s} (available: {s})", .{ name, buf.items });
+            return 1;
         }
     }
 
-    return buf.items;
-}
-
-fn exportSkills(allocator: std.mem.Allocator, base_dir: []const u8, skills: []const Artifact.Skill, rules: []const Artifact.Rule) u8 {
-    const base = base_dir;
-    utils.cleanDir(base) catch |e| {
-        output.err("failed to clear {s}: {s}", .{ base, @errorName(e) });
-        return 1;
-    };
-    var count: usize = 0;
     var failed: usize = 0;
+    for (targets) |target| {
+        if (exportOne(allocator, target, skills, rules, dry_run, adopt_legacy) != 0) failed += 1;
+    }
+    return if (failed > 0) 1 else 0;
+}
 
-    for (skills) |skill| {
-        const resolved_skill = resolveSkill(allocator, skill, rules);
-        const content = renderSkillToMd(allocator, resolved_skill) catch |e| {
-            failed += 1;
-            output.err("failed to render {s}: {s}", .{ resolved_skill.id, @errorName(e) });
-            continue;
-        };
-        const slug = utils.slugify(allocator, resolved_skill.id) catch |e| {
-            failed += 1;
-            output.err("failed to slugify {s}: {s}", .{ resolved_skill.id, @errorName(e) });
-            continue;
-        };
-        const path = std.fmt.allocPrint(allocator, "{s}/{s}/SKILL.md", .{ base, slug }) catch continue;
-        writeExportFile(path, content) catch |e| {
-            failed += 1;
-            output.err("failed to write {s}: {s}", .{ path, @errorName(e) });
-            continue;
-        };
-        count += 1;
+fn exportOne(
+    allocator: std.mem.Allocator,
+    target: Environment.RecipeManager.ExportTarget,
+    skills: []const Artifact.Skill,
+    rules: []const Artifact.Rule,
+    dry_run: bool,
+    adopt_legacy: bool,
+) u8 {
+    const prepared = export_mod.prepareWithOptions(allocator, target.dir, skills, rules, .{ .adopt_legacy = adopt_legacy }) catch |e| {
+        output.err("export preflight failed for {s}: {s}", .{ target.name, @errorName(e) });
+        return 1;
+    };
+
+    reportPlan(target, prepared);
+
+    if (dry_run) {
+        if (prepared.hasConflicts()) {
+            output.err("export preview for {s}: blocking conflicts present; nothing written", .{target.name});
+            return 1;
+        }
+        output.success("export preview for {s}: {d} definitions, no conflicts", .{ target.name, exportedCount(prepared) });
+        return 0;
     }
 
-    if (failed > 0) {
-        output.err("exported {d} of {d} definitions to {s}/ ({d} failed)", .{ count, skills.len, base, failed });
+    if (prepared.hasConflicts()) {
+        output.err("export refused for {s}: resolve conflicts before exporting", .{target.name});
         return 1;
     }
 
-    output.success("exported {d} definitions to {s}/", .{ count, base });
+    export_mod.apply(allocator, prepared) catch |e| {
+        output.err("export failed for {s}: {s} (ownership manifest preserved; retry to reconcile)", .{ target.name, @errorName(e) });
+        return 1;
+    };
+
+    output.success("exported {d} definitions to {s}/", .{ exportedCount(prepared), target.dir });
     return 0;
+}
+
+fn exportedCount(prepared: export_mod.Prepared) usize {
+    var count: usize = 0;
+    for (prepared.entries) |entry| {
+        if (entry.action == .create or entry.action == .update or entry.action == .unchanged) count += 1;
+    }
+    return count;
+}
+
+fn reportPlan(target: Environment.RecipeManager.ExportTarget, prepared: export_mod.Prepared) void {
+    output.info("{s} -> {s}", .{ target.name, target.dir });
+    for (prepared.entries) |entry| {
+        const action = switch (entry.action) {
+            .create => "create",
+            .update => "update",
+            .unchanged => "unchanged",
+            .remove => "remove",
+            .conflict => "conflict",
+        };
+        const ownership = switch (entry.ownership) {
+            .managed => "managed",
+            .foreign => "foreign",
+            .legacy => "legacy",
+            .none => "none",
+        };
+        if (entry.reason) |reason| {
+            output.plain("  {s:<9} {s:<8} {s} ({s})", .{ action, ownership, entry.slug, reason });
+        } else {
+            output.plain("  {s:<9} {s:<8} {s}", .{ action, ownership, entry.slug });
+        }
+    }
 }
 
 test "parseFlag extracts unquoted value" {
@@ -423,39 +452,6 @@ test "parseFlag strips surrounding quotes" {
 test "parseFlag returns null when prefix absent" {
     const args = [_][]const u8{"--other=x"};
     try std.testing.expect(parseFlag(&args, "--path=") == null);
-}
-
-test "renderSkillToMd produces slugified frontmatter and params" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const skill = Artifact.Skill{
-        .id = "search/ripgrep",
-        .description = "Search with ripgrep",
-        .command = "rg {query}",
-        .system = "You search code.",
-        .input = &.{
-            .{ .name = "query", .type = "string", .description = "search term", .required = true },
-        },
-    };
-    const md = try renderSkillToMd(arena.allocator(), skill);
-    try std.testing.expect(std.mem.indexOf(u8, md, "name: search-ripgrep") != null);
-    try std.testing.expect(std.mem.indexOf(u8, md, "description: Search with ripgrep") != null);
-    try std.testing.expect(std.mem.indexOf(u8, md, "## Command") != null);
-    try std.testing.expect(std.mem.indexOf(u8, md, "`rg {query}`") != null);
-    try std.testing.expect(std.mem.indexOf(u8, md, "- **query** (string (required)): search term") != null);
-}
-
-test "renderSkillToMd omits command section when command is null" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const skill = Artifact.Skill{
-        .id = "sys-only",
-        .description = "system only",
-        .system = "just system",
-    };
-    const md = try renderSkillToMd(arena.allocator(), skill);
-    try std.testing.expect(std.mem.indexOf(u8, md, "## Command") == null);
-    try std.testing.expect(std.mem.indexOf(u8, md, "just system") != null);
 }
 
 test "resolveSkill merges rule content into system" {

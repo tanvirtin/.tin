@@ -1,6 +1,5 @@
 const std = @import("std");
 const output = @import("../lib/output.zig");
-const fs = @import("../lib/fs.zig");
 const Environment = @import("../core/environment.zig");
 const Paths = @import("../core/environment/paths.zig").Paths;
 const Symlink = @import("../core/symlink.zig");
@@ -19,31 +18,18 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
     output.info("healing environment...", .{});
     output.plain("", .{});
 
+    const loaded_config = Environment.Config.load(allocator, paths) catch {
+        output.err("heal aborted: configuration could not be loaded", .{});
+        return 1;
+    };
+    const config = loaded_config orelse {
+        output.warn("no tinrc.yml found — nothing to heal", .{});
+        return 0;
+    };
+
     var healed_any = false;
     var still_broken: usize = 0;
 
-    const tinrc_path = paths.tinrcPath(allocator) catch {
-        output.err("could not resolve tinrc.yml", .{});
-        return 1;
-    };
-    defer allocator.free(tinrc_path);
-    if (fs.pathExists(tinrc_path)) {
-        if (Environment.validateTinrc(allocator, paths)) |diags| {
-            if (diags.len > 0) {
-                output.err("  tinrc.yml failed validation ({d} error(s)):", .{diags.len});
-                for (diags) |d| {
-                    output.warn("    [{s}] {s} at byte {d}", .{ d.code, d.message, d.span.start });
-                }
-                healed_any = true;
-            }
-        } else {
-            output.err("  tinrc.yml failed to validate", .{});
-            still_broken += 1;
-            return 1;
-        }
-    }
-
-    const config = Environment.Config.loadOrEmpty(allocator, paths);
     const symlinks = Environment.RecipeManager.getManagedSymlinks(allocator, config, paths) catch {
         output.err("could not resolve symlinks from tinrc.yml", .{});
         return 1;

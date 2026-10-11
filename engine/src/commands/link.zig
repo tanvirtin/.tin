@@ -14,7 +14,14 @@ pub fn execute(allocator: std.mem.Allocator, _: []const []const u8) u8 {
         return 1;
     };
 
-    const config = Environment.Config.loadOrEmpty(allocator, paths);
+    const loaded_config = Environment.Config.load(allocator, paths) catch {
+        output.err("link aborted: configuration could not be loaded", .{});
+        return 1;
+    };
+    const config = loaded_config orelse {
+        output.warn("no tinrc.yml found — nothing to link", .{});
+        return 0;
+    };
 
     return apply.linkManaged(allocator, paths, config);
 }

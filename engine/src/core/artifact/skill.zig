@@ -25,6 +25,7 @@ input: []const Param = &.{},
 skills: []const []const u8 = &.{},
 include: []const []const u8 = &.{},
 context: ?[]const u8 = null,
+source_path: ?[]const u8 = null,
 
 pub fn validate(self: *const Skill) Error!void {
     if (self.command == null and self.system == null) return Error.MissingCommandOrSystem;

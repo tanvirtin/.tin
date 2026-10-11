@@ -1,9 +1,63 @@
 #!/bin/bash
 set -euo pipefail
 
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "usage: test.sh <absolute-tin-binary> [runtime-root]" >&2
+    exit 2
+fi
+
+TIN_ARG="$1"
+RUNTIME_ARG="${2:-}"
+
+case "$TIN_ARG" in
+    /*) TIN="$TIN_ARG" ;;
+    *) TIN="$(pwd)/$TIN_ARG" ;;
+esac
+
+if [ ! -x "$TIN" ]; then
+    echo "test.sh: tin binary is not executable: $TIN" >&2
+    exit 2
+fi
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+ENGINE_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+
+if [ -z "$RUNTIME_ARG" ]; then
+    RUNTIME_ROOT="$(CDPATH= cd -- "$ENGINE_DIR/.." && pwd)"
+else
+    case "$RUNTIME_ARG" in
+        /*) RUNTIME_ROOT="$RUNTIME_ARG" ;;
+        *) RUNTIME_ROOT="$(CDPATH= cd -- "$RUNTIME_ARG" && pwd)" ;;
+    esac
+fi
+
+RECIPES_SRC="$RUNTIME_ROOT/environment/recipes"
+CONFIG_SRC="$RUNTIME_ROOT/environment/config"
+SCHEMAS_SRC="$RUNTIME_ROOT/engine/src/schemas"
+
+for fixture in "$RECIPES_SRC" "$CONFIG_SRC" "$SCHEMAS_SRC"; do
+    if [ ! -d "$fixture" ]; then
+        echo "test.sh: missing runtime fixture: $fixture" >&2
+        exit 2
+    fi
+done
+
+unset TIN_ARTIFACTS TIN_RECIPES TIN_CONFIG
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy NO_PROXY no_proxy
+
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_EDITOR=true
+export GIT_MERGE_AUTOEDIT=no
+export GIT_PAGER=cat
+export PAGER=cat
+export GIT_TERMINAL_PROMPT=0
+export GIT_AUTHOR_NAME="tin-test"
+export GIT_AUTHOR_EMAIL="tin-test@example.invalid"
+export GIT_COMMITTER_NAME="tin-test"
+export GIT_COMMITTER_EMAIL="tin-test@example.invalid"
+
 PASSED=0
 FAILED=0
-TIN="./zig-out/bin/tin"
 
 pass() { PASSED=$((PASSED + 1)); echo "  PASS: $1"; }
 fail() { FAILED=$((FAILED + 1)); echo "  FAIL: $1"; }
@@ -23,15 +77,18 @@ run_bounded() {
 echo "[tin] Running integration tests..."
 echo ""
 
+TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf "$TEST_ROOT"' EXIT
 
-export TEST_ROOT=$(mktemp -d)
 export HOME="$TEST_ROOT"
 export TIN_DIR="$TEST_ROOT/.tin"
+export TIN_ARTIFACTS="$TEST_ROOT/.config/tin/artifacts"
+export TIN_RECIPES="$TEST_ROOT/.config/tin/recipes"
 
 mkdir -p "$TIN_DIR/environment" "$TIN_DIR/engine/src" "$HOME/.config/tin"
-cp -r ../environment/recipes "$TIN_DIR/environment/"
-cp -r ../environment/config "$TIN_DIR/environment/"
-cp -r src/schemas "$TIN_DIR/engine/src/"
+cp -R "$RECIPES_SRC" "$TIN_DIR/environment/recipes"
+cp -R "$CONFIG_SRC" "$TIN_DIR/environment/config"
+cp -R "$SCHEMAS_SRC" "$TIN_DIR/engine/src/schemas"
 cat > "$HOME/.config/tin/tinrc.yml" << 'EOF'
 identity:
   name: Your Name
@@ -52,21 +109,11 @@ install:
   - fonts
 EOF
 
-trap "rm -rf $TEST_ROOT" EXIT
-
-
-if zig build 2>/dev/null; then
-    pass "zig build"
-else
-    fail "zig build"
-fi
-
-
-NOCFG_HOME=$(mktemp -d)
+NOCFG_HOME="$(mktemp -d)"
 NOCFG_TIN="$NOCFG_HOME/.tin"
 mkdir -p "$NOCFG_TIN"
 for cmd in install link heal; do
-    if HOME="$NOCFG_HOME" TIN_DIR="$NOCFG_TIN" $TIN "$cmd" >/dev/null 2>&1; then
+    if HOME="$NOCFG_HOME" TIN_DIR="$NOCFG_TIN" TIN_ARTIFACTS="$NOCFG_HOME/.config/tin/artifacts" TIN_RECIPES="$NOCFG_HOME/.config/tin/recipes" "$TIN" "$cmd" >/dev/null 2>&1; then
         pass "tin $cmd without tinrc.yml"
     else
         fail "tin $cmd without tinrc.yml"
@@ -74,43 +121,84 @@ for cmd in install link heal; do
 done
 rm -rf "$NOCFG_HOME"
 
+CFG_HOME="$(mktemp -d)"
+CFG_TIN="$CFG_HOME/.tin"
+mkdir -p "$CFG_TIN/engine/src" "$CFG_TIN/environment/config" "$CFG_HOME/.config/tin"
+cp -R "$SCHEMAS_SRC" "$CFG_TIN/engine/src/schemas"
+echo "repo" > "$CFG_TIN/environment/config/repo.txt"
+echo "personal" > "$CFG_TIN/environment/config/personal.txt"
+cat > "$CFG_TIN/tinrc.yml" << 'EOF'
+symlinks:
+  shell:
+    - source: environment/config/repo.txt
+      target: ~/.repo-link
+EOF
 
+REPO_ONLY_OUT="$(HOME="$CFG_HOME" TIN_DIR="$CFG_TIN" TIN_ARTIFACTS="$CFG_HOME/.config/tin/artifacts" TIN_RECIPES="$CFG_HOME/.config/tin/recipes" "$TIN" heal 2>&1 || true)"
+if echo "$REPO_ONLY_OUT" | grep -q "repo.txt"; then
+    pass "config: repo tinrc used when no personal config"
+else
+    fail "config: repo tinrc used when no personal config"
+fi
 
-if $TIN help >/dev/null 2>&1; then
+cat > "$CFG_HOME/.config/tin/tinrc.yml" << 'EOF'
+symlinks:
+  shell:
+    - source: environment/config/personal.txt
+      target: ~/.personal-link
+EOF
+
+PRECEDENCE_OUT="$(HOME="$CFG_HOME" TIN_DIR="$CFG_TIN" TIN_ARTIFACTS="$CFG_HOME/.config/tin/artifacts" TIN_RECIPES="$CFG_HOME/.config/tin/recipes" "$TIN" heal 2>&1 || true)"
+if echo "$PRECEDENCE_OUT" | grep -q "personal.txt" && ! echo "$PRECEDENCE_OUT" | grep -q "repo.txt"; then
+    pass "config: personal tinrc replaces repo tinrc"
+else
+    fail "config: personal tinrc replaces repo tinrc"
+fi
+
+printf 'symlinks: [unterminated\n' > "$CFG_HOME/.config/tin/tinrc.yml"
+set +e
+BAD_CFG_OUT="$(HOME="$CFG_HOME" TIN_DIR="$CFG_TIN" TIN_ARTIFACTS="$CFG_HOME/.config/tin/artifacts" TIN_RECIPES="$CFG_HOME/.config/tin/recipes" "$TIN" heal 2>&1)"
+BAD_CFG_RC=$?
+set -e
+if [ "$BAD_CFG_RC" -ne 0 ] && echo "$BAD_CFG_OUT" | grep -qiE "tinrc|config"; then
+    pass "config: invalid personal config is reported, not ignored"
+else
+    fail "config: invalid personal config is reported, not ignored"
+fi
+rm -rf "$CFG_HOME"
+
+if "$TIN" help >/dev/null 2>&1; then
     pass "tin help"
 else
     fail "tin help"
 fi
 
-if $TIN heal >/dev/null 2>&1; then
+if "$TIN" heal >/dev/null 2>&1; then
     pass "tin heal"
 else
     fail "tin heal"
 fi
 
-if $TIN recipe 2>&1 | grep -q "git"; then
+if "$TIN" recipe 2>&1 | grep -q "git"; then
     pass "tin recipe (lists recipes)"
 else
     fail "tin recipe (lists recipes)"
 fi
 
-
-if $TIN heal 2>&1 | grep -q "zshrc"; then
+if "$TIN" heal 2>&1 | grep -q "zshrc"; then
     pass "tinrc.yml symlinks parsed"
 else
     fail "tinrc.yml symlinks parsed"
 fi
 
-
-LINKED_COUNT=$($TIN heal 2>&1 | grep -c "\[ok\]\|not linked\|wrong target\|broken" || true)
+LINKED_COUNT=$("$TIN" heal 2>&1 | grep -c "\[ok\]\|not linked\|wrong target\|broken" || true)
 if [ "$LINKED_COUNT" -gt 0 ]; then
     pass "tin heal reports symlink state ($LINKED_COUNT entries)"
 else
     fail "tin heal reports symlink state"
 fi
 
-
-if $TIN recipe git 2>&1 | grep -q "recipe complete"; then
+if "$TIN" recipe git 2>&1 | grep -q "recipe complete"; then
     pass "tin recipe git (executes)"
 else
     fail "tin recipe git (executes)"
@@ -130,7 +218,6 @@ else
     fail "git recipe set user.email"
 fi
 
-
 mkdir -p "$HOME/.config/tin/recipes"
 cat > "$HOME/.config/tin/recipes/layer-personal.yml" << 'EOF'
 name: layer-personal
@@ -149,13 +236,13 @@ steps:
   - mkdir: $MKDIR_TEST_DIR
 EOF
 
-if $TIN recipe layer-personal 2>&1 | grep -q "recipe complete"; then
+if "$TIN" recipe layer-personal 2>&1 | grep -q "recipe complete"; then
     pass "personal-layer recipe executes"
 else
     fail "personal-layer recipe executes"
 fi
 
-LAYER_LIST=$($TIN recipe 2>&1)
+LAYER_LIST=$("$TIN" recipe 2>&1)
 if echo "$LAYER_LIST" | grep -q "layer-personal.*\[config\]"; then
     pass "personal-layer recipe listed as [config]"
 else
@@ -169,7 +256,7 @@ else
 fi
 
 MKDIR_TEST_DIR=$(mktemp -d)/tin_mkdir_test
-if $TIN recipe mkdir-test 2>&1 | grep -q "Personal override"; then
+if "$TIN" recipe mkdir-test 2>&1 | grep -q "Personal override"; then
     pass "personal layer shadows repo recipe"
 else
     fail "personal layer shadows repo recipe"
@@ -183,7 +270,7 @@ steps:
   - mkdir: $MKDIR_TEST_DIR
 EOF
 
-if $TIN recipe mkdir-test 2>&1 | grep -q "recipe complete"; then
+if "$TIN" recipe mkdir-test 2>&1 | grep -q "recipe complete"; then
     if [ -d "$MKDIR_TEST_DIR" ]; then
         pass "mkdir step creates directory"
     else
@@ -194,7 +281,6 @@ else
 fi
 rm -f "$TIN_DIR/environment/recipes/mkdir-test.yml"
 rm -rf "$MKDIR_TEST_DIR"
-
 
 OS_NAME=$(uname -s)
 cat > "$TIN_DIR/environment/recipes/condition-test.yml" << EOF
@@ -208,7 +294,7 @@ steps:
     if: os == 'nonexistent_os'
 EOF
 
-COND_OUTPUT=$($TIN recipe condition-test 2>&1)
+COND_OUTPUT=$("$TIN" recipe condition-test 2>&1)
 if echo "$COND_OUTPUT" | grep -q "TIN_COND_MATCHED"; then
     pass "condition: os == (matched)"
 else
@@ -220,7 +306,6 @@ else
     pass "condition: os == (skipped)"
 fi
 rm -f "$TIN_DIR/environment/recipes/condition-test.yml"
-
 
 cat > "$TIN_DIR/environment/recipes/exists-test.yml" << 'EOF'
 name: exists-test
@@ -236,7 +321,7 @@ steps:
     if: "!exists('/nonexistent_tin_test_path')"
 EOF
 
-EXISTS_OUTPUT=$($TIN recipe exists-test 2>&1)
+EXISTS_OUTPUT=$("$TIN" recipe exists-test 2>&1)
 if echo "$EXISTS_OUTPUT" | grep -q "Root exists"; then
     pass "condition: exists"
 else
@@ -254,7 +339,6 @@ else
 fi
 rm -f "$TIN_DIR/environment/recipes/exists-test.yml"
 
-
 cat > "$TIN_DIR/environment/recipes/template-test.yml" << 'EOF'
 name: template-test
 steps:
@@ -262,14 +346,13 @@ steps:
     run: echo "Hello {{ identity.name }}"
 EOF
 
-TMPL_OUTPUT=$($TIN recipe template-test 2>&1)
+TMPL_OUTPUT=$("$TIN" recipe template-test 2>&1)
 if echo "$TMPL_OUTPUT" | grep -q "recipe complete"; then
     pass "template rendering"
 else
     fail "template rendering"
 fi
 rm -f "$TIN_DIR/environment/recipes/template-test.yml"
-
 
 LINK_TEST_DIR=$(mktemp -d)
 LINK_SOURCE="$LINK_TEST_DIR/source_file"
@@ -283,26 +366,25 @@ else
     fail "symlink creation works"
 fi
 
-if $TIN link 2>&1 | grep -q "linking\|skip\|link"; then
+if "$TIN" link 2>&1 | grep -q "linking\|skip\|link"; then
     pass "tin link runs"
 else
     fail "tin link runs"
 fi
 
-if $TIN unlink 2>&1 | grep -q "unlink"; then
+if "$TIN" unlink 2>&1 | grep -q "unlink"; then
     pass "tin unlink runs"
 else
     fail "tin unlink runs"
 fi
 
-if $TIN link 2>&1 | grep -q "link"; then
+if "$TIN" link 2>&1 | grep -q "link"; then
     pass "tin link after unlink"
 else
     fail "tin link after unlink"
 fi
 
 rm -rf "$LINK_TEST_DIR"
-
 
 COPY_SOURCE="$TIN_DIR/environment/config/.tmux.conf"
 COPY_TARGET="$HOME/.config/tin/test-copy.conf"
@@ -320,7 +402,7 @@ else
 fi
 
 echo "drifted" > "$COPY_TARGET"
-if $TIN heal 2>&1 | grep -q "refreshed"; then
+if "$TIN" heal 2>&1 | grep -q "refreshed"; then
     pass "tin heal refreshes a stale copy"
 else
     fail "tin heal refreshes a stale copy"
@@ -332,21 +414,20 @@ else
     fail "refreshed copy matches its source"
 fi
 
-if $TIN unlink >/dev/null 2>&1 && [ ! -e "$COPY_TARGET" ]; then
+if "$TIN" unlink >/dev/null 2>&1 && [ ! -e "$COPY_TARGET" ]; then
     pass "tin unlink removes a copy"
 else
     fail "tin unlink removes a copy"
 fi
 
-$TIN link >/dev/null 2>&1
-
+"$TIN" link >/dev/null 2>&1
 
 HEAL_TEST_DIR=$(mktemp -d)
 HEAL_SOURCE="$HEAL_TEST_DIR/heal_source"
 HEAL_TARGET="$HEAL_TEST_DIR/heal_target"
 ln -sf "$HEAL_SOURCE" "$HEAL_TARGET"
 
-if $TIN heal 2>&1 | grep -q "healthy"; then
+if "$TIN" heal 2>&1 | grep -q "healthy"; then
     pass "tin heal reports healthy when nothing broken"
 else
     fail "tin heal reports healthy when nothing broken"
@@ -356,13 +437,12 @@ rm -rf "$HEAL_TEST_DIR"
 
 zshrc_source="$TIN_DIR/environment/config/.zshrc"
 ln -sf "/wrong/target" "$HOME/.zshrc"
-$TIN heal >/dev/null 2>&1
+"$TIN" heal >/dev/null 2>&1
 if [ "$(readlink "$HOME/.zshrc")" = "$zshrc_source" ]; then
     pass "tin heal repairs wrong-target symlink"
 else
     fail "tin heal repairs wrong-target symlink"
 fi
-
 
 CLONE_TEST_DIR=$(mktemp -d)
 CLONE_REPO="$CLONE_TEST_DIR/fake_repo"
@@ -379,7 +459,7 @@ steps:
     to: $CLONE_DEST
 EOF
 
-if $TIN recipe clone-test 2>&1 | grep -q "recipe complete"; then
+if "$TIN" recipe clone-test 2>&1 | grep -q "recipe complete"; then
     if [ -d "$CLONE_DEST/.git" ]; then
         pass "clone step creates repo"
     else
@@ -389,7 +469,7 @@ else
     fail "clone step (recipe failed)"
 fi
 
-if $TIN recipe clone-test 2>&1 | grep -q "skip clone"; then
+if "$TIN" recipe clone-test 2>&1 | grep -q "skip clone"; then
     pass "clone step skips existing"
 else
     fail "clone step skips existing"
@@ -397,7 +477,6 @@ fi
 
 rm -f "$TIN_DIR/environment/recipes/clone-test.yml"
 rm -rf "$CLONE_TEST_DIR"
-
 
 ARTIFACTS_DIR="$HOME/.config/tin/artifacts"
 mkdir -p "$ARTIFACTS_DIR/skills/demo" "$ARTIFACTS_DIR/rules"
@@ -414,13 +493,13 @@ system: |
   {{ demo-rule }}
 EOF
 
-if $TIN artifact validate 2>&1 | grep -q "all references valid"; then
+if "$TIN" artifact validate 2>&1 | grep -q "all references valid"; then
     pass "artifact validate accepts valid artifacts"
 else
     fail "artifact validate accepts valid artifacts"
 fi
 
-if $TIN artifact list 2>&1 | grep -q "demo/plan"; then
+if "$TIN" artifact list 2>&1 | grep -q "demo/plan"; then
     pass "artifact list shows discovered skill"
 else
     fail "artifact list shows discovered skill"
@@ -434,14 +513,13 @@ system: |
   {{ does-not-exist }}
 EOF
 
-broken_out=$($TIN artifact validate 2>&1 || true)
+broken_out=$("$TIN" artifact validate 2>&1 || true)
 if echo "$broken_out" | grep -q "undefined reference: does-not-exist"; then
     pass "artifact validate rejects a broken include"
 else
     fail "artifact validate rejects a broken include"
 fi
 rm -f "$ARTIFACTS_DIR/skills/demo/broken.yml"
-
 
 MCP_DIR="$ARTIFACTS_DIR/mcp"
 DIALECT_DIR="$ARTIFACTS_DIR/dialects"
@@ -487,19 +565,19 @@ mkdir -p "$HOME/.cursor" "$HOME/.codex"
 echo '{"mcpServers":{"other":{"command":"keep-me"}},"unrelated":true}' > "$HOME/.cursor/mcp.json"
 printf 'model = "gpt-5"\n' > "$HOME/.codex/config.toml"
 
-if $TIN mcp list 2>&1 | grep -q "mem0"; then
+if "$TIN" mcp list 2>&1 | grep -q "mem0"; then
     pass "tin mcp list shows declared server"
 else
     fail "tin mcp list shows declared server"
 fi
 
-if $TIN mcp diff 2>&1 | grep -q "would update"; then
+if "$TIN" mcp diff 2>&1 | grep -q "would update"; then
     pass "tin mcp diff reports pending changes"
 else
     fail "tin mcp diff reports pending changes"
 fi
 
-if $TIN mcp apply 2>&1 | grep -qE "wrote|updated"; then
+if "$TIN" mcp apply 2>&1 | grep -qE "wrote|updated"; then
     pass "tin mcp apply writes runtime configs"
 else
     fail "tin mcp apply writes runtime configs"
@@ -524,7 +602,7 @@ else
 fi
 
 MCP_BEFORE=$(cat "$HOME/.cursor/mcp.json")
-$TIN mcp apply >/dev/null 2>&1
+"$TIN" mcp apply >/dev/null 2>&1
 MCP_AFTER=$(cat "$HOME/.cursor/mcp.json")
 if [ "$MCP_BEFORE" = "$MCP_AFTER" ]; then
     pass "tin mcp apply is idempotent"
@@ -533,7 +611,6 @@ else
 fi
 
 rm -rf "$MCP_DIR" "$DIALECT_DIR" "$HOME/.cursor" "$HOME/.codex"
-
 
 cat > "$TIN_DIR/environment/recipes/apply-steps.yml" << 'EOF'
 name: apply-steps
@@ -544,29 +621,27 @@ steps:
     fonts: true
 EOF
 
-if $TIN recipe apply-steps 2>&1 | grep -q "linking complete"; then
+if "$TIN" recipe apply-steps 2>&1 | grep -q "linking complete"; then
     pass "recipe link: step links symlinks"
 else
     fail "recipe link: step links symlinks"
 fi
 
-if $TIN recipe apply-steps 2>&1 | grep -qE "fonts installed|fonts up to date"; then
+if "$TIN" recipe apply-steps 2>&1 | grep -qE "fonts installed|fonts up to date"; then
     pass "recipe fonts: step installs fonts"
 else
     fail "recipe fonts: step installs fonts"
 fi
 rm -f "$TIN_DIR/environment/recipes/apply-steps.yml"
 
-
 mkdir -p "$HOME/Library/Fonts"
-if $TIN fonts 2>&1 | grep -q "fonts\|copy\|skipped"; then
+if "$TIN" fonts 2>&1 | grep -q "fonts\|copy\|skipped"; then
     pass "tin fonts runs"
 else
     fail "tin fonts runs"
 fi
 
-
-if $TIN install 2>&1 | grep -q "install complete"; then
+if "$TIN" install 2>&1 | grep -q "install complete"; then
     pass "tin install (full flow)"
 else
     fail "tin install (full flow)"

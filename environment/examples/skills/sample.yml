@@ -1,0 +1,7 @@
+description: Sample skill created by tin init; safe to edit or delete.
+
+system: |
+  This skill exists so you can try `tin artifact validate` and
+  `tin artifact export` without any private artifacts.
+
+  Replace this text with your own instructions, or remove the file.

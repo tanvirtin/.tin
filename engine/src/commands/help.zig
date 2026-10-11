@@ -16,10 +16,10 @@ const Topic = struct {
     usage: []const u8,
 };
 
-const artifact_children = [_][]const u8{ "list", "validate", "export" };
+const artifact_children = [_][]const u8{ "list", "validate", "export", "inspect" };
 const mcp_children = [_][]const u8{ "list", "diff", "apply" };
 const topics = [_]Topic{
-    .{ .name = "artifact", .description = "Validate and export skills and rules", .children = &artifact_children, .usage = "tin artifact <list|validate|export> [...]" },
+    .{ .name = "artifact", .description = "Validate, inspect, and export skills and rules", .children = &artifact_children, .usage = "tin artifact <list|validate|inspect|export> [...]" },
     .{ .name = "mcp", .description = "Project MCP server artifacts into configured runtimes", .children = &mcp_children, .usage = "tin mcp <list|diff|apply> [runtime]" },
 };
 

@@ -1,19 +1,40 @@
+# Example personal configuration for tin.
+#
+# `tin init` writes a minimal neutral version of this to
+# ~/.config/tin/tinrc.yml. This file shows a fuller shape, including the
+# optional workstation setup. Nothing here is applied until you run
+# `tin install`.
 
 identity:
   name: Your Name
-  email: you@example.com
+  email: example@example.com
 
 symlinks:
   shell:
     - source: environment/config/.zshrc
       target: ~/.zshrc
 
-recipes:
-  shell:
-    - zsh
-    - starship
-    - zsh-autosuggestions
+    - source: environment/config/.tmux.conf
+      target: ~/.tmux.conf
 
-install:
-  - link
-  - recipes: shell
+exports:
+  zed:
+    dir: ~/.agents/skills
+
+# Fuller workstation route (opt in explicitly).
+#
+# The default above installs no packages and changes no shell settings. To
+# reproduce a complete workstation, define package recipes and ask
+# `tin install` to run them. This is where packages get installed, so it is
+# intentionally not enabled by default:
+#
+# recipes:
+#   shell:
+#     - zsh
+#     - starship
+#     - zsh-autosuggestions
+#
+# install:
+#   - link
+#   - fonts
+#   - recipes: shell

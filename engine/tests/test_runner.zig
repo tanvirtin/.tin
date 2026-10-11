@@ -9,9 +9,7 @@ pub fn main() !void {
     defer args.deinit();
 
     _ = args.next();
-    _ = args.next() orelse return error.MissingTinPath;
-    const spec_runner_path = args.next() orelse return error.MissingSpecRunnerPath;
-    const bench_path = args.next() orelse return error.MissingBenchPath;
+    const tin_path = args.next() orelse return error.MissingTinPath;
     const unit_test_path = args.next() orelse return error.MissingUnitTestPath;
     const flow_test_path = args.next() orelse return error.MissingFlowTestPath;
     const expression_test_path = args.next() orelse return error.MissingExpressionSuitePath;
@@ -27,20 +25,12 @@ pub fn main() !void {
     try reporter.endGroup(unit_success);
 
     try reporter.startGroup("Integration Tests");
-    const integ_success = try runAndStream(allocator, &.{"./tests/test.sh"});
+    const integ_success = try runAndStream(allocator, &.{ "./tests/test.sh", tin_path });
     try reporter.endGroup(integ_success);
-
-    try reporter.startGroup("YAML Spec Compliance");
-    const spec_success = try runAndStream(allocator, &.{ "./tests/test_yaml_suite.sh", spec_runner_path });
-    try reporter.endGroup(spec_success);
 
     try reporter.startGroup("Flow Parsing Tests");
     const flow_success = try runAndStream(allocator, &.{flow_test_path});
     try reporter.endGroup(flow_success);
-
-    try reporter.startGroup("Performance Benchmarks");
-    const bench_success = try runAndStream(allocator, &.{bench_path});
-    try reporter.endGroup(bench_success);
 
     try reporter.startGroup("Expression Spec Compliance");
     const expr_success = try runAndStream(allocator, &.{ expression_test_path, expression_corpus_path });

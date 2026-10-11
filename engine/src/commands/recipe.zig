@@ -12,12 +12,12 @@ pub const meta = .{
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
-    const env = Environment.init(allocator) catch {
-        output.err("could not resolve environment", .{});
+    const paths = Environment.Paths.init(allocator) catch {
+        output.err("could not resolve environment paths", .{});
         return 1;
     };
 
-    var search = env.paths.recipeSearch(allocator) catch {
+    var search = paths.recipeSearch(allocator) catch {
         output.err("could not resolve recipes directories", .{});
         return 1;
     };
@@ -45,7 +45,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
     };
     defer allocator.free(content);
 
-    if (validateRecipe(allocator, &env.paths, found.path)) return 1;
+    if (validateRecipe(allocator, &paths, found.path)) return 1;
 
     const recipe = Recipe.parse(allocator, content) catch {
         output.err("failed to parse recipe: {s}", .{name});

@@ -134,7 +134,8 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
         return;
     };
 
-    const config = Environment.Config.load(allocator, paths) orelse Environment.Config{ .doc = null };
+    const loaded_config = try Environment.Config.load(allocator, paths);
+    const config = loaded_config orelse Environment.Config{ .doc = null };
     const vars = Environment.IdentityProvider.getTemplateVars(allocator, config) catch &[_]Environment.TemplateVar{};
 
     output.info("Executing recipe: {s}", .{self.name});

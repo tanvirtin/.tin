@@ -9,6 +9,9 @@ const unlink = @import("commands/unlink.zig");
 const recipe = @import("commands/recipe.zig");
 const schema = @import("commands/schema.zig");
 const artifact = @import("commands/artifact.zig");
+const config = @import("commands/config.zig");
+const status = @import("commands/status.zig");
+const init = @import("commands/init.zig");
 const mcp = @import("commands/mcp.zig");
 const validate = @import("commands/validate.zig");
 
@@ -30,6 +33,9 @@ fn entry(comptime module: type) Entry {
 
 pub const command_entries = [_]Entry{
     entry(artifact),
+    entry(config),
+    entry(status),
+    entry(init),
     entry(mcp),
     entry(help),
     entry(link),

@@ -23,11 +23,11 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
     const schema_ref = args[0];
     const file_path = args[1];
 
-    const env = Environment.init(allocator) catch {
-        output.err("could not resolve environment", .{});
+    const paths = Environment.Paths.init(allocator) catch {
+        output.err("could not resolve environment paths", .{});
         return 2;
     };
-    const schemas_dir = env.paths.schemasDir(allocator) catch {
+    const schemas_dir = paths.schemasDir(allocator) catch {
         output.err("could not resolve schemas directory", .{});
         return 2;
     };

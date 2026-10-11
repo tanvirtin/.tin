@@ -1,77 +1,15 @@
+# Personal tin configuration, created by `tin init`.
+#
+# This file lives at ~/.config/tin/tinrc.yml and takes precedence over the
+# repo default at ~/.tin/tinrc.yml. Nothing here is applied until you run
+# `tin install` or `tin link`.
+
 identity:
-  name: Tanvir Islam
-  email: tanvir.tinz@gmail.com
+  name: Your Name
+  email: example@example.com
 
-symlinks:
-  shell:
-    - source: environment/config/.zshrc
-      target: ~/.zshrc
-
-    - source: environment/config/.tmux.conf
-      target: ~/.tmux.conf
-
-  editor:
-    - source: environment/config/zed/settings.json
-      target: ~/.config/zed/settings.json
-
-    - source: environment/config/zed/keymap.json
-      target: ~/.config/zed/keymap.json
-
-    - source: environment/config/zed/themes
-      target: ~/.config/zed/themes
-
-  terminal:
-    - source: environment/config/ghostty/config
-      target: ~/.config/ghostty/config
-
-fonts: environment/config/fonts
-
+# Publish skills where your runtime reads them. Zed reads global skills from
+# ~/.agents/skills.
 exports:
-  opencode:
-    dir: ~/.config/opencode/skills
-
-runtimes:
-  cursor:
-    mcp: ~/.cursor/mcp.json
-    dialect: cursor
-
-  claude:
-    mcp: ~/.claude.json
-    dialect: claude
-
-  vscode:
-    mcp: .vscode/mcp.json
-    dialect: vscode
-
-  codex:
-    mcp: ~/.codex/config.toml
-    dialect: codex
-
   zed:
-    mcp: ~/.config/zed/settings.json
-    dialect: zed
-
-recipes:
-  shell:
-    - zsh
-    - starship
-    - zsh-autosuggestions
-
-  editor:
-    - zed
-
-  dev:
-    - git
-    - gh
-
-  infra:
-    - ripgrep
-    - tmux
-
-install:
-  - link
-  - fonts
-  - recipes: shell
-  - recipes: editor
-  - recipes: dev
-  - recipes: infra
+    dir: ~/.agents/skills

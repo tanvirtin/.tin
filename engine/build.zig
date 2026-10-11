@@ -1,5 +1,30 @@
 const std = @import("std");
 
+const FailStep = struct {
+    step: std.Build.Step,
+    message: []const u8,
+
+    fn create(b: *std.Build, message: []const u8) *FailStep {
+        const self = b.allocator.create(FailStep) catch @panic("out of memory");
+        self.* = .{
+            .step = std.Build.Step.init(.{
+                .id = .custom,
+                .name = "test-yaml usage",
+                .owner = b,
+                .makeFn = make,
+            }),
+            .message = message,
+        };
+        return self;
+    }
+
+    fn make(step: *std.Build.Step, options: std.Build.Step.MakeOptions) anyerror!void {
+        _ = options;
+        const self: *FailStep = @fieldParentPtr("step", step);
+        return step.fail("{s}", .{self.message});
+    }
+};
+
 const TestWiringCheck = struct {
     step: std.Build.Step,
 
@@ -154,14 +179,39 @@ pub fn build(b: *std.Build) void {
 
     const test_run = b.addRunArtifact(test_runner_exe);
     test_run.addArtifactArg(exe);
-    test_run.addArtifactArg(test_yaml_exe);
-    test_run.addArtifactArg(bench_exe);
     test_run.addArtifactArg(unit_test);
     test_run.addArtifactArg(flow_test);
     test_run.addArtifactArg(expression_suite_exe);
     test_run.addFileArg(b.path("tests/expression_suite.yml"));
 
-    const test_step = b.step("test", "Run the full suite: unit, integration, YAML spec, flow, benchmarks, and expressions");
+    const test_step = b.step("test", "Run the local suite: unit, integration, flow, expressions, and test wiring");
     test_step.dependOn(&test_run.step);
     test_step.dependOn(&TestWiringCheck.create(b).step);
+
+    const yaml_unit_test = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/lib/yaml.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    test_step.dependOn(&b.addRunArtifact(yaml_unit_test).step);
+
+    const unit_step = b.step("test-unit", "Run unit tests only");
+    unit_step.dependOn(&b.addRunArtifact(unit_test).step);
+    unit_step.dependOn(&b.addRunArtifact(yaml_unit_test).step);
+
+    const test_yaml_step = b.step("test-yaml", "Run YAML conformance against an explicit corpus: zig build test-yaml -- <corpus-dir>");
+    if (b.args) |args| {
+        if (args.len > 0) {
+            const yaml_run = b.addSystemCommand(&.{ "bash", "tests/test_yaml_suite.sh" });
+            yaml_run.addArtifactArg(test_yaml_exe);
+            yaml_run.addArgs(args);
+            test_yaml_step.dependOn(&yaml_run.step);
+        } else {
+            test_yaml_step.dependOn(&FailStep.create(b, "test-yaml needs an explicit corpus directory: zig build test-yaml -- <corpus-dir>").step);
+        }
+    } else {
+        test_yaml_step.dependOn(&FailStep.create(b, "test-yaml needs an explicit corpus directory: zig build test-yaml -- <corpus-dir>").step);
+    }
 }

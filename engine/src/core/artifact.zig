@@ -6,6 +6,7 @@ const mcp = @import("mcp.zig");
 
 pub const Rule = @import("artifact/rule.zig");
 pub const Skill = @import("artifact/skill.zig");
+pub const exporter = @import("artifact/export.zig");
 
 const Engine = @import("../schemalang/engine.zig").Engine;
 const Catalog = @import("../schemalang/resolve.zig").Catalog;
@@ -232,6 +233,18 @@ pub fn discoverRules(self: *const Artifact, allocator: std.mem.Allocator) ![]Rul
     return discover(Rule, allocator, dir);
 }
 
+pub fn discoverSkillsStrict(self: *const Artifact, allocator: std.mem.Allocator) ![]Skill {
+    const dir = try std.fmt.allocPrint(allocator, "{s}/skills", .{self.artifacts_dir});
+    defer allocator.free(dir);
+    return discoverStrict(Skill, allocator, dir, true);
+}
+
+pub fn discoverRulesStrict(self: *const Artifact, allocator: std.mem.Allocator) ![]Rule {
+    const dir = try std.fmt.allocPrint(allocator, "{s}/rules", .{self.artifacts_dir});
+    defer allocator.free(dir);
+    return discoverStrict(Rule, allocator, dir, false);
+}
+
 pub fn discoverMcp(self: *const Artifact, allocator: std.mem.Allocator) ![]mcp.Server {
     const dir = try std.fmt.allocPrint(allocator, "{s}/mcp", .{self.artifacts_dir});
     defer allocator.free(dir);
@@ -252,6 +265,21 @@ fn discover(comptime T: type, allocator: std.mem.Allocator, base_dir: []const u8
 
     var ctx = ParseCtx(T){ .allocator = allocator, .base_dir = base_dir, .items = &items };
     try walkYmlFiles(allocator, dir, base_dir, &ctx, parseOneFile);
+
+    return items.toOwnedSlice(allocator);
+}
+
+fn discoverStrict(comptime T: type, allocator: std.mem.Allocator, base_dir: []const u8, require_root: bool) ![]T {
+    var items = std.ArrayListUnmanaged(T){};
+
+    var dir = std.fs.openDirAbsolute(base_dir, .{ .iterate = true }) catch |e| {
+        if (!require_root and e == error.FileNotFound) return items.toOwnedSlice(allocator);
+        return e;
+    };
+    defer dir.close();
+
+    var ctx = ParseCtx(T){ .allocator = allocator, .base_dir = base_dir, .items = &items };
+    try walkYmlFiles(allocator, dir, base_dir, &ctx, parseOneFileStrict);
 
     return items.toOwnedSlice(allocator);
 }
@@ -325,6 +353,24 @@ fn parseOneFile(ctx: anytype, file_path: []const u8) anyerror!void {
         return;
     };
     item.id = id;
+    if (@hasField(T, "source_path")) {
+        item.source_path = allocator.dupe(u8, file_path) catch null;
+    }
+    try ctx.items.append(allocator, item);
+}
+
+fn parseOneFileStrict(ctx: anytype, file_path: []const u8) anyerror!void {
+    const T = @TypeOf(ctx.*).Item;
+    const allocator = ctx.allocator;
+    const content = try fs.readFileAlloc(allocator, file_path);
+    defer allocator.free(content);
+    const id = try deriveId(allocator, ctx.base_dir, file_path);
+
+    var item = try parseYaml(T, allocator, content);
+    item.id = id;
+    if (@hasField(T, "source_path")) {
+        item.source_path = try allocator.dupe(u8, file_path);
+    }
     try ctx.items.append(allocator, item);
 }
 
@@ -388,4 +434,31 @@ test "freePendingRefs releases reference names and paths" {
 test {
     _ = Rule;
     _ = Skill;
+    _ = @import("artifact/export.zig");
+}
+
+test "discoverStrict propagates failures and records source_path" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const base = try tmp.parent_dir.realpathAlloc(std.testing.allocator, &tmp.sub_path);
+    defer std.testing.allocator.free(base);
+
+    const skills_dir = try std.fs.path.join(a, &.{ base, "skills" });
+    try fs.ensureDirectoryExists(skills_dir);
+    try fs.writeFile(try std.fs.path.join(a, &.{ skills_dir, "alpha.yml" }), "description: a\nsystem: s\n");
+
+    const found = try discoverStrict(Skill, a, skills_dir, true);
+    try std.testing.expectEqual(@as(usize, 1), found.len);
+    try std.testing.expectEqualStrings("alpha", found[0].id);
+    try std.testing.expect(found[0].source_path != null);
+
+    const missing = try std.fs.path.join(a, &.{ base, "nope" });
+    try std.testing.expectError(error.FileNotFound, discoverStrict(Skill, a, missing, true));
+
+    try fs.writeFile(try std.fs.path.join(a, &.{ skills_dir, "bad.yml" }), "description: [unterminated\n");
+    try std.testing.expectError(Error.ParseFailed, discoverStrict(Skill, a, skills_dir, true));
 }

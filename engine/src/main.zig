@@ -34,6 +34,9 @@ test {
     _ = @import("commands/fonts.zig");
     _ = @import("commands/recipe.zig");
     _ = @import("commands/artifact.zig");
+    _ = @import("commands/config.zig");
+    _ = @import("commands/status.zig");
+    _ = @import("commands/init.zig");
     _ = @import("commands/mcp.zig");
     _ = @import("commands/validate.zig");
     _ = @import("commands/schema.zig");
@@ -45,6 +48,7 @@ test {
     _ = @import("core/environment/recipe_manager.zig");
     _ = @import("core/recipe.zig");
     _ = @import("core/artifact.zig");
+    _ = @import("core/inspection.zig");
     _ = @import("core/mcp.zig");
     _ = @import("platform/platform.zig");
     _ = @import("schemalang/ir.zig");
