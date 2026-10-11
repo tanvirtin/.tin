@@ -5,7 +5,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 INSTALL_SH="$REPO_ROOT/install.sh"
 
-TMPROOT="$(mktemp -d "${TMPDIR:-/tmp}/tin-installer-test.XXXXXX")"
+TMP_BASE="${TMPDIR:-/tmp}"
+TMP_BASE="${TMP_BASE%/}"
+TMPROOT="$(mktemp -d "$TMP_BASE/tin-installer-test.XXXXXX")"
 cleanup_all() { rm -rf "$TMPROOT"; }
 trap cleanup_all EXIT
 
