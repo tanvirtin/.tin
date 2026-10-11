@@ -38,8 +38,13 @@ fi
 
 git -C "$TIN_DIR" config core.hooksPath .githooks
 
-info "Fetching latest release..."
-LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*: "//;s/".*//' || true)
+LATEST=""
+if [ -z "${TIN_FROM_SOURCE:-}" ]; then
+    info "Fetching latest release..."
+    LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*: "//;s/".*//' || true)
+else
+    info "TIN_FROM_SOURCE set — skipping release download"
+fi
 
 DOWNLOADED=false
 if [ -n "$LATEST" ]; then

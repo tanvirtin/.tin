@@ -62,6 +62,19 @@ else
 fi
 
 
+NOCFG_HOME=$(mktemp -d)
+NOCFG_TIN="$NOCFG_HOME/.tin"
+mkdir -p "$NOCFG_TIN"
+for cmd in install link heal; do
+    if HOME="$NOCFG_HOME" TIN_DIR="$NOCFG_TIN" $TIN "$cmd" >/dev/null 2>&1; then
+        pass "tin $cmd without tinrc.yml"
+    else
+        fail "tin $cmd without tinrc.yml"
+    fi
+done
+rm -rf "$NOCFG_HOME"
+
+
 
 if $TIN help >/dev/null 2>&1; then
     pass "tin help"

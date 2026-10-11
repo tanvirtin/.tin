@@ -1,0 +1,72 @@
+name: Smoke
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  SMOKE_HOME: /tmp/tin-smoke-home
+
+jobs:
+  bootstrap:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-15]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Bootstrap install.sh in a clean HOME
+        run: |
+          set -euo pipefail
+          export HOME="$SMOKE_HOME"
+          rm -rf "$HOME"
+          mkdir -p "$HOME"
+          export TIN_DIR="$HOME/.tin"
+
+          # Stage this revision as the install target so install.sh builds the
+          # current commit from source instead of cloning master or fetching a
+          # released binary.
+          cp -r "$GITHUB_WORKSPACE" "$TIN_DIR"
+          git -C "$TIN_DIR" remote remove origin 2>/dev/null || true
+
+          # A link-only personal override keeps the smoke test fast and hermetic
+          # (no package installs) while still exercising the config layering.
+          mkdir -p "$HOME/.config/tin"
+          printf '%s\n' \
+            'identity:' \
+            '  name: Smoke Test' \
+            '  email: smoke@example.com' \
+            'symlinks:' \
+            '  shell:' \
+            '    - source: environment/config/.zshrc' \
+            '      target: ~/.zshrc' \
+            'install:' \
+            '  - link' > "$HOME/.config/tin/tinrc.yml"
+
+          TIN_FROM_SOURCE=1 "$TIN_DIR/install.sh"
+
+      - name: Smoke assertions
+        run: |
+          set -euo pipefail
+          export HOME="$SMOKE_HOME"
+          "$HOME/.tin/bin/tin" help >/dev/null
+          "$HOME/.tin/bin/tin" heal
+          test -L "$HOME/.zshrc"
+
+      - name: Missing config degrades gracefully
+        run: |
+          set -euo pipefail
+          export HOME="$SMOKE_HOME"
+          rm -f "$HOME/.config/tin/tinrc.yml" "$HOME/.tin/tinrc.yml"
+          "$HOME/.tin/bin/tin" install
+          "$HOME/.tin/bin/tin" link
+          "$HOME/.tin/bin/tin" heal
