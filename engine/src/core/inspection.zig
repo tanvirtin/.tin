@@ -122,14 +122,6 @@ pub fn inspectConfig(allocator: std.mem.Allocator, paths: Paths) !ConfigReport {
     return loaded.report;
 }
 
-fn readRevision(allocator: std.mem.Allocator, tin_dir: []const u8) ?[]const u8 {
-    const path = std.fmt.allocPrint(allocator, "{s}/.tin-revision", .{tin_dir}) catch return null;
-    const raw = fs.readFileAlloc(allocator, path) catch return null;
-    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
-    if (trimmed.len == 0) return null;
-    return allocator.dupe(u8, trimmed) catch null;
-}
-
 pub fn inspectStatus(allocator: std.mem.Allocator, paths: Paths) !StatusReport {
     const loaded = try loadConfig(allocator, paths);
 
@@ -157,7 +149,7 @@ pub fn inspectStatus(allocator: std.mem.Allocator, paths: Paths) !StatusReport {
         .artifacts_present = pathPresent(artifacts_dir),
         .schemas_dir = schemas_dir,
         .schemas_present = pathPresent(schemas_dir),
-        .revision = readRevision(allocator, paths.tin_dir),
+        .revision = paths.readRevision(allocator),
     };
 }
 

@@ -178,6 +178,18 @@ pub fn absolutePath(self: *const Paths, allocator: std.mem.Allocator, path: []co
     return resolved;
 }
 
+pub fn revisionPath(self: *const Paths, allocator: std.mem.Allocator) ![]const u8 {
+    return std.fs.path.join(allocator, &.{ self.tin_dir, ".tin-revision" });
+}
+
+pub fn readRevision(self: *const Paths, allocator: std.mem.Allocator) ?[]const u8 {
+    const path = self.revisionPath(allocator) catch return null;
+    const raw = fs.readFileAlloc(allocator, path) catch return null;
+    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+    if (trimmed.len == 0) return null;
+    return allocator.dupe(u8, trimmed) catch null;
+}
+
 test "absolutePath expands leading tilde to home" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -236,6 +248,20 @@ test "repoTinrcPath sits at the tin dir root" {
     defer arena.deinit();
     const p = Paths{ .tin_dir = "/tin", .home_dir = "/home/u" };
     try std.testing.expectEqualStrings("/tin/tinrc.yml", try p.repoTinrcPath(arena.allocator()));
+}
+
+test "readRevision returns the trimmed revision or null" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const root = try tmp.parent_dir.realpathAlloc(a, &tmp.sub_path);
+    const p = Paths{ .tin_dir = root, .home_dir = root };
+
+    try std.testing.expect(p.readRevision(a) == null);
+    try fs.writeFile(try p.revisionPath(a), "abc123\n");
+    try std.testing.expectEqualStrings("abc123", p.readRevision(a).?);
 }
 
 test "tinrcPath falls back to the repo default when no personal override exists" {

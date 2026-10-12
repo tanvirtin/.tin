@@ -14,6 +14,7 @@ const status = @import("commands/status.zig");
 const init = @import("commands/init.zig");
 const mcp = @import("commands/mcp.zig");
 const validate = @import("commands/validate.zig");
+const upgrade = @import("commands/upgrade.zig");
 
 const install = @import("commands/install.zig");
 
@@ -45,6 +46,7 @@ pub const command_entries = [_]Entry{
     entry(recipe),
     entry(validate),
     entry(schema),
+    entry(upgrade),
     entry(install),
 };
 

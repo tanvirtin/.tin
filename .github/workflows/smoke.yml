@@ -91,3 +91,17 @@ jobs:
           "$HOME/.tin/bin/tin" install
           "$HOME/.tin/bin/tin" link
           "$HOME/.tin/bin/tin" heal
+
+      - name: Verify tin upgrade resolves a release
+        continue-on-error: true
+        run: |
+          export HOME="$SMOKE_HOME"
+          out="$("$HOME/.tin/bin/tin" upgrade --check 2>&1 || true)"
+          printf '%s\n' "$out"
+          case "$out" in
+            *"up to date"*|*"update available"*) ;;
+            *)
+              echo "tin upgrade --check did not resolve a release"
+              exit 1
+              ;;
+          esac

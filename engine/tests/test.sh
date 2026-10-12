@@ -647,6 +647,57 @@ else
     fail "tin install (full flow)"
 fi
 
+UPGRADE_ROOT="$TEST_ROOT/upgrade"
+UPGRADE_API="$UPGRADE_ROOT/api/repos/demo/demo"
+mkdir -p "$UPGRADE_API/releases" "$UPGRADE_API/commits" "$UPGRADE_ROOT/tin"
+printf '{"tag_name":"v9.9.9"}\n' > "$UPGRADE_API/releases/latest"
+printf '{"sha":"1111111111111111111111111111111111111111"}\n' > "$UPGRADE_API/commits/v9.9.9"
+printf '%s\n' '1111111111111111111111111111111111111111' > "$UPGRADE_ROOT/tin/.tin-revision"
+printf '#!/bin/sh\necho "installed:$*"\n' > "$UPGRADE_ROOT/fake-installer.sh"
+chmod +x "$UPGRADE_ROOT/fake-installer.sh"
+
+upgrade_run() {
+    TIN_DIR="$UPGRADE_ROOT/tin" \
+    TIN_REPO_SLUG="demo/demo" \
+    TIN_API_BASE_URL="file://$UPGRADE_ROOT/api" \
+    TIN_INSTALLER_URL="file://$UPGRADE_ROOT/fake-installer.sh" \
+    "$TIN" "$@"
+}
+
+if upgrade_run upgrade --check > "$UPGRADE_ROOT/current.out" 2>&1 && grep -q "up to date" "$UPGRADE_ROOT/current.out"; then
+    pass "tin upgrade --check reports current"
+else
+    fail "tin upgrade --check reports current"
+fi
+
+printf '{"sha":"2222222222222222222222222222222222222222"}\n' > "$UPGRADE_API/commits/v9.9.9"
+UPGRADE_RC=0
+upgrade_run upgrade --check > "$UPGRADE_ROOT/check.out" 2>&1 || UPGRADE_RC=$?
+if [ "$UPGRADE_RC" = 1 ] && grep -q "update available" "$UPGRADE_ROOT/check.out"; then
+    pass "tin upgrade --check reports behind with exit 1"
+else
+    fail "tin upgrade --check reports behind with exit 1"
+fi
+
+if upgrade_run upgrade --from-binary 2>&1 | grep -q "installed:--from-binary"; then
+    pass "tin upgrade applies through the installer"
+else
+    fail "tin upgrade applies through the installer"
+fi
+
+if compgen -G "$UPGRADE_ROOT/tin/.tin-upgrade-*.sh" >/dev/null; then
+    fail "tin upgrade removes its temporary installer"
+else
+    pass "tin upgrade removes its temporary installer"
+fi
+
+upgrade_run status --check-updates > "$UPGRADE_ROOT/status.out" 2>&1 || true
+if grep -q "update:    available (v9.9.9)" "$UPGRADE_ROOT/status.out"; then
+    pass "tin status --check-updates reports update state"
+else
+    fail "tin status --check-updates reports update state"
+fi
+
 echo ""
 echo "[tin] Results: $PASSED passed, $FAILED failed"
 

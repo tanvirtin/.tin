@@ -41,6 +41,7 @@ test {
     _ = @import("commands/validate.zig");
     _ = @import("commands/schema.zig");
     _ = @import("commands/install.zig");
+    _ = @import("commands/upgrade.zig");
     _ = @import("core/symlink.zig");
     _ = @import("core/environment.zig");
     _ = @import("core/environment/paths.zig");
@@ -49,6 +50,7 @@ test {
     _ = @import("core/recipe.zig");
     _ = @import("core/artifact.zig");
     _ = @import("core/inspection.zig");
+    _ = @import("core/upgrade.zig");
     _ = @import("core/mcp.zig");
     _ = @import("platform/platform.zig");
     _ = @import("schemalang/ir.zig");
