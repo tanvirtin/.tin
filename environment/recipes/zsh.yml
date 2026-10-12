@@ -12,13 +12,22 @@ steps:
 
   - name: Set default shell
     run: |
-      SHELL_PATH="$(command -v zsh)"
-      if ! grep -qxF "$SHELL_PATH" /etc/shells 2>/dev/null; then
-        printf '%s\n' "$SHELL_PATH" | sudo tee -a /etc/shells >/dev/null
+      set -e
+      if command -v dscl >/dev/null 2>&1; then
+        CURRENT="$(dscl . -read "$HOME" UserShell 2>/dev/null | awk '{print $2}')"
+      else
+        CURRENT="$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)"
       fi
-      chsh -s "$SHELL_PATH"
-    if: "!exists('~/.zsh_configured')"
-
-  - name: Mark zsh configured
-    run: touch ~/.zsh_configured
-    if: "!exists('~/.zsh_configured')"
+      DESIRED="$(command -v zsh)"
+      if [ "$CURRENT" = "$DESIRED" ]; then
+        echo "  login shell already $DESIRED"
+        exit 0
+      fi
+      if [ "$(basename "$CURRENT")" = "zsh" ]; then
+        echo "  login shell is $CURRENT; leaving it (switch with: chsh -s $DESIRED)"
+        exit 0
+      fi
+      if ! grep -qxF "$DESIRED" /etc/shells 2>/dev/null; then
+        printf '%s\n' "$DESIRED" | sudo tee -a /etc/shells >/dev/null
+      fi
+      chsh -s "$DESIRED"
