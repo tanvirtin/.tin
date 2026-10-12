@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+SH_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$SH_DIR/lib.sh"
+
 die() {
     echo "[smoke] ERROR: $*" >&2
     exit 2
@@ -36,15 +39,6 @@ esac
 [ "${CHECKSUM##*/}" = "$ARCHIVE_BASE.sha256" ] ||
     die "checksum file must be named $ARCHIVE_BASE.sha256"
 
-SHA_CMD=
-if command -v sha256sum >/dev/null 2>&1; then
-    SHA_CMD=sha256sum
-elif command -v shasum >/dev/null 2>&1; then
-    SHA_CMD="shasum -a 256"
-else
-    die "no sha256 tool found (need sha256sum or shasum)"
-fi
-
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/tin-smoke.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT INT TERM
 
@@ -56,7 +50,7 @@ printf '%s' "$EXPECTED_SUM" | grep -Eq '^[0-9a-fA-F]{64}$' ||
     die "checksum names '$SIDE_NAME', expected '$ARCHIVE_BASE'"
 
 CHECKSUM_OK=0
-ACTUAL_SUM=$($SHA_CMD "$ARCHIVE" | awk '{print $1}')
+ACTUAL_SUM=$(sha256_of "$ARCHIVE")
 if [ "$ACTUAL_SUM" = "$EXPECTED_SUM" ]; then
     CHECKSUM_OK=1
     pass "checksum matches $ARCHIVE_BASE"
@@ -178,7 +172,7 @@ is_neutral() {
 }
 
 check_neutral_defaults() {
-    for f in "$TIN_ROOT/tinrc.yml" "$TIN_ROOT/environment/tinrc.example.yml"; do
+    for f in "$TIN_ROOT/tinrc.yml"; do
         [ -f "$f" ] || continue
         rel=${f#"$TIN_ROOT/"}
         if is_neutral "$f"; then
@@ -199,33 +193,6 @@ check_neutral_defaults() {
             fi
         done < "$WORK/examples"
     fi
-}
-
-sanitize_path() {
-    out=
-    old_ifs=$IFS
-    IFS=:
-    for d in $PATH; do
-        [ -n "$d" ] || continue
-        [ -x "$d/zig" ] && continue
-        out=${out:+$out:}$d
-    done
-    IFS=$old_ifs
-    [ -n "$out" ] || out=/usr/bin:/bin
-    printf '%s' "$out"
-}
-
-run_bounded() {
-    secs=$1
-    shift
-    "$@" &
-    pid=$!
-    ( sleep "$secs"; kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 &
-    watcher=$!
-    wait "$pid" && rc=0 || rc=$?
-    kill "$watcher" 2>/dev/null || true
-    wait "$watcher" 2>/dev/null || true
-    return "$rc"
 }
 
 tin() {

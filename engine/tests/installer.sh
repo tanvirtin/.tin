@@ -5,6 +5,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 INSTALL_SH="$REPO_ROOT/install.sh"
 
+. "$HERE/lib.sh"
+
 TMP_BASE="${TMPDIR:-/tmp}"
 TMP_BASE="${TMP_BASE%/}"
 TMPROOT="$(mktemp -d "$TMP_BASE/tin-installer-test.XXXXXX")"
@@ -16,16 +18,8 @@ FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok: %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL: %s\n' "$1"; }
 
-host_platform() { case "$(uname -s)" in Darwin) printf darwin;; Linux) printf linux;; *) printf other;; esac; }
-host_arch() { case "$(uname -m)" in x86_64|amd64) printf x86_64;; aarch64|arm64) printf aarch64;; *) printf other;; esac; }
 ARTIFACT="tin-$(host_platform)-$(host_arch)"
 REV40="0123456789abcdef0123456789abcdef01234567"
-
-sha256_file() {
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
-    elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'
-    else openssl dgst -sha256 "$1" | awk '{print $NF}'; fi
-}
 
 make_stub_tin() {
     cat > "$1" <<'STUB'
@@ -82,7 +76,7 @@ make_release() {
 write_sidecar() {
     local archive sha
     archive="$1"
-    sha="$(sha256_file "$archive")"
+    sha="$(sha256_of "$archive")"
     printf '%s  %s\n' "$sha" "$(basename "$archive")" > "$archive.sha256"
 }
 

@@ -456,7 +456,7 @@ test "shipped example carries no personal identity and no package-installing def
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const a = arena.allocator();
-    const path = "../environment/tinrc.example.yml";
+    const path = "../environment/examples/tinrc.example.yml";
     const source = try std.fs.cwd().readFileAlloc(a, path, 1 << 20);
 
     try std.testing.expect(std.ascii.indexOfIgnoreCase(source, "tanvir") == null);

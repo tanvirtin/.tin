@@ -62,18 +62,6 @@ FAILED=0
 pass() { PASSED=$((PASSED + 1)); echo "  PASS: $1"; }
 fail() { FAILED=$((FAILED + 1)); echo "  FAIL: $1"; }
 
-run_bounded() {
-    local secs="$1"; shift
-    "$@" &
-    local pid=$!
-    { sleep "$secs"; kill -9 "$pid" 2>/dev/null; } >/dev/null 2>&1 &
-    local timer=$!
-    wait "$pid"
-    local rc=$?
-    kill "$timer" 2>/dev/null
-    return "$rc"
-}
-
 echo "[tin] Running integration tests..."
 echo ""
 
