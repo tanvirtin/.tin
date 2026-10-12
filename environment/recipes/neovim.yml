@@ -2,30 +2,29 @@ name: neovim
 description: Build Neovim from source (nightly; required for vim.async)
 
 steps:
-  - name: Build neovim from source (macOS)
+  - name: Build or update neovim (macOS)
     run: |
       set -e
       if brew list --versions neovim 2>/dev/null | grep -q HEAD; then
-        echo "  neovim HEAD already built"
+        brew upgrade --fetch-HEAD neovim
       else
         brew install --HEAD neovim
       fi
     if: os == 'darwin'
 
-  - name: Build neovim from source (Linux)
+  - name: Build or update neovim (Linux)
     run: |
       set -e
       DEST="$HOME/.local/nvim-nightly"
-      BIN="$DEST/bin/nvim"
-      if [ -x "$BIN" ]; then
-        exit 0
+      SRC="$HOME/.local/nvim-nightly-src"
+      if [ -d "$SRC/.git" ]; then
+        git -C "$SRC" pull --ff-only
+      else
+        apt-get install -y build-essential cmake ninja-build gettext curl pkg-config unzip
+        git clone --depth 1 https://github.com/neovim/neovim "$SRC"
       fi
-      apt-get install -y build-essential cmake ninja-build gettext curl pkg-config unzip
-      SRC="$(mktemp -d)"
-      trap 'rm -rf "$SRC"' EXIT
-      git clone --depth 1 https://github.com/neovim/neovim "$SRC/neovim"
-      make -C "$SRC/neovim" CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX="$DEST"
-      make -C "$SRC/neovim" install
+      make -C "$SRC" CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX="$DEST"
+      make -C "$SRC" install
     if: os == 'linux'
 
   - name: Link nightly nvim onto PATH
