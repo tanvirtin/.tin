@@ -21,7 +21,7 @@ settings until `tin install`. Update with `tin upgrade`, or `brew upgrade tin`
 under Homebrew.
 
 <details>
-<summary>Install options (source, prebuilt-only, pinned version)</summary>
+<summary>Other install options</summary>
 
 ```bash
 # build from source (requires Zig)
@@ -34,16 +34,10 @@ curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | 
 curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --version v0.1.0
 ```
 
-</details>
-
-<details>
-<summary>Homebrew notes</summary>
-
-The formula (`Formula/tin.rb`) installs the platform's prebuilt release plus its
-runtime files under the Cellar, and adds a `tin` wrapper that points `TIN_DIR` at
-them; your `~/.config/tin/tinrc.yml` still overrides the shipped default. If the
-tap reads as untrusted, run `brew trust tanvirtin/tin`. Version and checksums
-refresh automatically each release (`.github/workflows/homebrew.yml`).
+The Homebrew formula (`Formula/tin.rb`) installs the platform's prebuilt release
+plus its runtime files under the Cellar, and adds a `tin` wrapper that points
+`TIN_DIR` at them, so `~/.config/tin/tinrc.yml` still overrides the shipped
+default. If the tap reads as untrusted, run `brew trust tanvirtin/tin`.
 
 </details>
 
@@ -67,60 +61,38 @@ Zed export target — without overwriting or applying anything.
 Env overrides: `TIN_DIR`, `TIN_ARTIFACTS`, `TIN_RECIPES`, `TIN_REPO_URL`,
 `TIN_RELEASE_BASE_URL`, `TIN_INSTALLER_URL`, `TIN_API_BASE_URL`.
 
-<details>
-<summary>tinrc.yml reference</summary>
+## tinrc.yml
 
-The single source of truth; every section is optional.
-
-**identity** — available to recipes as `{{ identity.name }}` / `{{ identity.email }}`.
+The single source of truth; every section is optional. `~` resolves to `$HOME`
+and symlink sources are relative to the repo root.
 
 ```yaml
-identity:
+identity:                                 # available as {{ identity.name }}
   name: Your Name
   email: you@example.com
-```
 
-**symlinks** — grouped config files to link into place; `~` is `$HOME` and
-sources are relative to the repo root. Add `copy: true` to install a real file
-instead of a symlink (use when the consumer resolves relative imports from the
-file's real path).
-
-```yaml
-symlinks:
+symlinks:                                 # linked into place (add copy: true for a real file)
   shell:
     - source: environment/config/.zshrc
       target: ~/.zshrc
-```
 
-**fonts** — a directory of `.ttf` files.
+fonts: environment/config/fonts           # a directory of .ttf files
 
-```yaml
-fonts: environment/config/fonts
-```
-
-**recipes** — named groups mapping to `environment/recipes/`.
-
-```yaml
 recipes:
   shell: [zsh, starship, zsh-autosuggestions]
-  dev: [git, gh]
-```
 
-**install** — ordered steps `tin install` runs top to bottom.
-
-```yaml
-install:
+install:                                  # ordered steps `tin install` runs top to bottom
   - link
   - fonts
   - recipes: shell
 ```
 
-</details>
+Add `copy: true` to a symlink to install a real file instead of a link — use it
+when the consumer resolves relative imports from the file's real path.
 
-<details>
-<summary>Recipes</summary>
+## Recipes
 
-YAML in `environment/recipes/`. `~/.config/tin/recipes/` shadows the repo's;
+YAML in `environment/recipes/`; `~/.config/tin/recipes/` shadows the repo's, and
 `tin recipe` tags each entry `[config]` or `[repo]`.
 
 ```yaml
@@ -131,26 +103,10 @@ steps:
     run: git config --global user.name "{{ identity.name }}"
 ```
 
-**Steps**
-
-| Step | Usage |
-|------|-------|
-| `run` | `run: <command>` — shell command |
-| `install` | `install: <package>` — brew (macOS) or apt (Linux) |
-| `recipe` | `recipe: <name>` — run another recipe |
-| `link` | `link: true` — create all symlinks |
-| `fonts` | `fonts: true` — install fonts |
-| `mkdir` | `mkdir: <path>` — create a directory (and parents) |
-| `download` | `download: <url>` — requires `to:` |
-| `clone` | `clone: <repo>` — requires `to:`, skips if it exists |
-
-**Conditions** — skip a step with `if:`
-
-| Condition | True when |
-|-----------|-----------|
-| `os == 'darwin'` / `'linux'` | running on that OS |
-| `exists <path>` / `not exists <path>` | path exists / does not exist |
-| `command_exists <bin>` | binary is on PATH |
+Steps: `run` (shell command), `install` (brew/apt), `recipe` (nested recipe),
+`link`, `fonts`, `mkdir`, `download` (needs `to:`), `clone` (needs `to:`, skipped
+if present). Guard any step with `if:` — `os == 'darwin'` / `'linux'`,
+`exists <path>` / `not exists <path>`, `command_exists <bin>`.
 
 ```yaml
   - name: Install Zed
@@ -160,10 +116,7 @@ steps:
 
 `{{ identity.name }}` and `{{ identity.email }}` interpolate into `run` commands.
 
-</details>
-
-<details>
-<summary>Commands</summary>
+## Commands
 
 ```
 tin install       Full environment setup from tinrc.yml
@@ -185,35 +138,7 @@ tin help          Command reference and discovery index
 topics. tmux has no dedicated command — `environment/config/.tmux.conf` is
 symlinked to `~/.tmux.conf`; edit it and run `tmux source-file ~/.tmux.conf`.
 
-</details>
-
-<details>
-<summary>JSON output and exit codes</summary>
-
-Pass the global `--json` flag (anywhere on the command line) to emit
-newline-delimited JSON, one object per line on stdout:
-
-```json
-{"command":"link","level":"success","action":"link","target":"~/.zshrc","status":"created","message":"link ~/.zshrc"}
-```
-
-`level` is `success`, `info`, `warn`, `error`, or `plain`. Mutating commands
-(`link`, `unlink`, `heal`, `fonts`, `mcp`, `recipe`, `artifact export`) add
-`action`, `target`, and `status` for item-level records. All records go to
-stdout and failure is signalled through the exit code; output from recipe `run`
-steps passes through unchanged.
-
-| Code | Meaning |
-|------|---------|
-| 0 | success |
-| 1 | failure — could not complete |
-| 2 | usage error — invalid command line or input |
-| 3 | partial — ran, but some items failed |
-
-</details>
-
-<details>
-<summary>Skills and rules</summary>
+## Skills and rules
 
 `tin` publishes YAML artifacts; it does not launch or manage agents.
 `tin artifact export` writes `SKILL.md` files (the
@@ -248,22 +173,7 @@ system: |
 | `include` | Rules whose content replaces `{{ rule_id }}` in system |
 | `context` | Set to `fork` to run in a sub-agent context |
 
-A rule at `rules/clarity.yml`:
-
-```yaml
-description: Writing clarity rules
-content: |
-  - Use early returns over else blocks
-  - Name booleans as questions: isValid, hasPermission
-```
-
-Export to a runtime (target recorded in `tinrc.yml`):
-
-```yaml
-exports:
-  zed:
-    dir: ~/.agents/skills
-```
+Export to a runtime (target recorded in `tinrc.yml`, e.g. `exports: { zed: { dir: ~/.agents/skills } }`):
 
 ```bash
 tin artifact export all
@@ -274,10 +184,7 @@ Export is non-destructive: it rewrites only folders it wrote before (tracked in 
 `.tin-skills` manifest), so skills other tools placed there are left alone;
 removed skills are pruned on the next export.
 
-</details>
-
-<details>
-<summary>MCP servers</summary>
+## MCP servers
 
 Declare a server once in `artifacts/mcp/`, describe a runtime's format in
 `artifacts/dialects/`, and point `runtimes:` at the target file — tin renders and
@@ -313,10 +220,7 @@ tin mcp apply [runtime]     Merge servers into runtime configs (backs up to <pat
 `apply` preserves unrelated keys and is idempotent. `~/` resolves to `$HOME`;
 other relative paths resolve against the current directory.
 
-</details>
-
-<details>
-<summary>Extending</summary>
+## Extending
 
 - **New tool:** add `environment/recipes/<name>.yml`, then list it in a
   `recipes:` group in `tinrc.yml`.
@@ -325,10 +229,7 @@ other relative paths resolve against the current directory.
 - **New config file:** put it in `environment/config/`, add a `symlinks:` entry,
   and run `tin link`.
 
-</details>
-
-<details>
-<summary>Repo layout</summary>
+## Repo layout
 
 ```
 tinrc.yml      default config (override at ~/.config/tin/tinrc.yml)
@@ -339,10 +240,8 @@ packaging/     release packaging scripts (formula generator)
 install.sh     bootstrap script
 ```
 
-</details>
-
 <details>
-<summary>Building, testing, and platforms</summary>
+<summary>Building and testing</summary>
 
 Requires [Zig 0.15.2](https://ziglang.org/download/).
 
