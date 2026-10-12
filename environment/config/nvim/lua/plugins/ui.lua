@@ -74,14 +74,14 @@ return {
           {
             'encoding',
             cond = function()
-              return vim.opt.fileencoding:get() ~= 'utf-8'
+              return vim.bo.fileencoding ~= 'utf-8'
             end,
           },
           {
             'fileformat',
             symbols = { unix = '', dos = '', mac = '' },
             cond = function()
-              return vim.opt.fileformat:get() ~= 'unix'
+              return vim.bo.fileformat ~= 'unix'
             end,
           },
           { 'filetype', icon_only = true },
