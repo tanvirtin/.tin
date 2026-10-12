@@ -39,6 +39,7 @@ check_parse
 *.tmp
 secret_*
 /bin/
+/.tin-revision
 
 *\.secret
 *\.token
