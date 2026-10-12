@@ -174,7 +174,7 @@ fn callBuiltin(state: State, c: Node.Call, env: *const EvalEnv) EvalError!Value 
     if (std.ascii.eqlIgnoreCase(name, "success")) return builtinStatus(env, args, .success);
     if (std.ascii.eqlIgnoreCase(name, "failure")) return builtinStatus(env, args, .failure);
     if (std.ascii.eqlIgnoreCase(name, "cancelled")) return builtinStatus(env, args, .cancelled);
-    if (std.ascii.eqlIgnoreCase(name, "exists")) return builtinExists(args);
+    if (std.ascii.eqlIgnoreCase(name, "exists")) return builtinExists(state, args);
     if (std.ascii.eqlIgnoreCase(name, "commandExists")) return builtinCommandExists(state, args);
     return error.UnknownFunction;
 }
@@ -288,17 +288,26 @@ fn builtinStatus(env: *const EvalEnv, args: []const Value, which: StatusCheck) E
 
 const StatusCheck = enum { always, success, failure, cancelled };
 
-fn builtinExists(args: []const Value) EvalError!Value {
+fn expandHome(allocator: std.mem.Allocator, path: []const u8) EvalError![]const u8 {
+    if (path.len == 0 or path[0] != '~') return path;
+    if (path.len > 1 and path[1] != '/') return path;
+    const home = std.posix.getenv("HOME") orelse return path;
+    if (path.len == 1) return home;
+    return std.fmt.allocPrint(allocator, "{s}{s}", .{ home, path[1..] }) catch return error.OutOfMemory;
+}
+
+fn builtinExists(state: State, args: []const Value) EvalError!Value {
     try expectArgs(args, 1, 1);
     if (args[0] != .string) return error.TypeError;
-    std.fs.cwd().access(args[0].string, .{}) catch return .{ .boolean = false };
+    const path = try expandHome(state.allocator, args[0].string);
+    std.fs.cwd().access(path, .{}) catch return .{ .boolean = false };
     return .{ .boolean = true };
 }
 
 fn builtinCommandExists(state: State, args: []const Value) EvalError!Value {
     try expectArgs(args, 1, 1);
     if (args[0] != .string) return error.TypeError;
-    const name = args[0].string;
+    const name = try expandHome(state.allocator, args[0].string);
     if (name.len == 0) return .{ .boolean = false };
     if (std.mem.indexOfScalar(u8, name, '/') != null) {
         std.fs.cwd().access(name, .{}) catch return .{ .boolean = false };

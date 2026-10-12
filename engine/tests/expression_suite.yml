@@ -250,6 +250,12 @@
 - name: exists on absent path
   expr: "exists('/definitely/not/a/real/tin/path')"
   expect: false
+- name: exists expands a leading tilde to the home directory
+  expr: "exists('~')"
+  expect: true
+- name: exists expands a tilde path that does not exist
+  expr: "exists('~/tin-definitely-not-a-real-path-3f9a')"
+  expect: false
 - name: commandExists on a shell builtin binary
   expr: "commandExists('sh')"
   expect: true
