@@ -1,0 +1,177 @@
+local eq = assert.are.same
+
+describe('repository:', function()
+  local repository
+  local original_git_repository
+
+  before_each(function()
+    original_git_repository = package.loaded['git.git.GitRepository']
+
+    local mock_repo_instance = {
+      reset = function() end,
+    }
+
+    package.loaded['git.git.GitRepository'] = {
+      discover = function()
+        return mock_repo_instance, nil
+      end,
+    }
+
+    package.loaded['git.git.repository'] = nil
+    repository = require('git.git.repository')
+  end)
+
+  after_each(function()
+    package.loaded['git.git.GitRepository'] = original_git_repository
+    package.loaded['git.git.repository'] = nil
+  end)
+
+  describe('is_loaded', function()
+    it('should return false initially', function()
+      assert.is_false(repository.is_loaded())
+    end)
+
+    it('should return true after current() is called', function()
+      repository.current()
+
+      assert.is_true(repository.is_loaded())
+    end)
+
+    it('should return false after invalidate()', function()
+      repository.current()
+      repository.invalidate()
+
+      assert.is_false(repository.is_loaded())
+    end)
+  end)
+
+  describe('get_cached', function()
+    it('should return nil initially', function()
+      assert.is_nil(repository.get_cached())
+    end)
+
+    it('should return the instance after current()', function()
+      local repo = repository.current()
+
+      eq(repo, repository.get_cached())
+    end)
+
+    it('should return nil after invalidate()', function()
+      repository.current()
+      repository.invalidate()
+
+      assert.is_nil(repository.get_cached())
+    end)
+  end)
+
+  describe('current', function()
+    it('should call GitRepository.discover()', function()
+      local discover_called = false
+
+      package.loaded['git.git.GitRepository'].discover = function()
+        discover_called = true
+        return { reset = function() end }, nil
+      end
+
+      package.loaded['git.git.repository'] = nil
+      repository = require('git.git.repository')
+
+      repository.current()
+
+      assert.is_true(discover_called)
+    end)
+
+    it('should return an instance', function()
+      local repo, err = repository.current()
+
+      assert.is_not_nil(repo)
+      assert.is_nil(err)
+    end)
+
+    it('should cache on second call (returns same instance)', function()
+      local repo1 = repository.current()
+      local repo2 = repository.current()
+
+      assert.are.equal(repo1, repo2)
+    end)
+
+    it('should propagate error from GitRepository.discover()', function()
+      package.loaded['git.git.GitRepository'].discover = function()
+        return nil, { 'not a git repo' }
+      end
+
+      package.loaded['git.git.repository'] = nil
+      repository = require('git.git.repository')
+
+      local repo, err = repository.current()
+
+      assert.is_nil(repo)
+      eq({ 'not a git repo' }, err)
+    end)
+
+    it('should not cache after error', function()
+      local call_count = 0
+      package.loaded['git.git.GitRepository'].discover = function()
+        call_count = call_count + 1
+        if call_count == 1 then return nil, { 'error' } end
+        return { reset = function() end }, nil
+      end
+
+      package.loaded['git.git.repository'] = nil
+      repository = require('git.git.repository')
+
+      local repo1, err1 = repository.current()
+      assert.is_nil(repo1)
+      assert.is_not_nil(err1)
+
+      local repo2, err2 = repository.current()
+      assert.is_not_nil(repo2)
+      assert.is_nil(err2)
+    end)
+  end)
+
+  describe('invalidate', function()
+    it('should clear the cached instance', function()
+      repository.current()
+      assert.is_true(repository.is_loaded())
+
+      repository.invalidate()
+
+      assert.is_false(repository.is_loaded())
+      assert.is_nil(repository.get_cached())
+    end)
+
+    it('should clear the cache', function()
+      repository.current()
+      assert.is_true(repository.is_loaded())
+
+      repository.invalidate()
+      assert.is_false(repository.is_loaded())
+      assert.is_nil(repository.get_cached())
+    end)
+
+    it('should do nothing when no instance is cached', function()
+      repository.invalidate()
+
+      assert.is_false(repository.is_loaded())
+    end)
+
+    it('should allow current() to create a new instance after invalidate', function()
+      repository.current()
+      repository.invalidate()
+
+      local new_mock = { reset = function() end }
+      package.loaded['git.git.GitRepository'].discover = function()
+        return new_mock, nil
+      end
+
+      package.loaded['git.git.repository'] = nil
+      repository = require('git.git.repository')
+
+      local repo2 = repository.current()
+
+      assert.is_not_nil(repo2)
+      assert.are.equal(new_mock, repo2)
+    end)
+  end)
+end)

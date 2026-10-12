@@ -1,0 +1,181 @@
+local assertion = require('core.assertion')
+
+local eq = assert.are.same
+
+describe('assertion:', function()
+  describe('assert', function()
+    it('should not throw error if conditions are met', function()
+      eq(assertion, assertion.assert(true))
+    end)
+
+    it('should throw error if conditions are not met', function()
+      assert.has_error(function()
+        assertion.assert(false)
+      end)
+    end)
+
+    it('should evaluate a function condition', function()
+      eq(
+        assertion,
+        assertion.assert(function()
+          return true
+        end)
+      )
+    end)
+
+    it('should throw when a function condition returns false', function()
+      assert.has_error(function()
+        assertion.assert(function()
+          return false
+        end)
+      end)
+    end)
+
+    it('should evaluate the predicate instead of treating it as truthy', function()
+      local calls = 0
+      assert.has_error(function()
+        assertion.assert(function()
+          calls = calls + 1
+          return false
+        end)
+      end)
+      eq(1, calls)
+    end)
+
+    it('should surface the provided message', function()
+      local ok, err = pcall(function()
+        assertion.assert(false, 'custom failure detail')
+      end)
+      assert.is_false(ok)
+      assert.is_truthy(tostring(err):find('custom failure detail', 1, true))
+    end)
+  end)
+
+  describe('assert_type', function()
+    it('should throw an error if value is not of a certain type', function()
+      assert.has_error(function()
+        assertion.assert_type(3, 'string')
+      end)
+      assert.has_error(function()
+        assertion.assert_type(3, 'function')
+      end)
+      assert.has_error(function()
+        assertion.assert_type('foo', 'number')
+      end)
+    end)
+
+    it('should not throw an error if value is of a certain type', function()
+      eq(assertion, assertion.assert_type(3, 'number'))
+      eq(assertion, assertion.assert_type(function() end, 'function'))
+    end)
+  end)
+
+  describe('assert_types', function()
+    it('should not throw when value matches any allowed type', function()
+      eq(assertion, assertion.assert_types(3, { 'number', 'string' }))
+      eq(assertion, assertion.assert_types('foo', { 'number', 'string' }))
+    end)
+
+    it('should throw when value matches no allowed type', function()
+      assert.has_error(function()
+        assertion.assert_types(3, { 'string', 'boolean' })
+      end)
+    end)
+
+    it('should throw when allowed types is not a list', function()
+      assert.has_error(function()
+        assertion.assert_types(3, { key = 'number' })
+      end)
+    end)
+
+    it('should throw when allowed types is empty', function()
+      assert.has_error(function()
+        assertion.assert_types(3, {})
+      end)
+    end)
+  end)
+
+  describe('assert_number', function()
+    it('should throw an error if value is not a number', function()
+      assert.has_error(function()
+        assertion.assert_number('foo')
+      end)
+    end)
+
+    it('should not throw an error if value is a number', function()
+      eq(assertion, assertion.assert_number(3))
+    end)
+  end)
+
+  describe('assert_string', function()
+    it('should throw an error if value is not a string', function()
+      assert.has_error(function()
+        assertion.assert_string(3)
+      end)
+    end)
+
+    it('should not throw an error if value is a string', function()
+      eq(assertion, assertion.assert_string('foo'))
+    end)
+  end)
+
+  describe('assert_function', function()
+    it('should throw an error if value is not a function', function()
+      assert.has_error(function()
+        assertion.assert_function(3)
+      end)
+    end)
+
+    it('should not throw an error if value is a function', function()
+      eq(assertion, assertion.assert_function(function() end))
+    end)
+  end)
+
+  describe('assert_boolean', function()
+    it('should throw an error if value is not a boolean', function()
+      assert.has_error(function()
+        assertion.assert_boolean(3)
+      end)
+    end)
+
+    it('should not throw an error if value is a boolean', function()
+      eq(assertion, assertion.assert_boolean(true))
+    end)
+  end)
+
+  describe('assert_nil', function()
+    it('should throw an error if value is not nil', function()
+      assert.has_error(function()
+        assertion.assert_nil(3)
+      end)
+    end)
+
+    it('should not throw an error if value is nil', function()
+      eq(assertion, assertion.assert_nil(nil))
+    end)
+  end)
+
+  describe('assert_table', function()
+    it('should throw an error if value is not a table', function()
+      assert.has_error(function()
+        assertion.assert_table(3)
+      end)
+    end)
+
+    it('should not throw an error if value is a table', function()
+      eq(assertion, assertion.assert_table({}))
+    end)
+  end)
+
+  describe('assert_list', function()
+    it('should throw an error if value is not a list', function()
+      assert.has_error(function()
+        assertion.assert_list({ hello = 'world' })
+      end)
+    end)
+
+    it('should not throw an error if value is a list', function()
+      eq(assertion, assertion.assert_list({ 1, 2, 3, 4 }))
+    end)
+  end)
+end)

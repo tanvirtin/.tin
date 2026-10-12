@@ -1,0 +1,2 @@
+lua/tingit/features/screens/ProjectDiffView.lua
+lua/tingit/git/git_status.lua

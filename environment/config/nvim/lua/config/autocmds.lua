@@ -1,0 +1,30 @@
+local config = require('config')
+
+local augroup = vim.api.nvim_create_augroup
+local autocmd = vim.api.nvim_create_autocmd
+
+augroup('YankHighlight', { clear = true })
+autocmd('TextYankPost', {
+  group = 'YankHighlight',
+  callback = function()
+    vim.highlight.on_yank()
+  end,
+})
+
+if config.features.lint_on_save then
+  augroup('Linting', { clear = true })
+  autocmd({ 'BufWritePost', 'BufReadPost', 'InsertLeave' }, {
+    group = 'Linting',
+    callback = function()
+      require('lint').try_lint()
+    end,
+  })
+end
+
+augroup('AutoReload', { clear = true })
+autocmd({ 'FocusGained', 'BufEnter', 'CursorHold', 'CursorHoldI' }, {
+  group = 'AutoReload',
+  command = 'checktime',
+})
+
+require('core.shutdown').setup()
