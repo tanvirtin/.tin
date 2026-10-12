@@ -1,11 +1,60 @@
 name: neovim
-description: Install Neovim editor
+description: Build Neovim from source (nightly; required for vim.async)
 
 steps:
-  - name: Install neovim (macOS)
-    install: neovim
+  - name: Build neovim from source (macOS)
+    run: |
+      set -e
+      if brew list --versions neovim 2>/dev/null | grep -q HEAD; then
+        echo "  neovim HEAD already built"
+      else
+        brew install --HEAD neovim
+      fi
     if: os == 'darwin'
 
-  - name: Install neovim (Linux)
-    install: neovim
+  - name: Build neovim from source (Linux)
+    run: |
+      set -e
+      DEST="$HOME/.local/nvim-nightly"
+      BIN="$DEST/bin/nvim"
+      if [ -x "$BIN" ]; then
+        exit 0
+      fi
+      apt-get install -y build-essential cmake ninja-build gettext curl pkg-config unzip
+      SRC="$(mktemp -d)"
+      trap 'rm -rf "$SRC"' EXIT
+      git clone --depth 1 https://github.com/neovim/neovim "$SRC/neovim"
+      make -C "$SRC/neovim" CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX="$DEST"
+      make -C "$SRC/neovim" install
     if: os == 'linux'
+
+  - name: Link nightly nvim onto PATH
+    run: |
+      set -e
+      if [ "$(uname -s)" = "Darwin" ]; then
+        BIN="$(brew --prefix)/bin/nvim"
+      else
+        BIN="$HOME/.local/nvim-nightly/bin/nvim"
+      fi
+      if [ ! -x "$BIN" ]; then
+        echo "  neovim binary not found at $BIN"
+        exit 1
+      fi
+      if [ "$("$BIN" --headless --clean -c 'lua io.write(vim.async and "yes" or "no")' -c 'qa!' 2>/dev/null)" != "yes" ]; then
+        echo "  $BIN is not a nightly build (no vim.async); refusing to link"
+        exit 1
+      fi
+      echo "  neovim: $("$BIN" --version | head -1)"
+
+      mkdir -p "$HOME/.local/bin"
+      LINK="$HOME/.local/bin/nvim"
+      if [ -L "$LINK" ] && [ "$(readlink "$LINK")" = "$BIN" ]; then
+        echo "  nvim already linked to $BIN"
+        exit 0
+      fi
+      if [ -e "$LINK" ] && [ ! -L "$LINK" ]; then
+        mv "$LINK" "$LINK.bak"
+        echo "  backed up existing nvim to $LINK.bak"
+      fi
+      ln -sf "$BIN" "$LINK"
+      echo "  linked $LINK -> $BIN"
