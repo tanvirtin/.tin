@@ -40,6 +40,7 @@ pub fn printOverview() void {
     output.plain("tin — developer environment manager\n", .{});
     output.plain("Usage: tin <command> [args...]\n", .{});
     output.plain("Discover: tin help --index | tin help <topic> [detail]\n", .{});
+    output.plain("Global: --json (NDJSON output)   Exit: 0 ok | 1 failure | 2 usage | 3 partial\n", .{});
     output.plain("\nCommands:", .{});
     inline for (router.command_entries) |entry| output.plain("  {s:<14} {s}", .{ entry.name, entry.description });
     output.plain("", .{});

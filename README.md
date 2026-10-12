@@ -2,56 +2,77 @@
 
 Your developer environment as code. Clone it, run it, you're you on any machine.
 
-## Quickstart
+## Install
 
 ```bash
+# bootstrap: installs the CLI into ~/.tin, then applies your environment
 curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh
 tin install
 ```
 
-The installer puts the `tin` binary and this repo in `~/.tin`. It does **not**
-apply your environment — `tin install` does that. Install mode is explicit:
+```bash
+# Homebrew (macOS, Linux)
+brew tap tanvirtin/tin https://github.com/tanvirtin/.tin
+brew install tanvirtin/tin/tin
+```
+
+Both routes install a checksum-verified prebuilt release and neither applies your
+settings until `tin install`. Update with `tin upgrade`, or `brew upgrade tin`
+under Homebrew.
+
+<details>
+<summary>Install options (source, prebuilt-only, pinned version)</summary>
 
 ```bash
-# Prebuilt release only (no compiler); fails if no release exists
-curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --from-binary
-
-# Build from source (requires Zig)
+# build from source (requires Zig)
 curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --from-source
 
-# Pin a release
+# prebuilt only (no compiler); fails if no release exists
+curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --from-binary
+
+# pin a release
 curl -fsSL https://raw.githubusercontent.com/tanvirtin/.tin/master/install.sh | sh -s -- --version v0.1.0
 ```
 
-Update later with `tin upgrade` (`tin upgrade --check` checks without applying).
+</details>
+
+<details>
+<summary>Homebrew notes</summary>
+
+The formula (`Formula/tin.rb`) installs the platform's prebuilt release plus its
+runtime files under the Cellar, and adds a `tin` wrapper that points `TIN_DIR` at
+them; your `~/.config/tin/tinrc.yml` still overrides the shipped default. If the
+tap reads as untrusted, run `brew trust tanvirtin/tin`. Version and checksums
+refresh automatically each release (`.github/workflows/homebrew.yml`).
+
+</details>
 
 ## How it works
 
 `tin` reads `tinrc.yml` and applies it — identity, symlinks, fonts, tools. The
-Zig binary is the engine; the YAML is the configuration.
-
-A default `tinrc.yml` ships at `~/.tin/tinrc.yml`. A personal copy at
-`~/.config/tin/tinrc.yml` **replaces** it (no field merging).
+Zig binary is the engine; the YAML is the configuration. A personal config at
+`~/.config/tin/tinrc.yml` **replaces** the shipped default (no merging).
 
 ```
-~/.tin/                    runtime + shared defaults (incl. tinrc.yml)
+~/.tin/                runtime + shared defaults (incl. tinrc.yml)
 ~/.config/tin/
-  tinrc.yml                personal override (wins)
-  artifacts/               your skills, rules, dialects, MCP servers
-  recipes/                 personal recipes (shadow the repo's)
+  tinrc.yml            personal override (wins)
+  artifacts/           skills, rules, dialects, MCP servers
+  recipes/             personal recipes (shadow the repo's)
 ```
 
 `tin init` writes a neutral `~/.config/tin/tinrc.yml`, a sample skill, and the
-Zed export target. It never overwrites files or applies anything.
+Zed export target — without overwriting or applying anything.
 
-Overrides: `TIN_DIR`, `TIN_ARTIFACTS`, `TIN_RECIPES`, `TIN_REPO_URL`,
+Env overrides: `TIN_DIR`, `TIN_ARTIFACTS`, `TIN_RECIPES`, `TIN_REPO_URL`,
 `TIN_RELEASE_BASE_URL`, `TIN_INSTALLER_URL`, `TIN_API_BASE_URL`.
 
-## tinrc.yml
+<details>
+<summary>tinrc.yml reference</summary>
 
-The single source of truth. Every section is optional.
+The single source of truth; every section is optional.
 
-### identity
+**identity** — available to recipes as `{{ identity.name }}` / `{{ identity.email }}`.
 
 ```yaml
 identity:
@@ -59,12 +80,10 @@ identity:
   email: you@example.com
 ```
 
-Available to recipes as `{{ identity.name }}` and `{{ identity.email }}`.
-
-### symlinks
-
-Config files to symlink into place, grouped by category. `~` resolves to
-`$HOME`; sources are relative to the repo root.
+**symlinks** — grouped config files to link into place; `~` is `$HOME` and
+sources are relative to the repo root. Add `copy: true` to install a real file
+instead of a symlink (use when the consumer resolves relative imports from the
+file's real path).
 
 ```yaml
 symlinks:
@@ -73,19 +92,13 @@ symlinks:
       target: ~/.zshrc
 ```
 
-Add `copy: true` to install a real file instead of a symlink (refreshed in
-place; `tin unlink` removes it). Use it when the consumer resolves relative
-imports from the file's real path.
-
-### fonts
+**fonts** — a directory of `.ttf` files.
 
 ```yaml
-fonts: environment/config/fonts   # directory of .ttf files
+fonts: environment/config/fonts
 ```
 
-### recipes
-
-Named groups, each mapping to files in `environment/recipes/`.
+**recipes** — named groups mapping to `environment/recipes/`.
 
 ```yaml
 recipes:
@@ -93,21 +106,22 @@ recipes:
   dev: [git, gh]
 ```
 
-### install
-
-Ordered steps `tin install` runs top to bottom.
+**install** — ordered steps `tin install` runs top to bottom.
 
 ```yaml
 install:
   - link
   - fonts
   - recipes: shell
-  - recipes: dev
 ```
 
-## Recipes
+</details>
 
-YAML in `environment/recipes/`. Each defines a name and a list of steps.
+<details>
+<summary>Recipes</summary>
+
+YAML in `environment/recipes/`. `~/.config/tin/recipes/` shadows the repo's;
+`tin recipe` tags each entry `[config]` or `[repo]`.
 
 ```yaml
 name: git
@@ -117,10 +131,7 @@ steps:
     run: git config --global user.name "{{ identity.name }}"
 ```
 
-Recipes resolve personal-first: `~/.config/tin/recipes/` shadows
-`{tin_dir}/environment/recipes/`. `tin recipe` tags each entry `[config]` or `[repo]`.
-
-### Step types
+**Steps**
 
 | Step | Usage |
 |------|-------|
@@ -133,9 +144,7 @@ Recipes resolve personal-first: `~/.config/tin/recipes/` shadows
 | `download` | `download: <url>` — requires `to:` |
 | `clone` | `clone: <repo>` — requires `to:`, skips if it exists |
 
-### Conditions
-
-Skip a step with `if:`.
+**Conditions** — skip a step with `if:`
 
 | Condition | True when |
 |-----------|-----------|
@@ -149,11 +158,12 @@ Skip a step with `if:`.
     if: not exists /Applications/Zed.app
 ```
 
-### Templates
-
 `{{ identity.name }}` and `{{ identity.email }}` interpolate into `run` commands.
 
-## Commands
+</details>
+
+<details>
+<summary>Commands</summary>
 
 ```
 tin install       Full environment setup from tinrc.yml
@@ -171,13 +181,39 @@ tin mcp           Project MCP servers into runtime configs
 tin help          Command reference and discovery index
 ```
 
-`tin help --index` is the machine-readable map; `tin help <topic>` documents topics.
+`tin help --index` is the machine-readable map; `tin help <topic>` documents
+topics. tmux has no dedicated command — `environment/config/.tmux.conf` is
+symlinked to `~/.tmux.conf`; edit it and run `tmux source-file ~/.tmux.conf`.
 
-tmux has no dedicated command: `environment/config/.tmux.conf` is a committed
-script, symlinked to `~/.tmux.conf`. Edit it directly and re-apply with
-`tmux source-file ~/.tmux.conf`.
+</details>
 
-## Skills and rules
+<details>
+<summary>JSON output and exit codes</summary>
+
+Pass the global `--json` flag (anywhere on the command line) to emit
+newline-delimited JSON, one object per line on stdout:
+
+```json
+{"command":"link","level":"success","action":"link","target":"~/.zshrc","status":"created","message":"link ~/.zshrc"}
+```
+
+`level` is `success`, `info`, `warn`, `error`, or `plain`. Mutating commands
+(`link`, `unlink`, `heal`, `fonts`, `mcp`, `recipe`, `artifact export`) add
+`action`, `target`, and `status` for item-level records. All records go to
+stdout and failure is signalled through the exit code; output from recipe `run`
+steps passes through unchanged.
+
+| Code | Meaning |
+|------|---------|
+| 0 | success |
+| 1 | failure — could not complete |
+| 2 | usage error — invalid command line or input |
+| 3 | partial — ran, but some items failed |
+
+</details>
+
+<details>
+<summary>Skills and rules</summary>
 
 `tin` publishes YAML artifacts; it does not launch or manage agents.
 `tin artifact export` writes `SKILL.md` files (the
@@ -192,7 +228,7 @@ skill directory.
   mcp/        MCP server declarations
 ```
 
-A skill's path becomes its ID: `skills/develop/plan.yml` → `develop/plan`.
+A skill's path is its ID: `skills/develop/plan.yml` → `develop/plan`.
 
 ```yaml
 description: Design a testable scaffold from requirements.
@@ -221,7 +257,7 @@ content: |
   - Name booleans as questions: isValid, hasPermission
 ```
 
-Export to a runtime (the target is recorded in `tinrc.yml`):
+Export to a runtime (target recorded in `tinrc.yml`):
 
 ```yaml
 exports:
@@ -234,16 +270,18 @@ tin artifact export all
 tin artifact validate   # references, duplicate IDs, required fields
 ```
 
-Export is non-destructive: it rewrites only the folders it wrote before
-(tracked in a `.tin-skills` manifest inside the target directory), so skills
-other tools placed there are left alone. Removed skills are pruned on the next
-export.
+Export is non-destructive: it rewrites only folders it wrote before (tracked in a
+`.tin-skills` manifest), so skills other tools placed there are left alone;
+removed skills are pruned on the next export.
 
-## MCP servers
+</details>
 
-Declare a server once in `artifacts/mcp/`, describe a runtime's format once in
-`artifacts/dialects/`, and point `runtimes:` at the target file — tin renders
-and merges.
+<details>
+<summary>MCP servers</summary>
+
+Declare a server once in `artifacts/mcp/`, describe a runtime's format in
+`artifacts/dialects/`, and point `runtimes:` at the target file — tin renders and
+merges.
 
 ```yaml
 # artifacts/mcp/mem0.yml
@@ -275,7 +313,10 @@ tin mcp apply [runtime]     Merge servers into runtime configs (backs up to <pat
 `apply` preserves unrelated keys and is idempotent. `~/` resolves to `$HOME`;
 other relative paths resolve against the current directory.
 
-## Extending
+</details>
+
+<details>
+<summary>Extending</summary>
 
 - **New tool:** add `environment/recipes/<name>.yml`, then list it in a
   `recipes:` group in `tinrc.yml`.
@@ -284,16 +325,24 @@ other relative paths resolve against the current directory.
 - **New config file:** put it in `environment/config/`, add a `symlinks:` entry,
   and run `tin link`.
 
-## Repo layout
+</details>
+
+<details>
+<summary>Repo layout</summary>
 
 ```
 tinrc.yml      default config (override at ~/.config/tin/tinrc.yml)
 engine/        the tin CLI: build.zig, src/, tests/, bench/
 environment/   what tin applies: recipes/, config/ (dotfiles), examples/
+Formula/       Homebrew formula
+packaging/     release packaging scripts (formula generator)
 install.sh     bootstrap script
 ```
 
-## Building and testing
+</details>
+
+<details>
+<summary>Building, testing, and platforms</summary>
 
 Requires [Zig 0.15.2](https://ziglang.org/download/).
 
@@ -306,19 +355,18 @@ zig build bench        # performance benchmarks
 bash tests/installer.sh   # installer regression suite (offline)
 ```
 
-The YAML spec suite needs the official corpus at the pinned revision and is
-never fetched implicitly:
+The YAML spec suite needs the official corpus at the pinned revision and is never
+fetched implicitly. Provision it at the revision in
+`engine/tests/yaml-suite-revision.txt`, then:
 
 ```bash
 cd engine
 zig build test-yaml -- /path/to/yaml-test-suite
 ```
 
-Provision it at the revision in `engine/tests/yaml-suite-revision.txt`. The
-runner exits 1 for an empty or wrong-layout corpus, a revision mismatch, or a
+The runner exits 1 for an empty or wrong-layout corpus, a revision mismatch, or a
 compliance failure.
 
-## Supported platforms
+Supported platforms: macOS (arm64, x86_64) · Linux (x86_64, aarch64 — Debian/Ubuntu, apt).
 
-- macOS (arm64, x86_64)
-- Linux (x86_64, aarch64) — Debian/Ubuntu (apt)
+</details>

@@ -1,5 +1,6 @@
 const std = @import("std");
 const router = @import("router.zig");
+const output = @import("lib/output.zig");
 
 pub fn main() void {
     const gpa = std.heap.page_allocator;
@@ -12,7 +13,10 @@ pub fn main() void {
 
     var arg_list = std.ArrayListUnmanaged([]const u8){};
     while (args.next()) |arg| {
-        arg_list.append(allocator, arg) catch break;
+        arg_list.append(allocator, arg) catch {
+            output.err("out of memory while reading arguments", .{});
+            std.process.exit(output.ExitCode.failure);
+        };
     }
 
     const code = router.dispatch(allocator, arg_list.items);

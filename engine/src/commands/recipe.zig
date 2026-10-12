@@ -52,12 +52,12 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
         return 1;
     };
 
-    output.info("running recipe: {s}", .{recipe.name});
+    output.record(.info, .{ .action = "recipe", .target = recipe.name, .status = "start" }, "running recipe: {s}", .{recipe.name});
     recipe.execute(allocator) catch {
-        output.err("recipe failed: {s}", .{recipe.name});
+        output.record(.err, .{ .action = "recipe", .target = recipe.name, .status = "failed" }, "recipe failed: {s}", .{recipe.name});
         return 1;
     };
-    output.success("recipe complete: {s}", .{recipe.name});
+    output.record(.success, .{ .action = "recipe", .target = recipe.name, .status = "complete" }, "recipe complete: {s}", .{recipe.name});
     return 0;
 }
 

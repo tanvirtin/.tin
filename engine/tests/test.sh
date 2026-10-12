@@ -691,12 +691,78 @@ else
     pass "tin upgrade removes its temporary installer"
 fi
 
+BREW_RC=0
+TIN_MANAGED_BY=homebrew "$TIN" upgrade > "$UPGRADE_ROOT/brew.out" 2>&1 || BREW_RC=$?
+if [ "$BREW_RC" = 0 ] && grep -q "managed by Homebrew" "$UPGRADE_ROOT/brew.out"; then
+    pass "tin upgrade defers to Homebrew when managed"
+else
+    fail "tin upgrade defers to Homebrew when managed"
+fi
+
 upgrade_run status --check-updates > "$UPGRADE_ROOT/status.out" 2>&1 || true
 if grep -q "update:    available (v9.9.9)" "$UPGRADE_ROOT/status.out"; then
     pass "tin status --check-updates reports update state"
 else
     fail "tin status --check-updates reports update state"
 fi
+
+JSON_HOME="$(mktemp -d)"
+JSON_TIN="$JSON_HOME/.tin"
+mkdir -p "$JSON_TIN/engine/src" "$JSON_TIN/environment/config"
+cp -R "$SCHEMAS_SRC" "$JSON_TIN/engine/src/schemas"
+cat > "$JSON_TIN/tinrc.yml" << 'EOF'
+symlinks:
+  shell:
+    - source: environment/config/ok.conf
+      target: ~/.ok.conf
+    - source: environment/config/missing.conf
+      target: ~/.missing.conf
+      copy: true
+EOF
+
+json_run() {
+    HOME="$JSON_HOME" TIN_DIR="$JSON_TIN" \
+    TIN_ARTIFACTS="$JSON_HOME/.config/tin/artifacts" \
+    TIN_RECIPES="$JSON_HOME/.config/tin/recipes" \
+    "$TIN" "$@"
+}
+
+if json_run --json status 2>/dev/null | grep -q '"command":"status"'; then
+    pass "tin --json emits NDJSON records"
+else
+    fail "tin --json emits NDJSON records"
+fi
+
+json_run --json link > "$JSON_HOME/link.json" 2>/dev/null || true
+if grep -q '"action":"link"' "$JSON_HOME/link.json" && grep -q '"status":"created"' "$JSON_HOME/link.json"; then
+    pass "tin --json records carry structured fields"
+else
+    fail "tin --json records carry structured fields"
+fi
+
+if json_run status --json 2>/dev/null | grep -q '"command":"status"'; then
+    pass "tin accepts --json after the subcommand"
+else
+    fail "tin accepts --json after the subcommand"
+fi
+
+JSON_RC=0
+json_run bogus >/dev/null 2>&1 || JSON_RC=$?
+if [ "$JSON_RC" = 2 ]; then
+    pass "unknown command exits 2 (usage)"
+else
+    fail "unknown command exits 2 (usage)"
+fi
+
+JSON_RC=0
+json_run link >/dev/null 2>&1 || JSON_RC=$?
+if [ "$JSON_RC" = 3 ]; then
+    pass "partial link failure exits 3 (partial)"
+else
+    fail "partial link failure exits 3 (partial)"
+fi
+
+rm -rf "$JSON_HOME"
 
 echo ""
 echo "[tin] Results: $PASSED passed, $FAILED failed"

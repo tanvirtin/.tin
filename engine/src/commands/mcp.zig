@@ -135,53 +135,57 @@ fn project(
         considered += 1;
 
         const dialect = findDialect(loaded.dialects, runtime.dialect) orelse {
-            output.err("  {s}: unknown dialect '{s}'", .{ runtime.name, runtime.dialect });
+            output.record(.err, .{ .action = "mcp", .target = runtime.name, .status = "unknown-dialect" }, "  {s}: unknown dialect '{s}'", .{ runtime.name, runtime.dialect });
             failures += 1;
             continue;
         };
 
         const entries = buildEntries(allocator, loaded.servers, dialect) catch {
-            output.err("  {s}: could not render servers", .{runtime.name});
+            output.record(.err, .{ .action = "mcp", .target = runtime.name, .status = "render-failed" }, "  {s}: could not render servers", .{runtime.name});
             failures += 1;
             continue;
         };
 
-        const existing = readExisting(allocator, runtime.mcp_path);
+        const existing = readExisting(allocator, runtime.mcp_path) catch {
+            output.record(.err, .{ .action = "mcp", .target = runtime.name, .status = "read-failed" }, "  {s}: could not read existing config at {s} (refusing to overwrite)", .{ runtime.name, runtime.mcp_path });
+            failures += 1;
+            continue;
+        };
 
         if (mode == .diff) {
             const preview = mcp.renderPreview(allocator, dialect, entries) catch "";
             const changed = existing == null or !std.mem.eql(u8, existing.?, mergedFor(allocator, existing, dialect, entries) catch "");
             if (changed) {
-                output.warn("  {s}: would update {s}", .{ runtime.name, runtime.mcp_path });
+                output.record(.warn, .{ .action = "mcp", .target = runtime.name, .status = "would-update" }, "  {s}: would update {s}", .{ runtime.name, runtime.mcp_path });
                 output.plain("{s}", .{preview});
             } else {
-                output.success("  {s}: up to date ({s})", .{ runtime.name, runtime.mcp_path });
+                output.record(.success, .{ .action = "mcp", .target = runtime.name, .status = "up-to-date" }, "  {s}: up to date ({s})", .{ runtime.name, runtime.mcp_path });
             }
             continue;
         }
 
         const merged = mergedFor(allocator, existing, dialect, entries) catch {
-            output.err("  {s}: could not parse existing config at {s} (refusing to overwrite)", .{ runtime.name, runtime.mcp_path });
+            output.record(.err, .{ .action = "mcp", .target = runtime.name, .status = "parse-failed" }, "  {s}: could not parse existing config at {s} (refusing to overwrite)", .{ runtime.name, runtime.mcp_path });
             failures += 1;
             continue;
         };
 
         if (existing) |text| {
             if (std.mem.eql(u8, text, merged)) {
-                output.success("  {s}: up to date ({s})", .{ runtime.name, runtime.mcp_path });
+                output.record(.success, .{ .action = "mcp", .target = runtime.name, .status = "up-to-date" }, "  {s}: up to date ({s})", .{ runtime.name, runtime.mcp_path });
                 continue;
             }
         }
 
         writeResult(runtime, existing, merged) catch {
-            output.err("  {s}: failed to write {s}", .{ runtime.name, runtime.mcp_path });
+            output.record(.err, .{ .action = "mcp", .target = runtime.name, .status = "write-failed" }, "  {s}: failed to write {s}", .{ runtime.name, runtime.mcp_path });
             failures += 1;
             continue;
         };
         if (existing == null) {
-            output.success("  {s}: wrote {s}", .{ runtime.name, runtime.mcp_path });
+            output.record(.success, .{ .action = "mcp", .target = runtime.name, .status = "written" }, "  {s}: wrote {s}", .{ runtime.name, runtime.mcp_path });
         } else {
-            output.success("  {s}: updated {s} (backup: {s}.tin.bak)", .{ runtime.name, runtime.mcp_path, runtime.mcp_path });
+            output.record(.success, .{ .action = "mcp", .target = runtime.name, .status = "updated" }, "  {s}: updated {s} (backup: {s}.tin.bak)", .{ runtime.name, runtime.mcp_path, runtime.mcp_path });
         }
     }
 
@@ -192,9 +196,9 @@ fn project(
 
     if (failures > 0) {
         output.err("{d} runtime(s) failed", .{failures});
-        return 1;
+        return output.ExitCode.partial;
     }
-    return 0;
+    return output.ExitCode.success;
 }
 
 fn mergedFor(
@@ -222,9 +226,11 @@ fn selected(name: []const u8, targets: []const []const u8) bool {
     return false;
 }
 
-fn readExisting(allocator: std.mem.Allocator, path: []const u8) ?[]const u8 {
-    if (!fs.pathExists(path)) return null;
-    return fs.readFileAlloc(allocator, path) catch null;
+fn readExisting(allocator: std.mem.Allocator, path: []const u8) !?[]const u8 {
+    return fs.readFileAlloc(allocator, path) catch |e| switch (e) {
+        error.FileNotFound => null,
+        else => return e,
+    };
 }
 
 fn writeResult(runtime: Environment.RecipeManager.Runtime, existing: ?[]const u8, merged: []const u8) !void {

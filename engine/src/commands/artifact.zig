@@ -377,7 +377,7 @@ fn exportOne(
     adopt_legacy: bool,
 ) u8 {
     const prepared = export_mod.prepareWithOptions(allocator, target.dir, skills, rules, .{ .adopt_legacy = adopt_legacy }) catch |e| {
-        output.err("export preflight failed for {s}: {s}", .{ target.name, @errorName(e) });
+        output.record(.err, .{ .action = "export", .target = target.name, .status = "preflight-failed" }, "export preflight failed for {s}: {s}", .{ target.name, @errorName(e) });
         return 1;
     };
 
@@ -385,24 +385,24 @@ fn exportOne(
 
     if (dry_run) {
         if (prepared.hasConflicts()) {
-            output.err("export preview for {s}: blocking conflicts present; nothing written", .{target.name});
+            output.record(.err, .{ .action = "export", .target = target.name, .status = "preview-conflict" }, "export preview for {s}: blocking conflicts present; nothing written", .{target.name});
             return 1;
         }
-        output.success("export preview for {s}: {d} definitions, no conflicts", .{ target.name, exportedCount(prepared) });
+        output.record(.success, .{ .action = "export", .target = target.name, .status = "preview-ok" }, "export preview for {s}: {d} definitions, no conflicts", .{ target.name, exportedCount(prepared) });
         return 0;
     }
 
     if (prepared.hasConflicts()) {
-        output.err("export refused for {s}: resolve conflicts before exporting", .{target.name});
+        output.record(.err, .{ .action = "export", .target = target.name, .status = "refused" }, "export refused for {s}: resolve conflicts before exporting", .{target.name});
         return 1;
     }
 
     export_mod.apply(allocator, prepared) catch |e| {
-        output.err("export failed for {s}: {s} (ownership manifest preserved; retry to reconcile)", .{ target.name, @errorName(e) });
+        output.record(.err, .{ .action = "export", .target = target.name, .status = "failed" }, "export failed for {s}: {s} (ownership manifest preserved; retry to reconcile)", .{ target.name, @errorName(e) });
         return 1;
     };
 
-    output.success("exported {d} definitions to {s}/", .{ exportedCount(prepared), target.dir });
+    output.record(.success, .{ .action = "export", .target = target.dir, .status = "applied" }, "exported {d} definitions to {s}/", .{ exportedCount(prepared), target.dir });
     return 0;
 }
 
@@ -415,7 +415,7 @@ fn exportedCount(prepared: export_mod.Prepared) usize {
 }
 
 fn reportPlan(target: Environment.RecipeManager.ExportTarget, prepared: export_mod.Prepared) void {
-    output.info("{s} -> {s}", .{ target.name, target.dir });
+    output.record(.info, .{ .action = "export", .target = target.name, .status = "plan" }, "{s} -> {s}", .{ target.name, target.dir });
     for (prepared.entries) |entry| {
         const action = switch (entry.action) {
             .create => "create",
@@ -431,9 +431,9 @@ fn reportPlan(target: Environment.RecipeManager.ExportTarget, prepared: export_m
             .none => "none",
         };
         if (entry.reason) |reason| {
-            output.plain("  {s:<9} {s:<8} {s} ({s})", .{ action, ownership, entry.slug, reason });
+            output.record(.plain, .{ .action = action, .target = entry.slug, .status = ownership }, "  {s:<9} {s:<8} {s} ({s})", .{ action, ownership, entry.slug, reason });
         } else {
-            output.plain("  {s:<9} {s:<8} {s}", .{ action, ownership, entry.slug });
+            output.record(.plain, .{ .action = action, .target = entry.slug, .status = ownership }, "  {s:<9} {s:<8} {s}", .{ action, ownership, entry.slug });
         }
     }
 }

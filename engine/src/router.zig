@@ -51,15 +51,35 @@ pub const command_entries = [_]Entry{
 };
 
 pub fn dispatch(allocator: std.mem.Allocator, args: []const []const u8) u8 {
-    if (args.len == 0) {
-        return help.execute(allocator, args);
+    var json = false;
+    var filtered: std.ArrayListUnmanaged([]const u8) = .{};
+    defer filtered.deinit(allocator);
+    for (args) |arg| {
+        if (std.mem.eql(u8, arg, "--json")) {
+            json = true;
+        } else {
+            filtered.append(allocator, arg) catch {
+                output.err("out of memory while parsing arguments", .{});
+                return output.ExitCode.failure;
+            };
+        }
     }
 
-    const command = args[0];
+    const mode: output.Mode = if (json) .json else .text;
+    const rest = filtered.items;
+
+    if (rest.len == 0) {
+        output.configure(mode, "help");
+        return help.execute(allocator, rest);
+    }
+
+    const command = rest[0];
     if (std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
+        output.configure(mode, "help");
         return help.execute(allocator, &.{});
     }
-    const command_args = args[1..];
+    const command_args = rest[1..];
+    output.configure(mode, command);
 
     inline for (command_entries) |e| {
         if (std.mem.eql(u8, command, e.name)) {
@@ -69,5 +89,5 @@ pub fn dispatch(allocator: std.mem.Allocator, args: []const []const u8) u8 {
 
     output.err("unknown command: {s}", .{command});
     output.plain("Run 'tin help' for usage.", .{});
-    return 1;
+    return output.ExitCode.usage;
 }

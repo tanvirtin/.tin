@@ -10,6 +10,8 @@ pub const meta = .{
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
+    if (managedExternally(allocator)) return output.ExitCode.success;
+
     var check_only = false;
     var passthrough = std.ArrayListUnmanaged([]const u8){};
 
@@ -68,6 +70,17 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
     if (state == .current and passthrough.items.len == 0) return 0;
 
     return applyInstaller(allocator, paths, passthrough.items);
+}
+
+fn managedExternally(allocator: std.mem.Allocator) bool {
+    const marker = std.process.getEnvVarOwned(allocator, "TIN_MANAGED_BY") catch return false;
+    defer allocator.free(marker);
+    if (std.mem.eql(u8, marker, "homebrew")) {
+        output.info("tin is managed by Homebrew", .{});
+        output.plain("Run 'brew upgrade tin' to update.", .{});
+        return true;
+    }
+    return false;
 }
 
 fn revisionLabel(installed: ?[]const u8) []const u8 {

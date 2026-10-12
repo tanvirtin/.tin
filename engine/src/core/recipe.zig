@@ -138,7 +138,7 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
     const config = loaded_config orelse Environment.Config{ .doc = null };
     const vars = Environment.IdentityProvider.getTemplateVars(allocator, config) catch &[_]Environment.TemplateVar{};
 
-    output.info("Executing recipe: {s}", .{self.name});
+    output.record(.info, .{ .action = "recipe", .target = self.name, .status = "running" }, "Executing recipe: {s}", .{self.name});
     if (self.description) |desc| {
         output.plain("  {s}", .{desc});
     }
@@ -157,34 +157,41 @@ pub fn execute(self: *const Recipe, allocator: std.mem.Allocator) anyerror!void 
             }
             if (!checkCondition(condition, allocator, &cond_env)) {
                 if (step.name) |name| {
-                    output.info("  skip {s} (condition not met)", .{name});
+                    output.record(.info, .{ .action = "step", .target = name, .status = "skipped" }, "  skip {s} (condition not met)", .{name});
                 }
                 continue;
             }
         }
 
         if (step.name) |name| {
-            output.info("  Step: {s}", .{name});
+            output.record(.info, .{ .action = "step", .target = name, .status = "running" }, "  Step: {s}", .{name});
         }
 
         executeAction(allocator, step.action, vars, paths, config) catch {
-            output.err("  step failed: {s}", .{step.name orelse "unnamed"});
+            output.record(.err, .{ .action = "step", .target = step.name orelse "unnamed", .status = "failed" }, "  step failed: {s}", .{step.name orelse "unnamed"});
             return;
         };
     }
 }
 
+fn renderField(allocator: std.mem.Allocator, text: []const u8, vars: []const Environment.TemplateVar) []const u8 {
+    return template.render(allocator, text, vars) catch |e| {
+        output.record(.warn, .{ .action = "render", .target = text, .status = "failed" }, "template render failed ({s}); using raw text", .{@errorName(e)});
+        return text;
+    };
+}
+
 fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Environment.TemplateVar, paths: Environment.Paths, config: Environment.Config) anyerror!void {
     switch (action) {
         .run => |cmd| {
-            const rendered = template.render(allocator, cmd, vars) catch cmd;
+            const rendered = renderField(allocator, cmd, vars);
             try process.runShell(allocator, rendered);
         },
         .install => |pkg| {
             try platform.installPackage(allocator, pkg);
         },
         .recipe => |recipe_name| {
-            const rendered = template.render(allocator, recipe_name, vars) catch recipe_name;
+            const rendered = renderField(allocator, recipe_name, vars);
             var search = try paths.recipeSearch(allocator);
             defer search.deinit(allocator);
             const found = (try search.resolve(allocator, rendered)) orelse {
@@ -204,22 +211,22 @@ fn executeAction(allocator: std.mem.Allocator, action: Action, vars: []const Env
             if (apply.installFonts(allocator, paths, config) != 0) return error.FontsFailed;
         },
         .mkdir => |dir| {
-            const rendered = template.render(allocator, dir, vars) catch dir;
+            const rendered = renderField(allocator, dir, vars);
             const resolved = paths.absolutePath(allocator, rendered) catch rendered;
             try fs.ensureDirectoryExists(resolved);
         },
         .download => |dl| {
-            const to_expanded = template.render(allocator, dl.to, vars) catch dl.to;
+            const to_expanded = renderField(allocator, dl.to, vars);
             const to_resolved = paths.absolutePath(allocator, to_expanded) catch to_expanded;
-            const rendered_url = template.render(allocator, dl.url, vars) catch dl.url;
+            const rendered_url = renderField(allocator, dl.url, vars);
             const cmd = try std.fmt.allocPrint(allocator, "curl -fsSL -o {s} {s}", .{ to_resolved, rendered_url });
             defer allocator.free(cmd);
             try process.runShell(allocator, cmd);
         },
         .clone => |cl| {
-            const to_expanded = template.render(allocator, cl.to, vars) catch cl.to;
+            const to_expanded = renderField(allocator, cl.to, vars);
             const to_resolved = paths.absolutePath(allocator, to_expanded) catch to_expanded;
-            const rendered_repo = template.render(allocator, cl.repo, vars) catch cl.repo;
+            const rendered_repo = renderField(allocator, cl.repo, vars);
             if (fs.pathExists(to_resolved)) {
                 output.info("  skip clone (already exists): {s}", .{to_resolved});
                 return;
