@@ -43,6 +43,17 @@ pub fn parse(allocator: std.mem.Allocator, input: []const u8) !DocNode {
 
     var scanner = scanner_mod.Scanner{ .alloc = allocator, .src = mutable };
     const tokens = try scanner.scan();
+    errdefer {
+        for (tokens) |t| {
+            if (t.value) |v| {
+                const vp = @intFromPtr(v.ptr);
+                const sp = @intFromPtr(mutable.ptr);
+                if (vp < sp or vp >= sp + mutable.len) allocator.free(v);
+            }
+            if (t.source_map) |sm| allocator.free(sm.entries);
+        }
+        allocator.free(tokens);
+    }
 
     var parser = parser_mod.Parser{ .tokens = tokens };
     try parser.validate();
@@ -179,4 +190,37 @@ test "parse rejects flow sequence key with value indicator on next line" {
 test "parse accepts tab-only line before document start" {
     var doc = try parse(std.testing.allocator, "%YAML 1.2\n\t\n---\n");
     defer doc.deinit();
+}
+
+test "parse rejects flow sequence key with line break before value indicator" {
+    try std.testing.expectError(error.InvalidYaml, parse(std.testing.allocator, "[ \"a\"\n: b ]\n"));
+}
+
+test "parse accepts multi-line implicit key in flow mapping" {
+    var doc = try parse(std.testing.allocator, "{ a\n  b: c }\n");
+    defer doc.deinit();
+
+    try std.testing.expectEqualStrings("c", doc.value.get("a b").?.getString().?);
+}
+
+test "parse rejects invalid inputs without leaking scanner allocations" {
+    const bad_inputs = [_][]const u8{
+        "a: [b\n",
+        "a: {b: c\n",
+        "key: \"unterminated\n",
+        "key: 'unterminated\n",
+        "a: {b: [c}\n",
+        "[foo\n: bar]\n",
+        "[ \"a\"\n: b ]\n",
+        "[ {a: b}, c\n  d: e ]\n",
+        "a: !e!x b\n",
+        "a: &x &y b\n",
+    };
+    for (bad_inputs) |input| {
+        if (parse(std.testing.allocator, input)) |doc| {
+            var d = doc;
+            d.deinit();
+            return error.ExpectedInvalid;
+        } else |_| {}
+    }
 }

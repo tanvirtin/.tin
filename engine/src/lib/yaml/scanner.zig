@@ -14,7 +14,6 @@ pub const SimpleKey = struct {
     byte_pos: usize = 0,
     line: usize = 0,
     col: usize = 0,
-    is_quoted: bool = false,
 };
 
 fn isYamlVersion(s: []const u8) bool {
@@ -250,6 +249,21 @@ pub const Scanner = struct {
     }
 
     pub fn scan(self: *Scanner) ![]const Token {
+        errdefer {
+            for (self.tokens.items) |t| {
+                if (t.value) |v| {
+                    const vp = @intFromPtr(v.ptr);
+                    const sp = @intFromPtr(self.src.ptr);
+                    if (vp < sp or vp >= sp + self.src.len) self.alloc.free(v);
+                }
+                if (t.source_map) |sm| self.alloc.free(sm.entries);
+            }
+            self.tokens.deinit(self.alloc);
+            self.indents.deinit(self.alloc);
+            self.simple_keys.deinit(self.alloc);
+            self.flow_types.deinit(self.alloc);
+            self.tag_handles.deinit(self.alloc);
+        }
         self.simple_keys.append(self.alloc, .{}) catch return error.OutOfMemory;
         try self.emit(.{ .tag = .stream_start, .start = @intCast(self.pos), .end = @intCast(self.pos) });
         self.started = true;
@@ -469,10 +483,7 @@ pub const Scanner = struct {
                 self.flow_just_started = false;
                 if (self.currentSimpleKey().*.possible) {
                     if (self.flow_level > 0 and self.isFlowSequence() and self.currentSimpleKey().*.line != self.line) {
-                        if (!self.currentSimpleKey().*.is_quoted) return error.InvalidYaml;
-                        if (!self.isBlankOrBreakOrEofAt(1) and !self.isFlowIndicator(self.chAt(1))) {
-                            return error.InvalidYaml;
-                        }
+                        return error.InvalidYaml;
                     }
                     const sk_pos = self.currentSimpleKey().*.token_pos;
                     if (self.flow_level == 0) {
@@ -585,11 +596,9 @@ pub const Scanner = struct {
             if (c == '\'' or c == '"') {
                 self.last_was_flow_entry = false;
                 self.flow_just_started = false;
-                const key_saved = self.simple_key_allowed;
                 self.saveSimpleKey();
                 self.simple_key_allowed = false;
                 self.had_content = true;
-                if (key_saved) self.currentSimpleKey().*.is_quoted = true;
                 try self.scanQuotedScalar(c);
                 continue;
             }
@@ -607,14 +616,8 @@ pub const Scanner = struct {
             self.had_content = true;
             const line_before_plain = self.line;
             try self.scanPlainScalar();
-            if (self.line != line_before_plain) {
-                if (self.flow_level == 0) {
-                    self.simple_key_allowed = true;
-                } else {
-                    if (self.currentSimpleKey().*.possible and self.currentSimpleKey().*.line == line_before_plain) {
-                        self.currentSimpleKey().*.line = self.line;
-                    }
-                }
+            if (self.line != line_before_plain and self.flow_level == 0) {
+                self.simple_key_allowed = true;
             }
 
             if (self.pos == token_start_pos) {
@@ -1252,4 +1255,33 @@ test "scanner block scalar indentation rules" {
     try scanSource("--- |\nfoo\n");
     try std.testing.expectError(error.InvalidYaml, scanSource("key: |\n\tx\n"));
     try std.testing.expectError(error.InvalidYaml, scanSource("a: |\n  x\n \t\n  y\n"));
+}
+
+fn expectScanReject(src: []const u8) !void {
+    const buf = try std.testing.allocator.alloc(u8, src.len);
+    defer std.testing.allocator.free(buf);
+    @memcpy(buf, src);
+    var scanner = Scanner{ .alloc = std.testing.allocator, .src = buf };
+    try std.testing.expectError(error.InvalidYaml, scanner.scan());
+}
+
+test "scanner rejects flow sequence key with line break before value indicator" {
+    try expectScanReject("[ \"a\"\n: b ]\n");
+    try expectScanReject("[ foo\n: bar ]\n");
+}
+
+test "scanner frees owned allocations when scanning fails" {
+    const bad_inputs = [_][]const u8{
+        "a: [b\n",
+        "a: {b: c\n",
+        "key: \"unterminated\n",
+        "key: 'unterminated\n",
+        "a: {b: [c}\n",
+        "a: !e!x b\n",
+        "[foo\n: bar]\n",
+        "[ \"a\"\n: b ]\n",
+        "[ {a: b}, c\n\t d: e ]\n",
+        "[ x\n\ty\tz: q ]\n",
+    };
+    for (bad_inputs) |input| try expectScanReject(input);
 }
