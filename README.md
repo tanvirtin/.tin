@@ -105,13 +105,13 @@ steps:
 
 Steps: `run` (shell command), `install` (brew/apt), `recipe` (nested recipe),
 `link`, `fonts`, `mkdir`, `download` (needs `to:`), `clone` (needs `to:`, skipped
-if present). Guard any step with `if:` — `os == 'darwin'` / `'linux'`,
-`exists <path>` / `not exists <path>`, `command_exists <bin>`.
+if present). Guard any step with `if:` — e.g. `os == 'darwin'` / `'linux'`,
+`exists('path')` / `!exists('path')`, `commandExists('bin')`.
 
 ```yaml
   - name: Install Zed
     run: brew install --cask zed
-    if: not exists /Applications/Zed.app
+    if: !exists('/Applications/Zed.app')
 ```
 
 `{{ identity.name }}` and `{{ identity.email }}` interpolate into `run` commands.

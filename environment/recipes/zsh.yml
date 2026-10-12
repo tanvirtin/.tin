@@ -11,7 +11,12 @@ steps:
     if: os == 'linux'
 
   - name: Set default shell
-    run: chsh -s "$(which zsh)"
+    run: |
+      SHELL_PATH="$(command -v zsh)"
+      if ! grep -qxF "$SHELL_PATH" /etc/shells 2>/dev/null; then
+        printf '%s\n' "$SHELL_PATH" | sudo tee -a /etc/shells >/dev/null
+      fi
+      chsh -s "$SHELL_PATH"
     if: "!exists('~/.zsh_configured')"
 
   - name: Mark zsh configured

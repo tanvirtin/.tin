@@ -279,6 +279,100 @@ functional_checks() {
     else
         fail "schema validation did not reject an invalid document ($label) [exit $rc]"
     fi
+
+    recipe_checks "$FUNC_ROOT" "$label"
+}
+
+# Drive real recipes through the CLI and use their results. Hermetic: only
+# sandbox-local steps (mkdir/run/download over file:///clone of a local repo),
+# plus the shipped `git` recipe, so no package manager or network is involved.
+recipe_checks() {
+    root=$1
+    label=$2
+
+    if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+        echo "[smoke] note: git/curl unavailable; skipping recipe checks ($label)"
+        return 0
+    fi
+
+    rhome="$WORK/recipe-home-$label"
+    rcfg="$rhome/.config/tin"
+    fx="$WORK/recipe-fixtures-$label"
+    mkdir -p "$rcfg/recipes" "$fx"
+
+    printf 'payload\n' > "$fx/asset.txt"
+    git init -q "$fx/gitsrc"
+    printf 'x\n' > "$fx/gitsrc/file"
+    git -C "$fx/gitsrc" add file
+    git -C "$fx/gitsrc" -c user.name=t -c user.email=t@t commit -qm init
+
+    {
+        printf '%s\n' 'name: setup' 'description: smoke recipe' 'steps:' \
+            '  - name: make dir' '    mkdir: ~/from-recipe/dir' \
+            '  - name: fetch asset' "    download: file://$fx/asset.txt" \
+            '    to: ~/from-recipe/asset.txt' \
+            '  - name: clone repo' "    clone: $fx/gitsrc" \
+            '    to: ~/from-recipe/repo' \
+            '  - name: guarded' '    run: touch ~/from-recipe/conditional' \
+            "    if: commandExists('git')"
+    } > "$rcfg/recipes/setup.yml"
+
+    {
+        printf '%s\n' 'identity:' '  name: Smoke User' '  email: smoke@example.com' \
+            'recipes:' '  dev: [setup, git]' \
+            'install:' '  - recipes: dev'
+    } > "$rcfg/tinrc.yml"
+
+    rc=0
+    run_bounded 90 env HOME="$rhome" TIN_DIR="$root" PATH="$SAFE_PATH" \
+        "$root/bin/tin" install > "$WORK/recipe-$label.out" 2>&1 || rc=$?
+    if [ "$rc" = 0 ] && grep -q "recipe complete: setup" "$WORK/recipe-$label.out" \
+        && grep -q "recipe complete: git" "$WORK/recipe-$label.out"; then
+        pass "tin install ran config recipes ($label)"
+    else
+        fail "tin install did not run config recipes ($label) [exit $rc]"
+        return 0
+    fi
+
+    if [ -d "$rhome/from-recipe/dir" ]; then
+        pass "recipe mkdir created its directory ($label)"
+    else
+        fail "recipe mkdir ($label)"
+    fi
+
+    if [ -f "$rhome/from-recipe/asset.txt" ] && grep -q payload "$rhome/from-recipe/asset.txt"; then
+        pass "recipe download fetched the asset ($label)"
+    else
+        fail "recipe download ($label)"
+    fi
+
+    if [ -f "$rhome/from-recipe/repo/file" ]; then
+        pass "recipe clone created the repo ($label)"
+    else
+        fail "recipe clone ($label)"
+    fi
+
+    if [ -f "$rhome/from-recipe/conditional" ]; then
+        pass "guarded recipe step ran ($label)"
+    else
+        fail "guarded recipe step ($label)"
+    fi
+
+    guname=$(env HOME="$rhome" git config --global user.name 2>/dev/null || true)
+    if [ "$guname" = "Smoke User" ]; then
+        pass "shipped git recipe applied the identity ($label)"
+    else
+        fail "shipped git recipe identity ($label) [got '$guname']"
+    fi
+
+    rc=0
+    run_bounded 90 env HOME="$rhome" TIN_DIR="$root" PATH="$SAFE_PATH" \
+        "$root/bin/tin" install > "$WORK/recipe-$label.2.out" 2>&1 || rc=$?
+    if [ "$rc" = 0 ] && grep -q "skip clone (already exists)" "$WORK/recipe-$label.2.out"; then
+        pass "recipe install is idempotent ($label)"
+    else
+        fail "recipe install idempotency ($label) [exit $rc]"
+    fi
 }
 
 installer_checks() {

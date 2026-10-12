@@ -70,6 +70,30 @@ jobs:
           test -L "$HOME/.zshrc"
           "$HOME/.tin/bin/tin" heal
 
+      - name: Run recipes through tin and use the results
+        run: |
+          export HOME="$SMOKE_HOME"
+          mkdir -p "$HOME/.config/tin/recipes"
+          printf '%s\n' \
+            'name: smoke' \
+            'steps:' \
+            '  - name: make artifacts dir' \
+            '    mkdir: ~/smoke-artifacts' \
+            '  - name: write marker' \
+            '    run: touch ~/smoke-artifacts/marker' > "$HOME/.config/tin/recipes/smoke.yml"
+          printf '%s\n' \
+            'identity:' \
+            '  name: Smoke Test' \
+            '  email: smoke@example.com' \
+            'recipes:' \
+            '  dev: [smoke, git]' \
+            'install:' \
+            '  - link' \
+            '  - recipes: dev' > "$HOME/.config/tin/tinrc.yml"
+          "$HOME/.tin/bin/tin" install
+          test -f "$HOME/smoke-artifacts/marker"
+          test "$(git config --global user.name)" = "Smoke Test"
+
       - name: Run installer regression suite
         run: |
           export HOME="$SMOKE_HOME"
