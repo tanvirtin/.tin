@@ -96,7 +96,7 @@ test "shipped data files validate against their schemas" {
         try validateOk(allocator, &engine, "recipe.yaml", path);
     }
 
-    try validateOk(allocator, &engine, "tinrc.yaml", "../environment/examples/tinrc.example.yml");
+    try validateOk(allocator, &engine, "tinrc.yaml", "../tinrc.yml");
     try validateOk(allocator, &engine, "build_plan.yaml", "src/schemalang/fixtures/build_plan_ok.yml");
 }
 

@@ -1,56 +1,28 @@
-.env
-.claude/
+# OS
+.DS_Store
+
+# Zig build output
 zig-out/
 .zig-cache/
-*.gem
-*.rbc
+
+# Local install and runtime state
 /.config
-/coverage/
-/InstalledFiles
-/pkg/
-/spec/reports/
-/spec/examples.txt
-/test/tmp/
-/test/version_tmp/
-/tmp/
-.byebug_history
-.dat*
-.repl_history
-build/
-*.bridgesupport
-build-iPhoneOS/
-build-iPhoneSimulator/
-/.yardoc/
-/_yardoc/
-/doc/
-/rdoc/
-/.bundle/
-/vendor/bundle
-/lib/bundler/man/
-.rvmrc
-.DS_Store
-install.out
-configure.out
-/yaml-test-data/
-test_yaml_one
-bench_yaml
-debug_*
-check_parse
-*.tmp
-secret_*
 /bin/
 /.tin-revision
+/tmp/
 
-*\.secret
-*\.token
-auth\.json
-\.env\.local
-
-auth.json
+# Secrets — keep real keys in an untracked .env
+.env
+.env.local
 *.secret
 *.token
+auth.json
+secret_*
 
-serve.log
-serve.pid
+# Test and dev artifacts
+/yaml-test-data/
+*.tmp
 __pycache__/
-/tin
+
+# Agent config
+.claude/

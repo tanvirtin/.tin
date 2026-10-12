@@ -181,18 +181,6 @@ check_neutral_defaults() {
             fail "non-neutral identity in packaged config: $rel (blocked neutral-default migration checkpoint)"
         fi
     done
-    if [ -d "$TIN_ROOT/environment/examples" ]; then
-        find "$TIN_ROOT/environment/examples" -type f -name '*.yml' > "$WORK/examples"
-        while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            rel=${f#"$TIN_ROOT/"}
-            if is_neutral "$f"; then
-                pass "neutral example: $rel"
-            else
-                fail "non-neutral identity in packaged example: $rel"
-            fi
-        done < "$WORK/examples"
-    fi
 }
 
 tin() {

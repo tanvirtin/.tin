@@ -10,8 +10,15 @@ pub const meta = .{
     .description = "Create personal configuration without applying it",
 };
 
-const template_rel = "environment/examples/tinrc.template.yml";
-const sample_rel = "environment/examples/skills/sample.yml";
+const sample_skill =
+    \\description: Sample skill created by tin init; safe to edit or delete.
+    \\
+    \\system: |
+    \\  This skill exists so you can try `tin artifact validate` and
+    \\  `tin artifact export` without any private artifacts.
+    \\
+    \\  Replace this text with your own instructions, or remove the file.
+;
 const default_zed_export = "~/.agents/skills";
 
 pub const Options = struct {
@@ -65,7 +72,7 @@ fn buildPlan(allocator: std.mem.Allocator, paths: Paths, artifacts_dir: []const 
 
     var template: []const u8 = "";
     if (!config_exists or options.export_target) {
-        const template_path = try std.fs.path.join(allocator, &.{ paths.tin_dir, template_rel });
+        const template_path = try paths.repoTinrcPath(allocator);
         template = try fs.readFileAlloc(allocator, template_path);
     }
 
@@ -79,8 +86,7 @@ fn buildPlan(allocator: std.mem.Allocator, paths: Paths, artifacts_dir: []const 
     const sample_exists = options.sample and pathPresent(sample_path);
     var sample_content: ?[]const u8 = null;
     if (options.sample and !sample_exists) {
-        const sample_src = try std.fs.path.join(allocator, &.{ paths.tin_dir, sample_rel });
-        sample_content = try fs.readFileAlloc(allocator, sample_src);
+        sample_content = sample_skill;
     }
 
     const config_content: ?[]const u8 = if (config_exists) null else template;
@@ -235,7 +241,7 @@ pub fn execute(allocator: std.mem.Allocator, args: []const []const u8) u8 {
     };
 
     const plan = buildPlan(allocator, paths, artifacts_dir, parsed.options) catch {
-        output.err("init could not read the neutral template from {s}/{s}", .{ paths.tin_dir, template_rel });
+        output.err("init could not read the neutral configuration from {s}/tinrc.yml", .{paths.tin_dir});
         return 1;
     };
 
@@ -270,14 +276,11 @@ fn installRuntime(allocator: std.mem.Allocator, tin_dir: []const u8) !void {
         try fs.ensureParentDirExists(dst);
         try fs.writeFile(dst, content);
     }
-    const examples = [_][]const u8{ "tinrc.template.yml", "skills/sample.yml" };
-    for (examples) |rel| {
-        const src_rel = try std.fs.path.join(allocator, &.{ "..", "environment", "examples", rel });
-        const dst = try std.fs.path.join(allocator, &.{ tin_dir, "environment", "examples", rel });
-        const content = try std.fs.cwd().readFileAlloc(allocator, src_rel, 1 << 20);
-        try fs.ensureParentDirExists(dst);
-        try fs.writeFile(dst, content);
-    }
+    const default_src = try std.fs.path.join(allocator, &.{ "..", "tinrc.yml" });
+    const default_dst = try std.fs.path.join(allocator, &.{ tin_dir, "tinrc.yml" });
+    const default_content = try std.fs.cwd().readFileAlloc(allocator, default_src, 1 << 20);
+    try fs.ensureParentDirExists(default_dst);
+    try fs.writeFile(default_dst, default_content);
 }
 
 fn setup(allocator: std.mem.Allocator) !TestEnv {
@@ -313,8 +316,8 @@ test "init creates a personal config, sample skill, and export target" {
 
     const config_path = try env.paths.personalTinrcPath(a);
     try std.testing.expect(pathPresent(config_path));
-    const template_path = try std.fs.path.join(a, &.{ env.tin_dir, template_rel });
-    try std.testing.expectEqualStrings(try fs.readFileAlloc(a, template_path), try fs.readFileAlloc(a, config_path));
+    const default_path = try env.paths.repoTinrcPath(a);
+    try std.testing.expectEqualStrings(try fs.readFileAlloc(a, default_path), try fs.readFileAlloc(a, config_path));
 
     const sample_path = try std.fs.path.join(a, &.{ env.artifacts_dir, "skills", "sample.yml" });
     try std.testing.expect(pathPresent(sample_path));
@@ -435,7 +438,15 @@ test "shipped sample skill validates against the skill schema" {
     var engine = try Engine.initWithSchemasDir(a, schemas_dir);
     defer engine.deinit();
 
-    const diagnostics = try engine.validateFile(a, schemas_dir, "skill.yaml", "../environment/examples/skills/sample.yml");
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    {
+        var file = try tmp.dir.createFile("sample.yml", .{});
+        defer file.close();
+        try file.writeAll(sample_skill);
+    }
+    const path = try tmp.dir.realpathAlloc(a, "sample.yml");
+    const diagnostics = try engine.validateFile(a, schemas_dir, "skill.yaml", path);
     try std.testing.expectEqual(@as(usize, 0), diagnostics.len);
 }
 
@@ -448,15 +459,15 @@ test "neutral template validates against the tinrc schema" {
     var engine = try Engine.initWithSchemasDir(a, schemas_dir);
     defer engine.deinit();
 
-    const diagnostics = try engine.validateFile(a, schemas_dir, "tinrc.yaml", "../environment/examples/tinrc.template.yml");
+    const diagnostics = try engine.validateFile(a, schemas_dir, "tinrc.yaml", "../tinrc.yml");
     try std.testing.expectEqual(@as(usize, 0), diagnostics.len);
 }
 
-test "shipped example carries no personal identity and no package-installing default" {
+test "shipped default carries no personal identity and no package-installing default" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const a = arena.allocator();
-    const path = "../environment/examples/tinrc.example.yml";
+    const path = "../tinrc.yml";
     const source = try std.fs.cwd().readFileAlloc(a, path, 1 << 20);
 
     try std.testing.expect(std.ascii.indexOfIgnoreCase(source, "tanvir") == null);

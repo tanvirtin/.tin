@@ -29,10 +29,6 @@ pub fn configure(mode: Mode, command: []const u8) void {
     current_command = command;
 }
 
-pub fn jsonEnabled() bool {
-    return current_mode == .json;
-}
-
 fn colorFor(level: Level) ?Color {
     return switch (level) {
         .success => .green,
