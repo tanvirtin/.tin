@@ -20,14 +20,14 @@ return {
           { 'branch', icon = '' },
           {
             function()
-              local ok, sl = pcall(require, 'git.statusline')
+              local ok, sl = pcall(require, 'vgit.statusline')
               if not ok then return '' end
               local h = sl.get_hunk()
               if h then return string.format('Hunk %d/%d', h.index, h.count) end
               return ''
             end,
             cond = function()
-              local ok, sl = pcall(require, 'git.statusline')
+              local ok, sl = pcall(require, 'vgit.statusline')
               return ok and sl.get_hunk() ~= nil
             end,
             color = { fg = '#e0af68' },

@@ -1,10 +1,11 @@
 return {
   {
-    dir = vim.fn.stdpath('config') .. '/git',
-    dependencies = { 'nvim-lua/plenary.nvim' },
+    'tanvirtin/vgit.nvim',
+    branch = 'alpha-v2.0.x',
+    dependencies = { 'nvim-lua/plenary.nvim', 'nvim-tree/nvim-web-devicons' },
     event = 'VimEnter',
     config = function()
-      require('git').setup({
+      require('vgit').setup({
         keymaps = {
           ['n <C-k>'] = 'hunk_up',
           {
@@ -28,13 +29,23 @@ return {
             diff_preference = 'unified',
             keymaps = { quit = '<C-c>' },
           },
-          diff_view = {
+          file_diff_view = {
             keymaps = {
               reset = 'r',
-              buffer_stage = 'S',
-              buffer_unstage = 'U',
-              buffer_hunk_stage = 's',
-              buffer_hunk_unstage = 'u',
+              stage = 'S',
+              unstage = 'U',
+              stage_hunk = 's',
+              unstage_hunk = 'u',
+              toggle_view = 't',
+            },
+          },
+          status_diff_view = {
+            keymaps = {
+              reset = 'r',
+              stage = 'S',
+              unstage = 'U',
+              stage_hunk = 's',
+              unstage_hunk = 'u',
               toggle_view = 't',
             },
           },

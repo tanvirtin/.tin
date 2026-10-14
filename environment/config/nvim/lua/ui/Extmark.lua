@@ -14,13 +14,14 @@ end
 
 local function get_sign_definition(name)
   if not _sign_definitions then _sign_definitions = signs_setting:get('definitions') end
+  if not _sign_definitions then return nil end
   return _sign_definitions[name]
 end
 
 local Extmark = Object:extend()
 
 function Extmark:constructor(bufnr, ns_name_extension)
-  local ns_name = 'git.extmarks'
+  local ns_name = 'tin.extmarks'
   if ns_name_extension then ns_name = ns_name .. '.' .. ns_name_extension end
   local ns_id = vim.api.nvim_create_namespace(ns_name)
 

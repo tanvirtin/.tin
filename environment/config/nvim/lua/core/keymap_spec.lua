@@ -1,101 +1,41 @@
-local mock = require('luassert.mock')
 local keymap = require('core.keymap')
 
 describe('keymap:', function()
+  local original_set
+  local calls
+
   before_each(function()
-    vim.api = mock(vim.api, true)
+    calls = {}
+    original_set = vim.keymap.set
+    vim.keymap.set = function(mode, key, callback, opts)
+      calls[#calls + 1] = { mode = mode, key = key, callback = callback, opts = opts }
+    end
   end)
 
   after_each(function()
-    mock.revert(vim.api)
+    vim.keymap.set = original_set
   end)
 
   describe('define', function()
-    it('should call vim api internally to define the given keys', function()
-      local expected = {
-        { 'n', '<C-k>', '<Cmd>lua require("git").hunk_up()<CR>', 'Git:hunk_up' },
-        { 'n', '<C-j>', '<Cmd>lua require("git").hunk_down()<CR>', 'Git:hunk_down' },
-        {
-          'n',
-          '<leader>gs',
-          '<Cmd>lua require("git").buffer_hunk_stage()<CR>',
-          'Git:buffer_hunk_stage',
-        },
-        {
-          'n',
-          '<leader>gr',
-          '<Cmd>lua require("git").buffer_hunk_reset()<CR>',
-          'Git:buffer_hunk_reset',
-        },
-        {
-          'n',
-          '<leader>gp',
-          '<Cmd>lua require("git").buffer_hunk_preview()<CR>',
-          'Git:buffer_hunk_preview',
-        },
-        {
-          'n',
-          '<leader>gb',
-          '<Cmd>lua require("git").buffer_blame_preview()<CR>',
-          'Git:buffer_blame_preview',
-        },
-        {
-          'n',
-          '<leader>gf',
-          '<Cmd>lua require("git").buffer_diff_preview()<CR>',
-          'Git:buffer_diff_preview',
-        },
-        {
-          'n',
-          '<leader>gh',
-          '<Cmd>lua require("git").buffer_history_preview()<CR>',
-          'Git:buffer_history_preview',
-        },
-        { 'n', '<leader>gu', '<Cmd>lua require("git").buffer_reset()<CR>', 'Git:buffer_reset' },
-        {
-          'n',
-          '<leader>gg',
-          '<Cmd>lua require("git").buffer_gutter_blame_preview()<CR>',
-          'Git:buffer_gutter_blame_preview',
-        },
-        {
-          'n',
-          '<leader>gd',
-          '<Cmd>lua require("git").project_diff_preview()<CR>',
-          'Git:project_diff_preview',
-        },
-        {
-          'n',
-          '<leader>gx',
-          '<Cmd>lua require("git").toggle_diff_preference()<CR>',
-          'Git:toggle_diff_preference',
-        },
-      }
+    it('should define a key from "mode key" syntax', function()
+      local cb = function() end
+      keymap.define({ ['n <C-k>'] = cb })
 
-      keymap.define({
-        ['n <C-k>'] = 'hunk_up',
-        ['n <C-j>'] = 'hunk_down',
-        ['n <leader>gs'] = 'buffer_hunk_stage',
-        ['n <leader>gr'] = 'buffer_hunk_reset',
-        ['n <leader>gp'] = 'buffer_hunk_preview',
-        ['n <leader>gb'] = 'buffer_blame_preview',
-        ['n <leader>gf'] = 'buffer_diff_preview',
-        ['n <leader>gh'] = 'buffer_history_preview',
-        ['n <leader>gu'] = 'buffer_reset',
-        ['n <leader>gg'] = 'buffer_gutter_blame_preview',
-        ['n <leader>gd'] = 'project_diff_preview',
-        ['n <leader>gx'] = 'toggle_diff_preference',
-      })
+      assert.are.equal(1, #calls)
+      assert.are.equal('n', calls[1].mode)
+      assert.are.equal('<C-k>', calls[1].key)
+      assert.are.equal(cb, calls[1].callback)
+    end)
 
-      for index in ipairs(expected) do
-        assert
-          .stub(vim.api.nvim_set_keymap).was
-          .called_with(expected[index][1], expected[index][2], expected[index][3], {
-            noremap = true,
-            silent = true,
-            desc = expected[index][4],
-          })
-      end
+    it('should define a key from a table config', function()
+      local cb = function() end
+      keymap.define({ { mode = 'n', key = '<C-j>', handler = cb, desc = 'down' } })
+
+      assert.are.equal(1, #calls)
+      assert.are.equal('n', calls[1].mode)
+      assert.are.equal('<C-j>', calls[1].key)
+      assert.are.equal(cb, calls[1].callback)
+      assert.are.equal('down', calls[1].opts.desc)
     end)
   end)
 end)

@@ -1,4 +1,5 @@
 local highlight = require('core.highlight')
+local settings = require('core.settings')
 local mock = require('luassert.mock')
 
 local eq = assert.are.same
@@ -97,22 +98,22 @@ describe('highlight:', function()
   end)
 
   describe('register_module', function()
-    local save_package, restore_packages = require('core.package_mock').create()
     local for_each_called
 
     before_each(function()
       for_each_called = false
-      save_package('git.settings.hls')
-      package.loaded['git.settings.hls'] = {
-        for_each = function(_, callback)
-          for_each_called = true
-          callback('TestHl', { fg = '#fff' })
-        end,
-      }
+      settings.set_default_resolver(function()
+        return {
+          for_each = function(_, callback)
+            for_each_called = true
+            callback('TestHl', { fg = '#fff' })
+          end,
+        }
+      end)
     end)
 
     after_each(function()
-      restore_packages()
+      settings.reset_default_resolver()
     end)
 
     it('should call hls_setting:for_each', function()

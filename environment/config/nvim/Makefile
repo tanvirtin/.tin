@@ -32,14 +32,14 @@ lint:
 
 format:
 	@if [ -n "$(STYLUA)" ]; then \
-		$(STYLUA) --config-path stylua.toml lua/ git/lua/; \
+		$(STYLUA) --config-path stylua.toml lua/; \
 	else \
 		echo "stylua not installed. Skipping..."; \
 	fi
 
 format-check:
 	@if [ -n "$(STYLUA)" ]; then \
-		$(STYLUA) --check --config-path stylua.toml lua/ git/lua/; \
+		$(STYLUA) --check --config-path stylua.toml lua/; \
 	else \
 		echo "stylua not installed. Skipping..."; \
 	fi

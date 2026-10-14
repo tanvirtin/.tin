@@ -31,20 +31,6 @@ end
 function keymap.set(opts, callback)
   local key, mode, desc, silent, noremap = resolve_opts(opts)
 
-  if type(callback) == 'string' then
-    local command = callback
-
-    if not desc then desc = 'Git:' .. command end
-
-    vim.api.nvim_set_keymap(mode, key, string.format('<Cmd>lua require("git").%s()<CR>', command), {
-      desc = desc,
-      silent = silent,
-      noremap = noremap,
-    })
-
-    return keymap
-  end
-
   vim.keymap.set(mode, key, callback, {
     desc = desc,
     silent = silent,
