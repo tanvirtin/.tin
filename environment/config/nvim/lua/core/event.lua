@@ -30,8 +30,10 @@ local function safe_async_void(func)
   return function(...)
     local args = { ... }
     local argc = select('#', ...)
+    local handled = false
 
     local function error_handler(err)
+      handled = true
       if shutdown.is_exiting() then return err end
       local error_trace = debug.traceback('', 2)
       local msg = string.format(
@@ -52,7 +54,14 @@ local function safe_async_void(func)
       end, error_handler)
     end
 
-    async.void(protected_func)()
+    -- `async.void` re-raises a failed task after the callback has returned,
+    -- which bypasses `error_handler` and surfaces as a raw "Lua callback"
+    -- error. That happens when the callback leaves an unhandled child task
+    -- failing, or awaits a task that fails. Observe completion instead so
+    -- those failures are reported through the same path as synchronous ones.
+    vim.async.run(protected_func):on_complete(function(err)
+      if err ~= nil and not handled then error_handler(err) end
+    end)
   end
 end
 
