@@ -9,7 +9,6 @@ return {
         theme = 'auto',
         component_separators = { left = '', right = '' },
         section_separators = { left = '', right = '' },
-        disabled_filetypes = { statusline = { 'neo-tree' } },
         globalstatus = true,
       },
       sections = {
@@ -101,7 +100,7 @@ return {
         lualine_y = {},
         lualine_z = {},
       },
-      extensions = { 'neo-tree', 'lazy', 'trouble', 'quickfix', 'man' },
+      extensions = { 'lazy', 'trouble', 'quickfix', 'man' },
     },
   },
   {
@@ -123,6 +122,8 @@ return {
       indent = { enabled = true },
       notifier = { enabled = true },
       quickfile = { enabled = true },
+      explorer = { enabled = true },
+      picker = { enabled = true },
       statuscolumn = { enabled = false },
       words = { enabled = false },
     },

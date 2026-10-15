@@ -86,7 +86,6 @@ init.linters = {
 init.features = {
   format_on_save = true,
   lint_on_save = true,
-  open_neo_tree_on_startup = true,
 }
 
 return init
